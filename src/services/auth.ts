@@ -29,10 +29,10 @@ export const login = async (credentials: LoginCredentials): Promise<AuthResponse
   if (credentials.email === VALID_EMAIL && credentials.password === VALID_PASSWORD) {
     // Generate a mock token
     const token = `mock_token_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    
+
     // Store token in localStorage
     localStorage.setItem(AUTH_STORAGE_KEY, token);
-    
+
     return {
       success: true,
       token,
@@ -66,4 +66,3 @@ export const isAuthenticated = (): boolean => {
 export const getAuthToken = (): string | null => {
   return localStorage.getItem(AUTH_STORAGE_KEY);
 };
-

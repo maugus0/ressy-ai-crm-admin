@@ -84,8 +84,8 @@ export function ClientsTable() {
                 <span className="text-foreground">{client.contact}</span>
               </div>
             </div>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               className="w-full"
               onClick={() => handleManageClick(client)}
@@ -136,21 +136,11 @@ export function ClientsTable() {
                 <td className="px-6 py-4">
                   <TierBadge tier={client.tier} />
                 </td>
-                <td className="px-6 py-4 text-sm text-foreground">
-                  {client.rate}
-                </td>
-                <td className="px-6 py-4 text-sm text-muted-foreground">
-                  {client.privileges}
-                </td>
-                <td className="px-6 py-4 text-sm text-foreground">
-                  {client.contact}
-                </td>
+                <td className="px-6 py-4 text-sm text-foreground">{client.rate}</td>
+                <td className="px-6 py-4 text-sm text-muted-foreground">{client.privileges}</td>
+                <td className="px-6 py-4 text-sm text-foreground">{client.contact}</td>
                 <td className="px-6 py-4 text-right">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleManageClick(client)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => handleManageClick(client)}>
                     Manage
                   </Button>
                 </td>
@@ -159,7 +149,7 @@ export function ClientsTable() {
           </tbody>
         </table>
       </div>
-      
+
       <ClientManagementPanel
         client={selectedClient}
         isOpen={isPanelOpen}

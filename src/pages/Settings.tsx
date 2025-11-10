@@ -32,9 +32,7 @@ const Settings = () => {
               >
                 <Menu className="w-5 h-5" />
               </button>
-              <h1 className="text-xl lg:text-2xl font-semibold text-foreground">
-                Settings
-              </h1>
+              <h1 className="text-xl lg:text-2xl font-semibold text-foreground">Settings</h1>
             </div>
             <p className="text-sm text-muted-foreground hidden sm:block">
               Manage your account settings and preferences
@@ -47,52 +45,46 @@ const Settings = () => {
           <div className="max-w-3xl mx-auto space-y-6 lg:space-y-8">
             {/* Account Settings */}
             <div className="bg-card border border-border rounded-lg p-4 lg:p-6">
-              <h2 className="text-base lg:text-lg font-semibold text-foreground mb-4">Account Settings</h2>
+              <h2 className="text-base lg:text-lg font-semibold text-foreground mb-4">
+                Account Settings
+              </h2>
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="company-name">Company Name</Label>
-                  <Input
-                    id="company-name"
-                    placeholder="Ressy Admin"
-                    className="mt-1.5"
-                  />
+                  <Input id="company-name" placeholder="Ressy Admin" className="mt-1.5" />
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="admin@ressy.com"
-                    className="mt-1.5"
-                  />
+                  <Input id="email" type="email" placeholder="admin@ressy.com" className="mt-1.5" />
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="+1 (555) 000-0000"
-                    className="mt-1.5"
-                  />
+                  <Input id="phone" type="tel" placeholder="+1 (555) 000-0000" className="mt-1.5" />
                 </div>
               </div>
             </div>
 
             {/* Notification Settings */}
             <div className="bg-card border border-border rounded-lg p-4 lg:p-6">
-              <h2 className="text-base lg:text-lg font-semibold text-foreground mb-4">Notifications</h2>
+              <h2 className="text-base lg:text-lg font-semibold text-foreground mb-4">
+                Notifications
+              </h2>
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">Email Notifications</p>
-                    <p className="text-xs text-muted-foreground">Receive email updates about new clients</p>
+                    <p className="text-xs text-muted-foreground">
+                      Receive email updates about new clients
+                    </p>
                   </div>
                   <Switch />
                 </div>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">Billing Alerts</p>
-                    <p className="text-xs text-muted-foreground">Get notified about billing changes</p>
+                    <p className="text-xs text-muted-foreground">
+                      Get notified about billing changes
+                    </p>
                   </div>
                   <Switch />
                 </div>

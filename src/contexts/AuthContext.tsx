@@ -1,5 +1,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { login as authLogin, logout as authLogout, isAuthenticated, LoginCredentials } from "@/services/auth";
+import {
+  login as authLogin,
+  logout as authLogout,
+  isAuthenticated,
+  LoginCredentials,
+} from "@/services/auth";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -55,4 +60,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

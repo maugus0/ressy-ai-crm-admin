@@ -19,8 +19,32 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true, allowExportNames: ["buttonVariants", "labelVariants"] },
+      ],
       "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+  {
+    // Override for UI component files - allow exporting non-components (common in shadcn/ui)
+    files: ["src/components/ui/**/*.{ts,tsx}"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
+  {
+    // Override for context files - allow exporting both providers and hooks
+    files: ["src/contexts/**/*.{ts,tsx}"],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
+  {
+    // Override for config files
+    files: ["*.config.{ts,js}", "tailwind.config.ts"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
     },
   },
 );
