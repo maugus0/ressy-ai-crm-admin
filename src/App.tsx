@@ -15,13 +15,21 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Get base path from import.meta.env.BASE_URL (set by Vite)
+// BASE_URL includes trailing slash, but BrowserRouter basename should not
+const getBasename = () => {
+  const base = import.meta.env.BASE_URL;
+  // Remove trailing slash for BrowserRouter basename
+  return base === "/" ? "/" : base.slice(0, -1);
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={getBasename()}>
           <div className="w-full space-y-3">
             <Routes>
               <Route path="/login" element={<Login />} />

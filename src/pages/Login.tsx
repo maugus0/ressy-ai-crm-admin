@@ -75,7 +75,7 @@ const Login = () => {
           <div className="flex justify-center">
             <div className="rounded-lg flex items-center justify-center bg-white p-2">
               <img
-                src="/ressy-logo.png"
+                src={`${import.meta.env.BASE_URL}ressy-logo.png`}
                 alt="Ressy AI Logo"
                 className="h-10 w-auto object-contain"
               />

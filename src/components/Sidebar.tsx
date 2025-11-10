@@ -47,7 +47,7 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
         {/* Logo */}
         <div className="p-6 border-b border-sidebar-border flex items-center justify-center">
           <img
-            src="/ressy-white.png"
+            src={`${import.meta.env.BASE_URL}ressy-white.png`}
             alt="Ressy Logo"
             className="h-8 w-auto"
           />
