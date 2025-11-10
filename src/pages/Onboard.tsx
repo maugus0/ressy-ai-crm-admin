@@ -7,14 +7,32 @@ import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
 const onboardSchema = z.object({
-  clientId: z.string().trim().min(1, "Client ID is required").max(50, "Client ID must be less than 50 characters"),
-  businessName: z.string().trim().min(1, "Business name is required").max(100, "Business name must be less than 100 characters"),
-  contactEmail: z.string().trim().email("Invalid email address").max(255, "Email must be less than 255 characters"),
+  clientId: z
+    .string()
+    .trim()
+    .min(1, "Client ID is required")
+    .max(50, "Client ID must be less than 50 characters"),
+  businessName: z
+    .string()
+    .trim()
+    .min(1, "Business name is required")
+    .max(100, "Business name must be less than 100 characters"),
+  contactEmail: z
+    .string()
+    .trim()
+    .email("Invalid email address")
+    .max(255, "Email must be less than 255 characters"),
   tier: z.enum(["Free", "Standard", "Pro", "Enterprise"]),
   customRate: z.string().optional(),
 });
@@ -34,7 +52,9 @@ const privilegeOptions = [
 
 const Onboard = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [selectedTier, setSelectedTier] = useState<"Free" | "Standard" | "Pro" | "Enterprise">("Standard");
+  const [selectedTier, setSelectedTier] = useState<"Free" | "Standard" | "Pro" | "Enterprise">(
+    "Standard"
+  );
   const { toast } = useToast();
 
   const {
@@ -51,13 +71,13 @@ const Onboard = () => {
 
   const onSubmit = async (data: OnboardFormData) => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       toast({
         title: "Client onboarded successfully",
         description: `${data.businessName} has been added to the system.`,
       });
-      
+
       console.log("Onboard data:", data);
     } catch (error) {
       toast({
@@ -93,7 +113,8 @@ const Onboard = () => {
               </h1>
             </div>
             <p className="text-sm text-muted-foreground hidden sm:block">
-              Onboard clients, set privileges per tier or override per client, and allocate per-minute costs
+              Onboard clients, set privileges per tier or override per client, and allocate
+              per-minute costs
             </p>
           </div>
         </div>
@@ -205,7 +226,7 @@ const Onboard = () => {
                   <h3 className="text-base lg:text-lg font-semibold text-foreground mb-4">
                     Privileges preview
                   </h3>
-                  
+
                   <div className="space-y-3">
                     {privilegeOptions.map((privilege) => {
                       const isEnabled = privilege.tiers.includes(selectedTier);
@@ -216,7 +237,9 @@ const Onboard = () => {
                             disabled
                             className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                           />
-                          <Label className={`text-sm ${isEnabled ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          <Label
+                            className={`text-sm ${isEnabled ? "text-foreground" : "text-muted-foreground"}`}
+                          >
                             {privilege.label}
                           </Label>
                         </div>

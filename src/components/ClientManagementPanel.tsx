@@ -3,7 +3,13 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TierBadge } from "./TierBadge";
 
@@ -36,31 +42,31 @@ const privilegeOptions = [
 
 export function ClientManagementPanel({ client, isOpen, onClose }: ClientManagementPanelProps) {
   const [selectedTier, setSelectedTier] = useState(client?.tier || "Standard");
-  const [customRate, setCustomRate] = useState(client?.rate.replace(/[\$\/min]/g, "") || "0.25");
+  const [customRate, setCustomRate] = useState(client?.rate.replace(/[/$min]/g, "") || "0.25");
   const [privileges, setPrivileges] = useState(
-    privilegeOptions.reduce((acc, privilege) => ({
-      ...acc,
-      [privilege.id]: privilege.defaultChecked
-    }), {})
+    privilegeOptions.reduce(
+      (acc, privilege) => ({
+        ...acc,
+        [privilege.id]: privilege.defaultChecked,
+      }),
+      {}
+    )
   );
 
   if (!isOpen || !client) return null;
 
   const handlePrivilegeChange = (privilegeId: string, checked: boolean) => {
-    setPrivileges(prev => ({
+    setPrivileges((prev) => ({
       ...prev,
-      [privilegeId]: checked
+      [privilegeId]: checked,
     }));
   };
 
   return (
     <>
       {/* Overlay */}
-      <div 
-        className="fixed inset-0 bg-black/50 z-40 transition-opacity"
-        onClick={onClose}
-      />
-      
+      <div className="fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={onClose} />
+
       {/* Panel */}
       <div className="fixed right-0 top-0 h-full w-96 bg-gray-900 text-white z-50 transform transition-transform duration-300 ease-in-out flex flex-col">
         {/* Header */}
@@ -86,7 +92,10 @@ export function ClientManagementPanel({ client, isOpen, onClose }: ClientManagem
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm text-gray-300 mb-2 block">Tier</Label>
-              <Select value={selectedTier} onValueChange={(value) => setSelectedTier(value as "Standard" | "Pro" | "Free")}>
+              <Select
+                value={selectedTier}
+                onValueChange={(value) => setSelectedTier(value as "Standard" | "Pro" | "Free")}
+              >
                 <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
                   <SelectValue />
                 </SelectTrigger>
@@ -97,7 +106,7 @@ export function ClientManagementPanel({ client, isOpen, onClose }: ClientManagem
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div>
               <Label className="text-sm text-gray-300 mb-2 block">Custom rate</Label>
               <div className="flex items-center">
@@ -123,15 +132,12 @@ export function ClientManagementPanel({ client, isOpen, onClose }: ClientManagem
                   <Checkbox
                     id={privilege.id}
                     checked={privileges[privilege.id]}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       handlePrivilegeChange(privilege.id, checked as boolean)
                     }
                     className="border-gray-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
                   />
-                  <Label 
-                    htmlFor={privilege.id}
-                    className="text-sm text-gray-300 cursor-pointer"
-                  >
+                  <Label htmlFor={privilege.id} className="text-sm text-gray-300 cursor-pointer">
                     {privilege.label}
                   </Label>
                 </div>
@@ -155,9 +161,7 @@ export function ClientManagementPanel({ client, isOpen, onClose }: ClientManagem
           >
             Cancel
           </Button>
-          <Button className="bg-white text-gray-900 hover:bg-gray-100">
-            Save
-          </Button>
+          <Button className="bg-white text-gray-900 hover:bg-gray-100">Save</Button>
         </div>
       </div>
     </>

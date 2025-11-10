@@ -87,7 +87,7 @@ const initialTiers: Record<string, TierConfig> = {
 
 const tierColors = {
   Free: "bg-tier-free",
-  Standard: "bg-tier-standard", 
+  Standard: "bg-tier-standard",
   Pro: "bg-tier-pro",
   Enterprise: "bg-primary",
 };
@@ -99,7 +99,7 @@ const Tiers = () => {
   const { toast } = useToast();
 
   const handleRateChange = (tierName: string, value: string) => {
-    setEditingRates(prev => ({
+    setEditingRates((prev) => ({
       ...prev,
       [tierName]: value,
     }));
@@ -107,7 +107,7 @@ const Tiers = () => {
 
   const updateRate = async (tierName: string) => {
     const newRate = parseFloat(editingRates[tierName] || "0");
-    
+
     if (isNaN(newRate) || newRate < 0) {
       toast({
         title: "Invalid rate",
@@ -117,7 +117,7 @@ const Tiers = () => {
       return;
     }
 
-    setTiers(prev => ({
+    setTiers((prev) => ({
       ...prev,
       [tierName]: {
         ...prev[tierName],
@@ -125,7 +125,7 @@ const Tiers = () => {
       },
     }));
 
-    setEditingRates(prev => {
+    setEditingRates((prev) => {
       const updated = { ...prev };
       delete updated[tierName];
       return updated;
@@ -139,7 +139,7 @@ const Tiers = () => {
 
   const privilegeLabels = {
     transcripts: "Transcripts",
-    analytics: "Analytics", 
+    analytics: "Analytics",
     database: "Database",
     integrations: "Integrations",
     expenses: "Expenses",
@@ -167,7 +167,8 @@ const Tiers = () => {
               </h1>
             </div>
             <p className="text-sm text-muted-foreground hidden sm:block">
-              Onboard clients, set privileges per tier or override per client, and allocate per-minute costs
+              Onboard clients, set privileges per tier or override per client, and allocate
+              per-minute costs
             </p>
           </div>
         </div>
@@ -175,15 +176,21 @@ const Tiers = () => {
         {/* Main Content */}
         <main className="flex-1 p-4 lg:p-6">
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-lg lg:text-xl font-semibold text-foreground mb-6">Tier configuration</h2>
+            <h2 className="text-lg lg:text-xl font-semibold text-foreground mb-6">
+              Tier configuration
+            </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6">
               {Object.entries(tiers).map(([tierName, config]) => (
                 <div key={tierName} className="bg-card border border-border rounded-lg p-4 lg:p-6">
                   {/* Tier Header */}
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-base lg:text-lg font-semibold text-foreground">{config.name}</h3>
-                    <span className={`px-2 py-1 rounded text-xs font-medium text-white ${tierColors[tierName as keyof typeof tierColors]}`}>
+                    <h3 className="text-base lg:text-lg font-semibold text-foreground">
+                      {config.name}
+                    </h3>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium text-white ${tierColors[tierName as keyof typeof tierColors]}`}
+                    >
                       {config.name}
                     </span>
                   </div>
@@ -194,7 +201,10 @@ const Tiers = () => {
                       Seats: <span className="text-foreground font-medium">{config.seats}</span>
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Rate: <span className="text-foreground font-medium">${config.rate.toFixed(2)}/min</span>
+                      Rate:{" "}
+                      <span className="text-foreground font-medium">
+                        ${config.rate.toFixed(2)}/min
+                      </span>
                     </p>
                   </div>
 
@@ -207,7 +217,9 @@ const Tiers = () => {
                           disabled
                           className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                         />
-                        <span className={`text-xs ${enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <span
+                          className={`text-xs ${enabled ? "text-foreground" : "text-muted-foreground"}`}
+                        >
                           {privilegeLabels[privilege as keyof typeof privilegeLabels]}
                         </span>
                       </div>

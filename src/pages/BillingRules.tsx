@@ -24,7 +24,8 @@ const BillingRules = () => {
               </h1>
             </div>
             <p className="text-sm text-muted-foreground hidden sm:block">
-              Onboard clients, set privileges per tier or override per client, and allocate per-minute costs
+              Onboard clients, set privileges per tier or override per client, and allocate
+              per-minute costs
             </p>
           </div>
         </div>
@@ -36,11 +37,16 @@ const BillingRules = () => {
 
             <div className="bg-card border border-border rounded-lg p-4 lg:p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
-                <h3 className="text-sm sm:text-base font-medium text-foreground">Default per-minute rate</h3>
-                <span className="text-sm sm:text-base font-semibold text-foreground">$0.25/min</span>
+                <h3 className="text-sm sm:text-base font-medium text-foreground">
+                  Default per-minute rate
+                </h3>
+                <span className="text-sm sm:text-base font-semibold text-foreground">
+                  $0.25/min
+                </span>
               </div>
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Edit tier rates in the Tiers tab. You can still override per-client rates in the client drawer.
+                Edit tier rates in the Tiers tab. You can still override per-client rates in the
+                client drawer.
               </p>
             </div>
           </div>

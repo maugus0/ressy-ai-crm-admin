@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ressy Admin - Client Management Dashboard</title>
+    <script>
+      // Single Page Apps for GitHub Pages
+      // This script redirects 404s to index.html so React Router can handle routing
+      // Note: this 404.html file must be at least 512 bytes for some browsers to recognize it.
+      (function() {
+        var l = window.location;
+        var pathname = l.pathname;
+        
+        // Extract the base path (repo name) from the pathname
+        // For GitHub Pages, the path is typically /repo-name/...
+        var pathParts = pathname.split('/').filter(function(part) {
+          return part.length > 0;
+        });
+        
+        // Determine base path - if we have path parts, use the first one as the repo name
+        var basePath = '/';
+        if (pathParts.length > 0) {
+          // Check if the first part looks like a repo name (not a route)
+          // For now, assume the first segment is the repo name
+          basePath = '/' + pathParts[0] + '/';
+        }
+        
+        // Redirect to index.html at the base path
+        // React Router will handle the routing from there
+        var redirectUrl = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + 
+                          basePath + 'index.html' + l.search + l.hash;
+        
+        // If we're already trying to access index.html, don't redirect
+        if (!pathname.endsWith('index.html')) {
+          l.replace(redirectUrl);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirecting...</p>
+    <noscript>
+      <p>Please enable JavaScript to use this application.</p>
+      <p><a href="./index.html">Click here to go to the home page</a></p>
+    </noscript>
+  </body>
+</html>
+
