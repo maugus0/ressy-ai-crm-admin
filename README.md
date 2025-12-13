@@ -1,18 +1,20 @@
-# RessyAI CRM Admin Portal
+# RessyAI CRM Admin Dashboard
 
 This project is the administration interface for RessyAI's CRM portals. It provides tools and panels for managing clients, billing rules, onboarding, settings, and tiers within the CRM ecosystem.
 
 ## Features
+
 - Client management and overview
 - Billing rules configuration
 - Onboarding workflow
 - Settings management
 - Tiered access and badges
 - Modern UI components (React + Tailwind CSS)
-- Authentication system with protected routes
+- JWT authentication with automatic token refresh
 
 ## Tech Stack
-- React
+
+- React 18
 - TypeScript
 - Vite
 - Tailwind CSS
@@ -22,35 +24,99 @@ This project is the administration interface for RessyAI's CRM portals. It provi
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js (v18 or newer recommended)
 - npm (v9 or newer recommended)
 
 ### Installation
+
 1. Clone the repository:
    ```bash
    git clone <repo-url>
    cd ressy-ai-crm-admin
    ```
+
 2. Install dependencies:
    ```bash
    npm install
    ```
 
+3. Create environment file:
+   ```bash
+   cp .env.example .env.local
+   ```
+
+4. Update `.env.local` with your API settings:
+   ```env
+   VITE_API_BASE_URL=http://localhost:5001
+   VITE_API_VERSION=v1
+   ```
+
 ### Running the Development Server
+
 ```bash
 npm run dev
 ```
-The app will be available at `http://localhost:8080` (configured port).
+
+The app will be available at `http://localhost:8080`.
 
 ### Building for Production
+
 ```bash
 npm run build
 ```
 
-### Preview Production Build
-```bash
-npm run preview
+## Environment Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VITE_API_BASE_URL` | Backend API base URL | `http://localhost:5001` |
+| `VITE_API_VERSION` | API version prefix | `v1` |
+
+For production, update `.env.local`:
+```env
+VITE_API_BASE_URL=https://api.ressy.ai
 ```
+
+## Project Structure
+
+```
+src/
+├── config/
+│   └── env.ts                # Environment configuration
+├── lib/
+│   ├── api/
+│   │   ├── client.ts         # API client with auth handling
+│   │   └── endpoints.ts      # Centralized endpoint definitions
+│   └── utils.ts              # Utility functions
+├── types/
+│   └── auth.types.ts         # API type definitions
+├── services/
+│   └── auth.ts               # Authentication service
+├── contexts/
+│   └── AuthContext.tsx       # Auth context with token refresh
+├── components/
+│   ├── ui/                   # Base UI components (shadcn/ui)
+│   └── ...                   # Feature components
+├── pages/                    # Application pages
+└── hooks/                    # Custom React hooks
+```
+
+## Authentication
+
+The application integrates with the backend authentication API:
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/v1/auth/admin/login` | Admin login |
+| `POST /api/v1/auth/refresh` | Refresh access token |
+| `POST /api/v1/auth/logout` | Logout |
+
+### Token Management
+
+- Access tokens are stored in localStorage
+- Tokens are automatically refreshed every 10 minutes
+- If a token expires or refresh fails, the user is logged out
 
 ## Deployment to GitHub Pages
 
@@ -69,46 +135,13 @@ This project is configured for automatic deployment to GitHub Pages using GitHub
 
 3. **Access your deployed site:**
    - Your site will be available at: `https://<username>.github.io/<repository-name>/`
-   - The base path is automatically configured based on your repository name
 
 ### Manual Deployment
-
-You can deploy manually using the `deploy` script:
 
 ```bash
 npm run deploy
 ```
 
-This will:
-1. Build the project with the correct base path for GitHub Pages
-2. Deploy the `dist` folder to the `gh-pages` branch
-
-**Note:** Make sure your repository name matches the base path in `build:gh-pages` script. If your repository has a different name, either:
-- Update the base path in the `build:gh-pages` script in `package.json`, or
-- Use the custom deploy script: `REPO_NAME=your-repo-name npm run deploy:custom`
-
-**First-time setup:** You may need to configure git remote if not already set:
-```bash
-git remote add origin https://github.com/<username>/<repo-name>.git
-```
-
-### Authentication
-
-The application uses mocked authentication. Default credentials:
-- **Email**: `ressy@admin.com`
-- **Password**: `Ressy123`
-
-## Project Structure
-- `src/` — Main source code
-  - `components/` — UI components
-  - `contexts/` — React contexts (Auth)
-  - `hooks/` — Custom React hooks
-  - `lib/` — Utility functions
-  - `pages/` — Application pages
-  - `services/` — Service modules (Auth)
-- `public/` — Static assets
-- `.github/workflows/` — GitHub Actions workflows
-- `index.html` — Main HTML file
-
 ## License
+
 This project is proprietary to RessyAI.

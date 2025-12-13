@@ -15,8 +15,36 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "::",
       port: 8080,
+      watch: {
+        usePolling: true,
+      },
     },
-    plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+    plugins: [
+      react(),
+      mode === "development" && componentTagger(),
+      // Plugin to inject base URL into HTML for assets and meta tags
+      {
+        name: "html-transform",
+        transformIndexHtml(html) {
+          // Replace absolute paths with base URL relative paths
+          let transformed = html;
+          
+          // Fix favicon
+          transformed = transformed.replace(/href=["']\/favicon\.ico["']/g, `href="${base}favicon.ico"`);
+          
+          // Fix Open Graph and Twitter image paths
+          transformed = transformed.replace(/content=["']\/ressy-logo\.png["']/g, `content="${base}ressy-logo.png"`);
+          
+          // Fix canonical URL
+          transformed = transformed.replace(/<link\s+rel=["']canonical["']\s+href=["']\/["']/g, `<link rel="canonical" href="${base}"`);
+          
+          // Fix og:url
+          transformed = transformed.replace(/<meta\s+property=["']og:url["']\s+content=["']\/["']/g, `<meta property="og:url" content="${base}"`);
+          
+          return transformed;
+        },
+      },
+    ].filter(Boolean),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
