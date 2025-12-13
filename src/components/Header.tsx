@@ -5,11 +5,11 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface HeaderProps {
   onMenuClick?: () => void;
-  title: string;
+  title?: string;
   description?: string;
 }
 
-export function Header({ onMenuClick, title, description }: HeaderProps) {
+export function Header({ onMenuClick, title = "Dashboard", description }: HeaderProps) {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
 

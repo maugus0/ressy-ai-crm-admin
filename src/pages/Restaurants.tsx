@@ -79,12 +79,37 @@ import type {
   PaginationInfo,
 } from "@/types/api.types";
 import { toast } from "sonner";
+import { formatTimeForApi, formatTimeForInput } from "@/lib/utils/time";
+import { validateJsonObject, safeParseJsonObject } from "@/lib/utils/json";
 
-// Extended form data to include integration details
-interface RestaurantFormData extends RestaurantCreateRequest {
+// Form data structure - uses JSON strings for integration details
+// Objects are only created during submission
+interface RestaurantFormData {
+  name: string;
+  address: string;
+  phone_number: string;
+  twilio_phone_number: string;
+  forward_minutes: number;
+  backward_minutes: number;
+  is_credit_card_required_for_reservation: boolean;
+  opening_time: string;
+  closing_time: string;
   twilio_details_json: string;
   deepgram_details_json: string;
   open_table_details_json: string;
+}
+
+// Form validation errors
+interface FormErrors {
+  name?: string;
+  address?: string;
+  phone_number?: string;
+  twilio_phone_number?: string;
+  forward_minutes?: string;
+  backward_minutes?: string;
+  twilio_details?: string;
+  deepgram_details?: string;
+  open_table_details?: string;
 }
 
 const defaultFormData: RestaurantFormData = {
@@ -97,13 +122,13 @@ const defaultFormData: RestaurantFormData = {
   is_credit_card_required_for_reservation: false,
   opening_time: "",
   closing_time: "",
-  twilio_details: {},
-  deepgram_details: {},
-  open_table_details: {},
   twilio_details_json: "{}",
   deepgram_details_json: "{}",
   open_table_details_json: "{}",
 };
+
+// Phone number validation regex (E.164 format)
+const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
 
 const Restaurants = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -131,12 +156,8 @@ const Restaurants = () => {
 
   // Form state with extended data
   const [formData, setFormData] = useState<RestaurantFormData>(defaultFormData);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [activeTab, setActiveTab] = useState("basic");
-  const [jsonErrors, setJsonErrors] = useState({
-    twilio: "",
-    deepgram: "",
-    opentable: "",
-  });
 
   const fetchRestaurants = useCallback(async () => {
     try {
@@ -198,68 +219,130 @@ const Restaurants = () => {
 
   const resetForm = () => {
     setFormData(defaultFormData);
+    setFormErrors({});
     setActiveTab("basic");
-    setJsonErrors({ twilio: "", deepgram: "", opentable: "" });
   };
 
-  const validateJson = (json: string, field: "twilio" | "deepgram" | "opentable"): boolean => {
-    try {
-      JSON.parse(json);
-      setJsonErrors((prev) => ({ ...prev, [field]: "" }));
-      return true;
-    } catch {
-      setJsonErrors((prev) => ({ ...prev, [field]: "Invalid JSON format" }));
-      return false;
+  // Validate a single JSON field and update errors
+  const validateJsonField = (
+    json: string,
+    field: "twilio_details" | "deepgram_details" | "open_table_details"
+  ): { valid: boolean; data: Record<string, unknown> } => {
+    const result = validateJsonObject(json);
+    setFormErrors((prev) => ({
+      ...prev,
+      [field]: result.error || undefined,
+    }));
+    return { valid: result.valid, data: result.data || {} };
+  };
+
+  // Validate entire form and return errors
+  const validateForm = (): { valid: boolean; errors: FormErrors } => {
+    const errors: FormErrors = {};
+
+    // Required fields
+    if (!formData.name.trim()) {
+      errors.name = "Restaurant name is required";
+    } else if (formData.name.length < 2) {
+      errors.name = "Name must be at least 2 characters";
+    } else if (formData.name.length > 100) {
+      errors.name = "Name must be less than 100 characters";
     }
+
+    if (!formData.address.trim()) {
+      errors.address = "Address is required";
+    } else if (formData.address.length < 5) {
+      errors.address = "Please enter a complete address";
+    }
+
+    if (!formData.phone_number.trim()) {
+      errors.phone_number = "Phone number is required";
+    } else if (!PHONE_REGEX.test(formData.phone_number)) {
+      errors.phone_number = "Phone must be in E.164 format (e.g., +15551234567)";
+    }
+
+    // Optional phone validation
+    if (formData.twilio_phone_number && !PHONE_REGEX.test(formData.twilio_phone_number)) {
+      errors.twilio_phone_number = "Twilio number must be in E.164 format";
+    }
+
+    // Number validations
+    if (formData.forward_minutes < 0 || formData.forward_minutes > 1440) {
+      errors.forward_minutes = "Must be between 0 and 1440 minutes";
+    }
+    if (formData.backward_minutes < 0 || formData.backward_minutes > 1440) {
+      errors.backward_minutes = "Must be between 0 and 1440 minutes";
+    }
+
+    // JSON validations
+    const twilioResult = validateJsonObject(formData.twilio_details_json);
+    if (!twilioResult.valid) {
+      errors.twilio_details = twilioResult.error;
+    }
+
+    const deepgramResult = validateJsonObject(formData.deepgram_details_json);
+    if (!deepgramResult.valid) {
+      errors.deepgram_details = deepgramResult.error;
+    }
+
+    const openTableResult = validateJsonObject(formData.open_table_details_json);
+    if (!openTableResult.valid) {
+      errors.open_table_details = openTableResult.error;
+    }
+
+    setFormErrors(errors);
+    return { valid: Object.keys(errors).length === 0, errors };
   };
 
-  // Convert HH:MM to HH:MM:SS format required by backend
-  const formatTimeForApi = (time: string | undefined): string | undefined => {
-    if (!time) return undefined;
-    // If already in HH:MM:SS format, return as is
-    if (/^\d{2}:\d{2}:\d{2}$/.test(time)) return time;
-    // If in HH:MM format, append :00
-    if (/^\d{2}:\d{2}$/.test(time)) return `${time}:00`;
-    return time;
-  };
-
-  // Convert HH:MM:SS to HH:MM format for HTML input
-  const formatTimeForInput = (time: string | null | undefined): string => {
-    if (!time) return "";
-    // If in HH:MM:SS format, strip seconds
-    if (/^\d{2}:\d{2}:\d{2}$/.test(time)) return time.slice(0, 5);
-    return time;
-  };
-
-  const prepareFormDataForSubmit = (): RestaurantCreateRequest => {
-    const twilioValid = validateJson(formData.twilio_details_json, "twilio");
-    const deepgramValid = validateJson(formData.deepgram_details_json, "deepgram");
-    const opentableValid = validateJson(formData.open_table_details_json, "opentable");
-
-    if (!twilioValid || !deepgramValid || !opentableValid) {
-      throw new Error("Please fix JSON format errors in integration settings");
+  // Prepare and validate form data for submission
+  const prepareFormDataForSubmit = (): RestaurantCreateRequest | null => {
+    const validation = validateForm();
+    if (!validation.valid) {
+      // Switch to tab with first error
+      if (
+        validation.errors.name ||
+        validation.errors.address ||
+        validation.errors.phone_number ||
+        validation.errors.twilio_phone_number
+      ) {
+        setActiveTab("basic");
+      } else if (validation.errors.forward_minutes || validation.errors.backward_minutes) {
+        setActiveTab("settings");
+      } else if (
+        validation.errors.twilio_details ||
+        validation.errors.deepgram_details ||
+        validation.errors.open_table_details
+      ) {
+        setActiveTab("integrations");
+      }
+      return null;
     }
 
     return {
-      name: formData.name,
-      address: formData.address,
-      phone_number: formData.phone_number,
-      twilio_phone_number: formData.twilio_phone_number || undefined,
+      name: formData.name.trim(),
+      address: formData.address.trim(),
+      phone_number: formData.phone_number.trim(),
+      twilio_phone_number: formData.twilio_phone_number.trim() || undefined,
       forward_minutes: formData.forward_minutes,
       backward_minutes: formData.backward_minutes,
       is_credit_card_required_for_reservation: formData.is_credit_card_required_for_reservation,
-      opening_time: formatTimeForApi(formData.opening_time),
-      closing_time: formatTimeForApi(formData.closing_time),
-      twilio_details: JSON.parse(formData.twilio_details_json || "{}"),
-      deepgram_details: JSON.parse(formData.deepgram_details_json || "{}"),
-      open_table_details: JSON.parse(formData.open_table_details_json || "{}"),
+      opening_time: formData.opening_time ? formatTimeForApi(formData.opening_time) : undefined,
+      closing_time: formData.closing_time ? formatTimeForApi(formData.closing_time) : undefined,
+      twilio_details: safeParseJsonObject(formData.twilio_details_json),
+      deepgram_details: safeParseJsonObject(formData.deepgram_details_json),
+      open_table_details: safeParseJsonObject(formData.open_table_details_json),
     };
   };
 
   const handleCreate = async () => {
+    const payload = prepareFormDataForSubmit();
+    if (!payload) {
+      toast.error("Please fix the validation errors before submitting");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      const payload = prepareFormDataForSubmit();
       await createRestaurant(payload);
       toast.success("Restaurant created successfully");
       setIsCreateDialogOpen(false);
@@ -274,9 +357,15 @@ const Restaurants = () => {
 
   const handleEdit = async () => {
     if (!selectedRestaurant) return;
+
+    const payload = prepareFormDataForSubmit();
+    if (!payload) {
+      toast.error("Please fix the validation errors before submitting");
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      const payload = prepareFormDataForSubmit();
       await updateRestaurant(selectedRestaurant.id, payload);
       toast.success("Restaurant updated successfully");
       setIsEditDialogOpen(false);
@@ -308,19 +397,17 @@ const Restaurants = () => {
 
   const openEditDialog = (restaurant: Restaurant) => {
     setSelectedRestaurant(restaurant);
+    setFormErrors({});
     setFormData({
       name: restaurant.name,
       address: restaurant.address,
       phone_number: restaurant.phone_number,
-      twilio_phone_number: restaurant.twilio_phone_number,
+      twilio_phone_number: restaurant.twilio_phone_number || "",
       forward_minutes: restaurant.forward_minutes,
       backward_minutes: restaurant.backward_minutes,
       is_credit_card_required_for_reservation: restaurant.is_credit_card_required_for_reservation,
       opening_time: formatTimeForInput(restaurant.opening_time),
       closing_time: formatTimeForInput(restaurant.closing_time),
-      twilio_details: restaurant.twilio_details,
-      deepgram_details: restaurant.deepgram_details,
-      open_table_details: restaurant.open_table_details,
       twilio_details_json: JSON.stringify(restaurant.twilio_details || {}, null, 2),
       deepgram_details_json: JSON.stringify(restaurant.deepgram_details || {}, null, 2),
       open_table_details_json: JSON.stringify(restaurant.open_table_details || {}, null, 2),
@@ -745,9 +832,17 @@ const Restaurants = () => {
                     <Input
                       id="name"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        if (formErrors.name)
+                          setFormErrors((prev) => ({ ...prev, name: undefined }));
+                      }}
                       placeholder="e.g., Ressy's Kitchen"
+                      className={formErrors.name ? "border-destructive" : ""}
                     />
+                    {formErrors.name && (
+                      <p className="text-xs text-destructive">{formErrors.name}</p>
+                    )}
                   </div>
 
                   <div className="grid gap-2">
@@ -757,9 +852,17 @@ const Restaurants = () => {
                     <Input
                       id="address"
                       value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, address: e.target.value });
+                        if (formErrors.address)
+                          setFormErrors((prev) => ({ ...prev, address: undefined }));
+                      }}
                       placeholder="e.g., 123 Main St, Springfield, IL 62701"
+                      className={formErrors.address ? "border-destructive" : ""}
                     />
+                    {formErrors.address && (
+                      <p className="text-xs text-destructive">{formErrors.address}</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -770,20 +873,34 @@ const Restaurants = () => {
                       <Input
                         id="phone_number"
                         value={formData.phone_number}
-                        onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                        onChange={(e) => {
+                          setFormData({ ...formData, phone_number: e.target.value });
+                          if (formErrors.phone_number)
+                            setFormErrors((prev) => ({ ...prev, phone_number: undefined }));
+                        }}
                         placeholder="+15551234567"
+                        className={formErrors.phone_number ? "border-destructive" : ""}
                       />
+                      {formErrors.phone_number && (
+                        <p className="text-xs text-destructive">{formErrors.phone_number}</p>
+                      )}
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="twilio_phone_number">Twilio Phone Number</Label>
                       <Input
                         id="twilio_phone_number"
                         value={formData.twilio_phone_number}
-                        onChange={(e) =>
-                          setFormData({ ...formData, twilio_phone_number: e.target.value })
-                        }
+                        onChange={(e) => {
+                          setFormData({ ...formData, twilio_phone_number: e.target.value });
+                          if (formErrors.twilio_phone_number)
+                            setFormErrors((prev) => ({ ...prev, twilio_phone_number: undefined }));
+                        }}
                         placeholder="+15557654321"
+                        className={formErrors.twilio_phone_number ? "border-destructive" : ""}
                       />
+                      {formErrors.twilio_phone_number && (
+                        <p className="text-xs text-destructive">{formErrors.twilio_phone_number}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -826,11 +943,18 @@ const Restaurants = () => {
                         id="forward_minutes"
                         type="number"
                         min="0"
+                        max="1440"
                         value={formData.forward_minutes}
-                        onChange={(e) =>
-                          setFormData({ ...formData, forward_minutes: Number(e.target.value) })
-                        }
+                        onChange={(e) => {
+                          setFormData({ ...formData, forward_minutes: Number(e.target.value) });
+                          if (formErrors.forward_minutes)
+                            setFormErrors((prev) => ({ ...prev, forward_minutes: undefined }));
+                        }}
+                        className={formErrors.forward_minutes ? "border-destructive" : ""}
                       />
+                      {formErrors.forward_minutes && (
+                        <p className="text-xs text-destructive">{formErrors.forward_minutes}</p>
+                      )}
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="backward_minutes">
@@ -843,11 +967,18 @@ const Restaurants = () => {
                         id="backward_minutes"
                         type="number"
                         min="0"
+                        max="1440"
                         value={formData.backward_minutes}
-                        onChange={(e) =>
-                          setFormData({ ...formData, backward_minutes: Number(e.target.value) })
-                        }
+                        onChange={(e) => {
+                          setFormData({ ...formData, backward_minutes: Number(e.target.value) });
+                          if (formErrors.backward_minutes)
+                            setFormErrors((prev) => ({ ...prev, backward_minutes: undefined }));
+                        }}
+                        className={formErrors.backward_minutes ? "border-destructive" : ""}
                       />
+                      {formErrors.backward_minutes && (
+                        <p className="text-xs text-destructive">{formErrors.backward_minutes}</p>
+                      )}
                     </div>
                   </div>
 
@@ -887,8 +1018,10 @@ const Restaurants = () => {
                   <div className="grid gap-2">
                     <Label htmlFor="twilio_details">
                       Twilio Details
-                      {jsonErrors.twilio && (
-                        <span className="text-destructive text-xs ml-2">{jsonErrors.twilio}</span>
+                      {formErrors.twilio_details && (
+                        <span className="text-destructive text-xs ml-2">
+                          {formErrors.twilio_details}
+                        </span>
                       )}
                     </Label>
                     <Textarea
@@ -896,18 +1029,20 @@ const Restaurants = () => {
                       value={formData.twilio_details_json}
                       onChange={(e) => {
                         setFormData({ ...formData, twilio_details_json: e.target.value });
-                        validateJson(e.target.value, "twilio");
+                        validateJsonField(e.target.value, "twilio_details");
                       }}
                       placeholder='{"workspace_sid": "WSxxxx", "phone_sid": "PNxxxx"}'
-                      className={`font-mono text-sm min-h-[80px] ${jsonErrors.twilio ? "border-destructive" : ""}`}
+                      className={`font-mono text-sm min-h-[80px] ${formErrors.twilio_details ? "border-destructive" : ""}`}
                     />
                   </div>
 
                   <div className="grid gap-2">
                     <Label htmlFor="deepgram_details">
                       Deepgram Details
-                      {jsonErrors.deepgram && (
-                        <span className="text-destructive text-xs ml-2">{jsonErrors.deepgram}</span>
+                      {formErrors.deepgram_details && (
+                        <span className="text-destructive text-xs ml-2">
+                          {formErrors.deepgram_details}
+                        </span>
                       )}
                     </Label>
                     <Textarea
@@ -915,19 +1050,19 @@ const Restaurants = () => {
                       value={formData.deepgram_details_json}
                       onChange={(e) => {
                         setFormData({ ...formData, deepgram_details_json: e.target.value });
-                        validateJson(e.target.value, "deepgram");
+                        validateJsonField(e.target.value, "deepgram_details");
                       }}
                       placeholder='{"project_id": "dg-project-1"}'
-                      className={`font-mono text-sm min-h-[80px] ${jsonErrors.deepgram ? "border-destructive" : ""}`}
+                      className={`font-mono text-sm min-h-[80px] ${formErrors.deepgram_details ? "border-destructive" : ""}`}
                     />
                   </div>
 
                   <div className="grid gap-2">
                     <Label htmlFor="open_table_details">
                       OpenTable Details
-                      {jsonErrors.opentable && (
+                      {formErrors.open_table_details && (
                         <span className="text-destructive text-xs ml-2">
-                          {jsonErrors.opentable}
+                          {formErrors.open_table_details}
                         </span>
                       )}
                     </Label>
@@ -936,10 +1071,10 @@ const Restaurants = () => {
                       value={formData.open_table_details_json}
                       onChange={(e) => {
                         setFormData({ ...formData, open_table_details_json: e.target.value });
-                        validateJson(e.target.value, "opentable");
+                        validateJsonField(e.target.value, "open_table_details");
                       }}
                       placeholder='{"rid": "99999"}'
-                      className={`font-mono text-sm min-h-[80px] ${jsonErrors.opentable ? "border-destructive" : ""}`}
+                      className={`font-mono text-sm min-h-[80px] ${formErrors.open_table_details ? "border-destructive" : ""}`}
                     />
                   </div>
                 </div>
