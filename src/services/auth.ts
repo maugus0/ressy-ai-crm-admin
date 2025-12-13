@@ -3,7 +3,13 @@
  * Handles all authentication API calls
  */
 
-import { api, getStoredAuthData, setStoredAuthData, clearStoredAuthData, getAccessToken } from "@/lib/api/client";
+import {
+  api,
+  getStoredAuthData,
+  setStoredAuthData,
+  clearStoredAuthData,
+  getAccessToken,
+} from "@/lib/api/client";
 import { ENDPOINTS } from "@/lib/api/endpoints";
 import type {
   LoginRequest,
@@ -43,11 +49,9 @@ export const login = async (credentials: LoginCredentials): Promise<AuthResponse
     password: credentials.password,
   };
 
-  const response = await api.post<LoginResponse>(
-    ENDPOINTS.AUTH.ADMIN_LOGIN,
-    payload,
-    { skipAuth: true }
-  );
+  const response = await api.post<LoginResponse>(ENDPOINTS.AUTH.ADMIN_LOGIN, payload, {
+    skipAuth: true,
+  });
 
   if (response.error || !response.data) {
     return {
@@ -56,7 +60,8 @@ export const login = async (credentials: LoginCredentials): Promise<AuthResponse
     };
   }
 
-  const { access_token, refresh_token, uuid, email, role, permissions, user_type, expires_in } = response.data;
+  const { access_token, refresh_token, uuid, email, role, permissions, user_type, expires_in } =
+    response.data;
 
   // Calculate expiration timestamp
   const expires_at = Date.now() + expires_in * 1000;
@@ -100,11 +105,9 @@ export const refreshToken = async (): Promise<AuthResponse> => {
     refresh_token: authData.refresh_token,
   };
 
-  const response = await api.post<RefreshTokenResponse>(
-    ENDPOINTS.AUTH.REFRESH,
-    payload,
-    { skipAuth: true }
-  );
+  const response = await api.post<RefreshTokenResponse>(ENDPOINTS.AUTH.REFRESH, payload, {
+    skipAuth: true,
+  });
 
   if (response.error || !response.data) {
     // Clear auth data on refresh failure
@@ -153,14 +156,14 @@ export const logout = async (): Promise<void> => {
  */
 export const isAuthenticated = (): boolean => {
   const authData = getStoredAuthData() as StoredAuthData | null;
-  
+
   if (!authData?.access_token) {
     return false;
   }
 
   // Check if token is expired (with 30 second buffer)
   const isExpired = Date.now() >= authData.expires_at - 30000;
-  
+
   return !isExpired;
 };
 
@@ -169,7 +172,7 @@ export const isAuthenticated = (): boolean => {
  */
 export const isTokenExpiringSoon = (): boolean => {
   const authData = getStoredAuthData() as StoredAuthData | null;
-  
+
   if (!authData?.expires_at) {
     return false;
   }

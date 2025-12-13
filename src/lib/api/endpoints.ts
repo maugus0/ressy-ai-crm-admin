@@ -26,7 +26,8 @@ export const ENDPOINTS = {
   // ============================================================================
   MENU: {
     LIST: (restaurantId: number) => `/admin/restaurants/${restaurantId}/menu`,
-    GET: (restaurantId: number, itemId: number) => `/admin/restaurants/${restaurantId}/menu/${itemId}`,
+    GET: (restaurantId: number, itemId: number) =>
+      `/admin/restaurants/${restaurantId}/menu/${itemId}`,
   },
 
   // ============================================================================
@@ -34,7 +35,8 @@ export const ENDPOINTS = {
   // ============================================================================
   FAQ: {
     LIST: (restaurantId: number) => `/admin/restaurants/${restaurantId}/faqs`,
-    GET: (restaurantId: number, faqId: number) => `/admin/restaurants/${restaurantId}/faqs/${faqId}`,
+    GET: (restaurantId: number, faqId: number) =>
+      `/admin/restaurants/${restaurantId}/faqs/${faqId}`,
   },
 
   // ============================================================================
@@ -50,6 +52,7 @@ export const ENDPOINTS = {
   // ============================================================================
   CLIENT_USERS: {
     LIST: (restaurantId: number) => `/admin/restaurants/${restaurantId}/client-users`,
-    GET: (restaurantId: number, uuid: string) => `/admin/restaurants/${restaurantId}/client-users/${uuid}`,
+    GET: (restaurantId: number, uuid: string) =>
+      `/admin/restaurants/${restaurantId}/client-users/${uuid}`,
   },
 } as const;

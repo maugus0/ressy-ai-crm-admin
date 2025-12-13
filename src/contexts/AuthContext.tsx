@@ -1,4 +1,12 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  ReactNode,
+} from "react";
 import {
   login as authLogin,
   logout as authLogout,
@@ -40,6 +48,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const refreshIntervalRef = useRef<number | null>(null);
 
   /**
+   * Stop the token refresh interval
+   */
+  const stopRefreshInterval = useCallback(() => {
+    if (refreshIntervalRef.current) {
+      clearInterval(refreshIntervalRef.current);
+      refreshIntervalRef.current = null;
+      console.log("[Auth] Token refresh interval stopped");
+    }
+  }, []);
+
+  /**
    * Refresh the access token
    */
   const refreshAccessToken = useCallback(async () => {
@@ -51,7 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (isTokenExpiringSoon()) {
       console.log("[Auth] Token expiring soon, refreshing...");
       const result = await authRefreshToken();
-      
+
       if (!result.success) {
         console.error("[Auth] Token refresh failed:", result.error);
         // Token refresh failed, log out the user
@@ -62,7 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log("[Auth] Token refreshed successfully");
       }
     }
-  }, []);
+  }, [stopRefreshInterval]);
 
   /**
    * Start the token refresh interval
@@ -82,36 +101,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [refreshAccessToken]);
 
   /**
-   * Stop the token refresh interval
-   */
-  const stopRefreshInterval = useCallback(() => {
-    if (refreshIntervalRef.current) {
-      clearInterval(refreshIntervalRef.current);
-      refreshIntervalRef.current = null;
-      console.log("[Auth] Token refresh interval stopped");
-    }
-  }, []);
-
-  /**
    * Initialize auth state on mount
    */
   useEffect(() => {
     const initAuth = async () => {
       const isAuth = checkIsAuthenticated();
-      
+
       if (isAuth) {
         setAuthenticated(true);
         setUser(getCurrentUser());
-        
+
         // Check if token needs refresh on init
         if (isTokenExpiringSoon()) {
           await refreshAccessToken();
         }
-        
+
         // Start refresh interval
         startRefreshInterval();
       }
-      
+
       setIsLoading(false);
     };
 
@@ -128,14 +136,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    */
   const login = async (credentials: LoginCredentials) => {
     const response = await authLogin(credentials);
-    
+
     if (response.success && response.user) {
       setAuthenticated(true);
       setUser(response.user);
       startRefreshInterval();
       return { success: true };
     }
-    
+
     return { success: false, error: response.error };
   };
 

@@ -131,4 +131,3 @@ export interface ClientUser {
 export interface ClientUserParams extends PaginationParams {
   role_id?: number;
 }
-

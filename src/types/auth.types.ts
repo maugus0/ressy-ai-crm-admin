@@ -84,4 +84,3 @@ export interface StoredAuthData {
   user: AuthUser;
   expires_at: number; // Unix timestamp
 }
-

@@ -95,4 +95,3 @@ export const getClientUser = async (restaurantId: number, uuid: string): Promise
 
   return response.data;
 };
-

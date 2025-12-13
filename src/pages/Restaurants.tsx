@@ -52,9 +52,7 @@ const Restaurants = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {error && (
-                <div className="text-center py-8 text-destructive">{error}</div>
-              )}
+              {error && <div className="text-center py-8 text-destructive">{error}</div>}
 
               {isLoading ? (
                 <div className="space-y-3">
@@ -93,9 +91,7 @@ const Restaurants = () => {
                             <span className="text-sm">{restaurant.phone_number}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm">
-                          {restaurant.twilio_phone_number}
-                        </TableCell>
+                        <TableCell className="text-sm">{restaurant.twilio_phone_number}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {new Date(restaurant.created_at).toLocaleDateString()}
                         </TableCell>
@@ -106,9 +102,7 @@ const Restaurants = () => {
               )}
 
               {!isLoading && !error && restaurants.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  No restaurants found
-                </div>
+                <div className="text-center py-8 text-muted-foreground">No restaurants found</div>
               )}
             </CardContent>
           </Card>
@@ -119,4 +113,3 @@ const Restaurants = () => {
 };
 
 export default Restaurants;
-

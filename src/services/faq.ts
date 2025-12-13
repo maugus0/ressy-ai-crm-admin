@@ -48,4 +48,3 @@ export const getFAQ = async (restaurantId: number, faqId: number): Promise<FAQ> 
 
   return response.data;
 };
-

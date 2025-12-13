@@ -111,9 +111,7 @@ const Menu = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {error && (
-                <div className="text-center py-8 text-destructive">{error}</div>
-              )}
+              {error && <div className="text-center py-8 text-destructive">{error}</div>}
 
               {isLoadingMenu ? (
                 <div className="space-y-3">
@@ -165,9 +163,7 @@ const Menu = () => {
                               <Badge variant={item.is_available ? "default" : "secondary"}>
                                 {item.is_available ? "Available" : "Unavailable"}
                               </Badge>
-                              {item.is_special && (
-                                <Badge variant="destructive">Special</Badge>
-                              )}
+                              {item.is_special && <Badge variant="destructive">Special</Badge>}
                             </div>
                           </TableCell>
                         </TableRow>
@@ -220,4 +216,3 @@ const Menu = () => {
 };
 
 export default Menu;
-

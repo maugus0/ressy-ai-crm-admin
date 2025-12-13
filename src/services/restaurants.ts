@@ -33,7 +33,7 @@ export const getRestaurants = async (): Promise<RestaurantsResponse> => {
 
   // API returns [[restaurants], count]
   const [restaurants, total] = response.data;
-  
+
   return {
     restaurants: Array.isArray(restaurants) ? restaurants : [],
     total: total || 0,
@@ -52,4 +52,3 @@ export const getRestaurant = async (id: number): Promise<Restaurant> => {
 
   return response.data;
 };
-

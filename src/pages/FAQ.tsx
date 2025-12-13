@@ -110,9 +110,7 @@ const FAQ = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {error && (
-                <div className="text-center py-8 text-destructive">{error}</div>
-              )}
+              {error && <div className="text-center py-8 text-destructive">{error}</div>}
 
               {isLoadingFAQs ? (
                 <div className="space-y-3">
@@ -136,9 +134,7 @@ const FAQ = () => {
                         <TableRow key={faq.id}>
                           <TableCell className="font-medium">{faq.id}</TableCell>
                           <TableCell className="font-medium">{faq.question}</TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {faq.answer}
-                          </TableCell>
+                          <TableCell className="text-muted-foreground">{faq.answer}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {new Date(faq.created_at).toLocaleDateString()}
                           </TableCell>
@@ -192,4 +188,3 @@ const FAQ = () => {
 };
 
 export default FAQ;
-

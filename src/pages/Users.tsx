@@ -24,12 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, Shield, User } from "lucide-react";
 import { getRestaurants } from "@/services/restaurants";
 import { getAdminUsers, getClientUsers } from "@/services/users";
-import type {
-  Restaurant,
-  AdminUser,
-  ClientUser,
-  PaginationInfo,
-} from "@/types/api.types";
+import type { Restaurant, AdminUser, ClientUser, PaginationInfo } from "@/types/api.types";
 
 const Users = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -201,7 +196,8 @@ const Users = () => {
                       {adminPagination && adminPagination.pages > 1 && (
                         <div className="flex items-center justify-between mt-4 pt-4 border-t">
                           <p className="text-sm text-muted-foreground">
-                            Page {adminPagination.page} of {adminPagination.pages} ({adminPagination.total} users)
+                            Page {adminPagination.page} of {adminPagination.pages} (
+                            {adminPagination.total} users)
                           </p>
                           <div className="flex gap-2">
                             <Button
@@ -216,7 +212,9 @@ const Users = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setAdminPage((p) => Math.min(adminPagination.pages, p + 1))}
+                              onClick={() =>
+                                setAdminPage((p) => Math.min(adminPagination.pages, p + 1))
+                              }
                               disabled={adminPage === adminPagination.pages}
                             >
                               Next
@@ -283,9 +281,7 @@ const Users = () => {
                           {clientUsers.map((user) => (
                             <TableRow key={user.uuid}>
                               <TableCell className="font-medium">{user.email}</TableCell>
-                              <TableCell className="text-sm">
-                                {user.restaurant_name}
-                              </TableCell>
+                              <TableCell className="text-sm">{user.restaurant_name}</TableCell>
                               <TableCell>
                                 <Badge variant="secondary">{user.role}</Badge>
                               </TableCell>
@@ -304,7 +300,8 @@ const Users = () => {
                       {clientPagination && clientPagination.pages > 1 && (
                         <div className="flex items-center justify-between mt-4 pt-4 border-t">
                           <p className="text-sm text-muted-foreground">
-                            Page {clientPagination.page} of {clientPagination.pages} ({clientPagination.total} users)
+                            Page {clientPagination.page} of {clientPagination.pages} (
+                            {clientPagination.total} users)
                           </p>
                           <div className="flex gap-2">
                             <Button
@@ -319,7 +316,9 @@ const Users = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setClientPage((p) => Math.min(clientPagination.pages, p + 1))}
+                              onClick={() =>
+                                setClientPage((p) => Math.min(clientPagination.pages, p + 1))
+                              }
                               disabled={clientPage === clientPagination.pages}
                             >
                               Next
@@ -347,4 +346,3 @@ const Users = () => {
 };
 
 export default Users;
-

@@ -52,4 +52,3 @@ export const getMenuItem = async (restaurantId: number, itemId: number): Promise
 
   return response.data;
 };
-

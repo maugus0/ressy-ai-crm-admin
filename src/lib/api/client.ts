@@ -88,7 +88,7 @@ export async function apiRequest<T>(
 
   try {
     const url = endpoint.startsWith("http") ? endpoint : `${env.API_URL}${endpoint}`;
-    
+
     const response = await fetch(url, {
       ...restConfig,
       headers: requestHeaders,
@@ -97,24 +97,24 @@ export async function apiRequest<T>(
     // Parse response
     let data: T | null = null;
     const contentType = response.headers.get("content-type");
-    
+
     if (contentType?.includes("application/json")) {
       const json = await response.json();
-      
+
       if (!response.ok) {
         // Handle error response
-        const errorMessage = 
-          typeof json.detail === "string" 
-            ? json.detail 
+        const errorMessage =
+          typeof json.detail === "string"
+            ? json.detail
             : json.message || `Request failed with status ${response.status}`;
-        
+
         return {
           data: null,
           error: errorMessage,
           status: response.status,
         };
       }
-      
+
       data = json as T;
     }
 
@@ -165,4 +165,3 @@ export const api = {
   delete: <T>(endpoint: string, config?: RequestConfig) =>
     apiRequest<T>(endpoint, { ...config, method: "DELETE" }),
 };
-

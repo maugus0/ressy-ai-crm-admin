@@ -33,4 +33,3 @@ export const env = {
    */
   IS_DEV: import.meta.env.DEV,
 } as const;
-
