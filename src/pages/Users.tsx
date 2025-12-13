@@ -70,9 +70,9 @@ const Users = () => {
     const fetchRestaurants = async () => {
       try {
         const data = await getRestaurants();
-        setRestaurants(data.restaurants);
-        if (data.restaurants.length > 0) {
-          setSelectedRestaurantId(data.restaurants[0].id);
+        setRestaurants(data.items);
+        if (data.items.length > 0) {
+          setSelectedRestaurantId(data.items[0].id);
         }
       } catch (err) {
         setClientError(err instanceof Error ? err.message : "Failed to load restaurants");
@@ -117,7 +117,11 @@ const Users = () => {
     <div className="flex min-h-screen bg-background">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col w-full lg:w-auto">
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
+        <Header
+          onMenuClick={() => setIsSidebarOpen(true)}
+          title="Users"
+          description="Manage admin users and restaurant client users"
+        />
         <main className="flex-1 p-6">
           <Card>
             <CardHeader>

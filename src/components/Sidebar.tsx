@@ -1,4 +1,14 @@
-import { Store, UtensilsCrossed, HelpCircle, Users, LogOut } from "lucide-react";
+import {
+  Store,
+  UtensilsCrossed,
+  HelpCircle,
+  Users,
+  LogOut,
+  Phone,
+  PhoneCall,
+  ShoppingCart,
+  CalendarDays,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,10 +19,15 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
+// Navigation items sorted alphabetically A-Z
 const navigationItems = [
-  { name: "Restaurants", icon: Store, path: "/restaurants" },
+  { name: "Callers", icon: Phone, path: "/callers" },
+  { name: "Calls", icon: PhoneCall, path: "/calls" },
+  { name: "FAQs", icon: HelpCircle, path: "/faq" },
   { name: "Menu", icon: UtensilsCrossed, path: "/menu" },
-  { name: "FAQ", icon: HelpCircle, path: "/faq" },
+  { name: "Orders", icon: ShoppingCart, path: "/orders" },
+  { name: "Reservations", icon: CalendarDays, path: "/reservations" },
+  { name: "Restaurants", icon: Store, path: "/restaurants" },
   { name: "Users", icon: Users, path: "/users" },
 ];
 
@@ -51,7 +66,7 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 overflow-y-auto">
-          <ul className="space-y-2">
+          <ul className="space-y-1">
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;

@@ -70,13 +70,36 @@ npm run build
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `VITE_API_BASE_URL` | Backend API base URL | `http://localhost:5001` |
+| `VITE_API_BASE_URL` | Backend API base URL | `http://localhost:5001` (fallback only) |
 | `VITE_API_VERSION` | API version prefix | `v1` |
 
-For production, update `.env.local`:
+### Local Development
+
+Create `.env.local` file (this file is gitignored):
 ```env
-VITE_API_BASE_URL=https://api.ressy.ai
+VITE_API_BASE_URL=http://localhost:5001
+VITE_API_VERSION=v1
 ```
+
+### Production (GitHub Pages)
+
+**Important:** Environment variables must be set in GitHub Actions for production builds.
+
+1. **Go to your GitHub repository** → Settings → Secrets and variables → Actions
+
+2. **Add Repository Variables** (recommended) or Secrets:
+   - Variable name: `VITE_API_BASE_URL`
+   - Value: Your production API URL (e.g., `https://api.ressy.ai`)
+   - Variable name: `VITE_API_VERSION`
+   - Value: `v1`
+
+3. **Alternative: Use Environment Secrets**
+   - Go to Settings → Environments → `github-pages`
+   - Add secrets: `VITE_API_BASE_URL` and `VITE_API_VERSION`
+
+The GitHub Actions workflow will automatically use these variables during the build process. If not set, it will fallback to `http://localhost:5001` (which will only work locally).
+
+**Note:** The `localhost:5001` fallback in the code is **only for local development**. For GitHub Pages deployments, you **must** set the production API URL as a GitHub Actions variable.
 
 ## Project Structure
 

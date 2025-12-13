@@ -18,7 +18,11 @@ export const ENDPOINTS = {
   // ============================================================================
   RESTAURANTS: {
     LIST: "/restaurants/",
+    CREATE: "/restaurants/",
     GET: (id: number) => `/restaurants/${id}`,
+    UPDATE: (id: number) => `/restaurants/${id}`,
+    DELETE: (id: number) => `/restaurants/${id}`,
+    STATS: (id: number) => `/restaurants/${id}/stats`,
   },
 
   // ============================================================================
@@ -54,5 +58,45 @@ export const ENDPOINTS = {
     LIST: (restaurantId: number) => `/admin/restaurants/${restaurantId}/client-users`,
     GET: (restaurantId: number, uuid: string) =>
       `/admin/restaurants/${restaurantId}/client-users/${uuid}`,
+  },
+
+  // ============================================================================
+  // Callers (placeholder - API not ready)
+  // ============================================================================
+  CALLERS: {
+    LIST: "/callers",
+    GET: (id: number) => `/callers/${id}`,
+  },
+
+  // ============================================================================
+  // Calls (placeholder - API not ready)
+  // ============================================================================
+  CALLS: {
+    LIST: "/calls",
+    GET: (id: number) => `/calls/${id}`,
+  },
+
+  // ============================================================================
+  // Orders (placeholder - API not ready)
+  // ============================================================================
+  ORDERS: {
+    LIST: "/orders",
+    GET: (id: number) => `/orders/${id}`,
+  },
+
+  // ============================================================================
+  // Reservations (placeholder - API not ready)
+  // ============================================================================
+  RESERVATIONS: {
+    LIST: "/reservations",
+    GET: (id: number) => `/reservations/${id}`,
+  },
+
+  // ============================================================================
+  // Transcripts (placeholder - API not ready)
+  // ============================================================================
+  TRANSCRIPTS: {
+    LIST: "/transcripts",
+    GET: (id: number) => `/transcripts/${id}`,
   },
 } as const;

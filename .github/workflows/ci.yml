@@ -137,6 +137,10 @@ jobs:
 
       - name: Build app
         run: npm run build
+        env:
+          # Use environment variables if set, otherwise fallback to localhost for local testing
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'http://localhost:5001' }}
+          VITE_API_VERSION: ${{ vars.VITE_API_VERSION || 'v1' }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -232,6 +236,11 @@ jobs:
         run: npm run build:gh-pages
         env:
           GITHUB_PAGES: true
+          # API configuration - set these in GitHub repository secrets or environment variables
+          # For production, use your production API URL
+          # For development/testing, you can use localhost if backend is accessible
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL || 'http://localhost:5001' }}
+          VITE_API_VERSION: ${{ secrets.VITE_API_VERSION || vars.VITE_API_VERSION || 'v1' }}
 
       - name: Record current gh-pages HEAD (for rollback)
         shell: bash
