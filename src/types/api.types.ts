@@ -157,6 +157,33 @@ export interface AdminUserParams extends PaginationParams {
   role_id?: number;
 }
 
+export interface AdminUserCreateRequest {
+  email: string;
+  password: string;
+  role_id: number;
+}
+
+export interface AdminUserUpdateRequest {
+  email?: string;
+  role_id?: number;
+}
+
+export interface AdminUserResetPasswordRequest {
+  new_password: string;
+}
+
+export interface AdminUserUpdateRoleRequest {
+  role_id: number;
+}
+
+export interface AdminUserBulkCreateRequest {
+  users: AdminUserCreateRequest[];
+}
+
+export interface AdminUserBulkCreateResponse {
+  items: AdminUser[];
+}
+
 // ============================================================================
 // Client User
 // ============================================================================
@@ -177,6 +204,41 @@ export interface ClientUser {
 
 export interface ClientUserParams extends PaginationParams {
   role_id?: number;
+}
+
+export interface ClientUserCreateRequest {
+  email: string;
+  password: string;
+  role_id: number;
+}
+
+export interface ClientUserUpdateRequest {
+  email?: string;
+  role_id?: number;
+}
+
+export interface ClientUserResetPasswordRequest {
+  new_password: string;
+}
+
+export interface ClientUserUpdateRoleRequest {
+  role_id: number;
+}
+
+export interface ClientUserBulkCreateRequest {
+  users: ClientUserCreateRequest[];
+}
+
+export interface ClientUserBulkCreateResponse {
+  items: ClientUser[];
+}
+
+// ============================================================================
+// Message Response (for password reset, delete, etc.)
+// ============================================================================
+
+export interface MessageResponse {
+  message: string;
 }
 
 // ============================================================================

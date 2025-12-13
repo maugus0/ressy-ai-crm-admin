@@ -16,6 +16,7 @@ import {
   getCurrentUser,
   LoginCredentials,
 } from "@/services/auth";
+import { getStoredAuthData } from "@/lib/api/client";
 import { env } from "@/config/env";
 import type { AuthUser } from "@/types/auth.types";
 
@@ -54,51 +55,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (refreshIntervalRef.current) {
       clearInterval(refreshIntervalRef.current);
       refreshIntervalRef.current = null;
-      console.log("[Auth] Token refresh interval stopped");
     }
   }, []);
 
   /**
    * Refresh the access token
    */
-  const refreshAccessToken = useCallback(async () => {
-    // Only refresh if we're authenticated and token is expiring soon
+  const refreshAccessToken = useCallback(async (): Promise<boolean> => {
+    // Only refresh if we're authenticated
     if (!checkIsAuthenticated()) {
-      return;
+      return false;
     }
 
-    if (isTokenExpiringSoon()) {
-      console.log("[Auth] Token expiring soon, refreshing...");
+    // Check if token is expired or expiring soon
+    const authData = getStoredAuthData();
+    if (!authData?.expires_at) {
+      return false;
+    }
+
+    // Refresh if expired or expiring within 5 minutes
+    const fiveMinutes = 5 * 60 * 1000;
+    const shouldRefresh = Date.now() >= authData.expires_at - fiveMinutes;
+
+    if (shouldRefresh) {
       const result = await authRefreshToken();
 
       if (!result.success) {
-        console.error("[Auth] Token refresh failed:", result.error);
         // Token refresh failed, log out the user
         setAuthenticated(false);
         setUser(null);
         stopRefreshInterval();
-      } else {
-        console.log("[Auth] Token refreshed successfully");
+        return false;
       }
+
+      // Update user data if needed
+      if (result.user) {
+        setUser(result.user);
+      }
+      return true;
     }
+
+    return true;
   }, [stopRefreshInterval]);
-
-  /**
-   * Start the token refresh interval
-   */
-  const startRefreshInterval = useCallback(() => {
-    // Clear any existing interval
-    if (refreshIntervalRef.current) {
-      clearInterval(refreshIntervalRef.current);
-    }
-
-    // Set up new interval (every 10 minutes)
-    refreshIntervalRef.current = window.setInterval(() => {
-      refreshAccessToken();
-    }, env.TOKEN_REFRESH_INTERVAL);
-
-    console.log("[Auth] Token refresh interval started");
-  }, [refreshAccessToken]);
 
   /**
    * Initialize auth state on mount
@@ -112,12 +110,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(getCurrentUser());
 
         // Check if token needs refresh on init
-        if (isTokenExpiringSoon()) {
-          await refreshAccessToken();
-        }
+        await refreshAccessToken();
 
         // Start refresh interval
-        startRefreshInterval();
+        // Clear any existing interval first
+        if (refreshIntervalRef.current) {
+          clearInterval(refreshIntervalRef.current);
+        }
+
+        // Set up new interval (every 15 minutes)
+        refreshIntervalRef.current = window.setInterval(() => {
+          refreshAccessToken();
+        }, env.TOKEN_REFRESH_INTERVAL);
       }
 
       setIsLoading(false);
@@ -129,7 +133,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       stopRefreshInterval();
     };
-  }, [refreshAccessToken, startRefreshInterval, stopRefreshInterval]);
+  }, [refreshAccessToken, stopRefreshInterval]);
 
   /**
    * Handle user login

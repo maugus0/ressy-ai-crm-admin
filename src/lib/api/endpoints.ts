@@ -48,7 +48,13 @@ export const ENDPOINTS = {
   // ============================================================================
   ADMIN_USERS: {
     LIST: "/admin/admin-users",
+    CREATE: "/admin/admin-users",
     GET: (uuid: string) => `/admin/admin-users/${uuid}`,
+    UPDATE: (uuid: string) => `/admin/admin-users/${uuid}`,
+    DELETE: (uuid: string) => `/admin/admin-users/${uuid}`,
+    RESET_PASSWORD: (uuid: string) => `/admin/admin-users/${uuid}/reset-password`,
+    UPDATE_ROLE: (uuid: string) => `/admin/admin-users/${uuid}/role`,
+    BULK_CREATE: "/admin/admin-users/bulk",
   },
 
   // ============================================================================
@@ -56,8 +62,18 @@ export const ENDPOINTS = {
   // ============================================================================
   CLIENT_USERS: {
     LIST: (restaurantId: number) => `/admin/restaurants/${restaurantId}/client-users`,
+    CREATE: (restaurantId: number) => `/admin/restaurants/${restaurantId}/client-users`,
     GET: (restaurantId: number, uuid: string) =>
       `/admin/restaurants/${restaurantId}/client-users/${uuid}`,
+    UPDATE: (restaurantId: number, uuid: string) =>
+      `/admin/restaurants/${restaurantId}/client-users/${uuid}`,
+    DELETE: (restaurantId: number, uuid: string) =>
+      `/admin/restaurants/${restaurantId}/client-users/${uuid}`,
+    RESET_PASSWORD: (restaurantId: number, uuid: string) =>
+      `/admin/restaurants/${restaurantId}/client-users/${uuid}/reset-password`,
+    UPDATE_ROLE: (restaurantId: number, uuid: string) =>
+      `/admin/restaurants/${restaurantId}/client-users/${uuid}/role`,
+    BULK_CREATE: (restaurantId: number) => `/admin/restaurants/${restaurantId}/client-users/bulk`,
   },
 
   // ============================================================================
