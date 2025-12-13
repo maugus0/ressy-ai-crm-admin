@@ -40,9 +40,9 @@ const FAQ = () => {
     const fetchRestaurants = async () => {
       try {
         const data = await getRestaurants();
-        setRestaurants(data.restaurants);
-        if (data.restaurants.length > 0) {
-          setSelectedRestaurantId(data.restaurants[0].id);
+        setRestaurants(data.items);
+        if (data.items.length > 0) {
+          setSelectedRestaurantId(data.items[0].id);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load restaurants");
@@ -82,7 +82,11 @@ const FAQ = () => {
     <div className="flex min-h-screen bg-background">
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col w-full lg:w-auto">
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
+        <Header
+          onMenuClick={() => setIsSidebarOpen(true)}
+          title="FAQs"
+          description="Manage frequently asked questions for each restaurant"
+        />
         <main className="flex-1 p-6">
           <Card>
             <CardHeader>

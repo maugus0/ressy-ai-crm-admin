@@ -6,9 +6,13 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
-import Restaurants from "./pages/Restaurants";
-import Menu from "./pages/Menu";
+import Callers from "./pages/Callers";
+import Calls from "./pages/Calls";
 import FAQ from "./pages/FAQ";
+import Menu from "./pages/Menu";
+import Orders from "./pages/Orders";
+import Reservations from "./pages/Reservations";
+import Restaurants from "./pages/Restaurants";
 import Users from "./pages/Users";
 import NotFound from "./pages/NotFound";
 
@@ -41,10 +45,26 @@ const App = () => (
                 }
               />
               <Route
-                path="/restaurants"
+                path="/callers"
                 element={
                   <ProtectedRoute>
-                    <Restaurants />
+                    <Callers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/calls"
+                element={
+                  <ProtectedRoute>
+                    <Calls />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/faq"
+                element={
+                  <ProtectedRoute>
+                    <FAQ />
                   </ProtectedRoute>
                 }
               />
@@ -57,10 +77,26 @@ const App = () => (
                 }
               />
               <Route
-                path="/faq"
+                path="/orders"
                 element={
                   <ProtectedRoute>
-                    <FAQ />
+                    <Orders />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reservations"
+                element={
+                  <ProtectedRoute>
+                    <Reservations />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/restaurants"
+                element={
+                  <ProtectedRoute>
+                    <Restaurants />
                   </ProtectedRoute>
                 }
               />

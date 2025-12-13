@@ -6,44 +6,37 @@
     <title>Admin Dashboard</title>
     <script>
       // Single Page Apps for GitHub Pages
-      // This script redirects 404s to index.html so React Router can handle routing
-      // Note: this 404.html file must be at least 512 bytes for some browsers to recognize it.
-      (function() {
-        var l = window.location;
-        var pathname = l.pathname;
-        
-        // Extract the base path (repo name) from the pathname
-        // For GitHub Pages, the path is typically /repo-name/...
-        var pathParts = pathname.split('/').filter(function(part) {
-          return part.length > 0;
-        });
-        
-        // Determine base path - if we have path parts, use the first one as the repo name
-        var basePath = '/';
-        if (pathParts.length > 0) {
-          // Check if the first part looks like a repo name (not a route)
-          // For now, assume the first segment is the repo name
-          basePath = '/' + pathParts[0] + '/';
-        }
-        
-        // Redirect to index.html at the base path
-        // React Router will handle the routing from there
-        var redirectUrl = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + 
-                          basePath + 'index.html' + l.search + l.hash;
-        
-        // If we're already trying to access index.html, don't redirect
-        if (!pathname.endsWith('index.html')) {
-          l.replace(redirectUrl);
-        }
-      })();
+      // https://github.com/rafgraph/spa-github-pages
+      // This script takes the current URL and converts the path and query
+      // string into just a query string, and then redirects the browser
+      // to the new URL with only a query string and hash fragment.
+      
+      // If you're creating a Project Pages site and NOT using a custom domain,
+      // then set pathSegmentsToKeep to 1 (to keep the repo name in the path).
+      // This means the repo name will be part of the URL path.
+      var pathSegmentsToKeep = 1;
+
+      var l = window.location;
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+        l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+        l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
     </script>
   </head>
   <body>
     <p>Redirecting...</p>
     <noscript>
       <p>Please enable JavaScript to use this application.</p>
-      <p><a href="./index.html">Click here to go to the home page</a></p>
+      <p><a href="./">Click here to go to the home page</a></p>
     </noscript>
+    <!-- 
+      Note: this 404.html file must be at least 512 bytes for some browsers to recognize it.
+      Adding this comment to ensure the file is large enough.
+      GitHub Pages will serve this file for any 404 errors, and the script above
+      will redirect to the main app with the path encoded in the query string.
+    -->
   </body>
 </html>
-
