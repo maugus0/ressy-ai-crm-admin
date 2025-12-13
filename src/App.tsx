@@ -2,15 +2,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import Index from "./pages/Index";
 import Login from "./pages/Login";
-import Onboard from "./pages/Onboard";
-import Tiers from "./pages/Tiers";
-import BillingRules from "./pages/BillingRules";
-import Settings from "./pages/Settings";
+import Restaurants from "./pages/Restaurants";
+import Menu from "./pages/Menu";
+import FAQ from "./pages/FAQ";
+import Users from "./pages/Users";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,46 +29,46 @@ const App = () => (
       <Sonner />
       <AuthProvider>
         <BrowserRouter basename={getBasename()}>
-          <div className="w-full space-y-3">
+          <div className="w-full">
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route
                 path="/"
                 element={
                   <ProtectedRoute>
-                    <Index />
+                    <Navigate to="/restaurants" replace />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="/onboard"
+                path="/restaurants"
                 element={
                   <ProtectedRoute>
-                    <Onboard />
+                    <Restaurants />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="/tiers"
+                path="/menu"
                 element={
                   <ProtectedRoute>
-                    <Tiers />
+                    <Menu />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="/billing"
+                path="/faq"
                 element={
                   <ProtectedRoute>
-                    <BillingRules />
+                    <FAQ />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="/settings"
+                path="/users"
                 element={
                   <ProtectedRoute>
-                    <Settings />
+                    <Users />
                   </ProtectedRoute>
                 }
               />

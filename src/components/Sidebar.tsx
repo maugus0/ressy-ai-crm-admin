@@ -1,4 +1,4 @@
-import { Users, UserPlus, Award, CreditCard, Settings, LogOut } from "lucide-react";
+import { Store, UtensilsCrossed, HelpCircle, Users, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,11 +10,10 @@ interface SidebarProps {
 }
 
 const navigationItems = [
-  { name: "Clients", icon: Users, path: "/" },
-  { name: "Onboard", icon: UserPlus, path: "/onboard" },
-  { name: "Tiers", icon: Award, path: "/tiers" },
-  { name: "Billing Rules", icon: CreditCard, path: "/billing" },
-  { name: "Settings", icon: Settings, path: "/settings" },
+  { name: "Restaurants", icon: Store, path: "/restaurants" },
+  { name: "Menu", icon: UtensilsCrossed, path: "/menu" },
+  { name: "FAQ", icon: HelpCircle, path: "/faq" },
+  { name: "Users", icon: Users, path: "/users" },
 ];
 
 export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
@@ -22,8 +21,8 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
   const navigate = useNavigate();
   const { logout } = useAuth();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
     if (onClose) onClose();
   };
