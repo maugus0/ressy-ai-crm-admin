@@ -405,26 +405,85 @@ export interface OrderParams extends PaginationParams {
 
 export interface Reservation {
   id: number;
-  restaurant_id: number;
-  restaurant_name: string;
-  customer_name: string;
-  customer_phone: string;
-  customer_email: string | null;
+  reservation_type: string;
+  table_availability_request_id: number | null;
+  slot_booking_id: number | null;
+  user_id: number | null;
+  confirmation_number: string;
+  last_cancel_time: string | null;
+  manage_reservation_url: string | null;
+  status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+  special_request: string | null;
   party_size: number;
-  reservation_date: string;
-  reservation_time: string;
-  status: "pending" | "confirmed" | "seated" | "completed" | "cancelled" | "no-show";
   notes: string | null;
-  source: "phone" | "web" | "opentable" | "manual";
   created_at: string;
   updated_at: string;
+  date_time: string;
+  restaurant_id: number;
+  name: string;
+  email: string | null;
+  phone_number: string;
 }
 
-export interface ReservationParams extends PaginationParams {
-  restaurant_id?: number;
-  status?: string;
-  date_from?: string;
-  date_to?: string;
+export interface ReservationListResponse {
+  restaurant_id: number;
+  reservations: Reservation[];
+  total: number;
+}
+
+export interface ReservationCreateRequest {
+  date_time: string; // ISO format
+  party_size: number; // 1-20
+  name: string;
+  phone_number: string;
+  email_address?: string;
+  special_request?: string;
+  notes?: string;
+}
+
+export interface ReservationCreateResponse {
+  reservation_id: number;
+  slot_id: number;
+  confirmation_number: string;
+  status: string;
+  date_time: string;
+  party_size: number;
+  name: string;
+  phone_number: string;
+  email_address?: string;
+  special_request?: string;
+  notes?: string;
+  message: string;
+}
+
+export interface ReservationUpdateRequest {
+  date_time?: string; // ISO format
+  party_size?: number;
+  special_request?: string;
+  notes?: string;
+  confirmation_number?: string;
+  status?: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
+  last_cancel_time?: string; // ISO format
+  manage_reservation_url?: string;
+}
+
+export interface ReservationFinalizeRequest {
+  confirmation_number?: string;
+}
+
+export interface ReservationCancelResponse {
+  reservation_id: number;
+  status: string;
+  message: string;
+}
+
+export interface ReservationParams {
+  status?: "pending" | "confirmed" | "cancelled" | "completed" | "no_show" | "all";
+  start_date?: string; // ISO format
+  end_date?: string; // ISO format
+  // Note: search is not supported by backend - handled client-side
+  limit?: number; // default: 100, max: 1000
+  offset?: number; // default: 0
 }
 
 // ============================================================================
