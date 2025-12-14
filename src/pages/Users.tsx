@@ -783,59 +783,59 @@ const Users = () => {
       ) : (
         <>
           <div className="overflow-x-auto border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 hover:bg-muted/50">
-                  <TableHead className="font-semibold">Email</TableHead>
-                  <TableHead className="font-semibold">Role</TableHead>
-                  <TableHead className="font-semibold">Last Login</TableHead>
-                  <TableHead className="font-semibold">Created</TableHead>
-                  <TableHead className="font-semibold text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.uuid} className="group">
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{user.email}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={String(user.role_id)}
-                        onValueChange={(value) => handleRoleChange(user, Number(value))}
-                      >
-                        <SelectTrigger className="w-[140px] h-8">
-                          <SelectValue>
-                            <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currentRoles.map((role) => (
-                            <SelectItem key={role.id} value={String(role.id)}>
-                              {role.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {formatDate(user.last_login)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(user.created_at)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center justify-end gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
-                        <TooltipProvider>
+            <TooltipProvider>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50 hover:bg-muted/50">
+                    <TableHead className="font-semibold">Email</TableHead>
+                    <TableHead className="font-semibold">Role</TableHead>
+                    <TableHead className="font-semibold">Last Login</TableHead>
+                    <TableHead className="font-semibold">Created</TableHead>
+                    <TableHead className="font-semibold text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {users.map((user) => (
+                    <TableRow key={user.uuid} className="group">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">{user.email}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={String(user.role_id)}
+                          onValueChange={(value) => handleRoleChange(user, Number(value))}
+                        >
+                          <SelectTrigger className="w-[140px] h-8">
+                            <SelectValue>
+                              <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {currentRoles.map((role) => (
+                              <SelectItem key={role.id} value={String(role.id)}>
+                                {role.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {formatDate(user.last_login)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(user.created_at)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -849,9 +849,7 @@ const Users = () => {
                             </TooltipTrigger>
                             <TooltipContent>View Details</TooltipContent>
                           </Tooltip>
-                        </TooltipProvider>
 
-                        <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -865,9 +863,7 @@ const Users = () => {
                             </TooltipTrigger>
                             <TooltipContent>Reset Password</TooltipContent>
                           </Tooltip>
-                        </TooltipProvider>
 
-                        <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -881,9 +877,7 @@ const Users = () => {
                             </TooltipTrigger>
                             <TooltipContent>Edit</TooltipContent>
                           </Tooltip>
-                        </TooltipProvider>
 
-                        <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -897,13 +891,13 @@ const Users = () => {
                             </TooltipTrigger>
                             <TooltipContent>Delete</TooltipContent>
                           </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TooltipProvider>
           </div>
 
           {users.length === 0 && !loading && (
