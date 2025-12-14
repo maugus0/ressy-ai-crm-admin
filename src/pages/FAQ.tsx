@@ -65,6 +65,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getRestaurants } from "@/services/restaurants";
+import { parseCSVLine, validateCSVFileSize, MAX_CSV_FILE_SIZE } from "@/lib/utils/csv";
 import {
   getFAQs,
   getFAQ,
@@ -223,8 +224,13 @@ const FAQ = () => {
     }
 
     debounceTimerRef.current = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-      setCurrentPage(1);
+      setDebouncedSearch((prev) => {
+        // Only reset page if search query actually changed
+        if (prev !== searchQuery) {
+          setCurrentPage(1);
+        }
+        return searchQuery;
+      });
     }, 300);
 
     return () => {
@@ -397,11 +403,25 @@ const FAQ = () => {
   const validateBulkEntries = (): boolean => {
     const errors: string[] = [];
     bulkEntries.forEach((entry, index) => {
-      if (!entry.question.trim()) {
+      const question = entry.question.trim();
+      const answer = entry.answer.trim();
+
+      // Question validation (matches single form validation)
+      if (!question) {
         errors.push(`Entry ${index + 1}: Question is required`);
+      } else if (question.length < 5) {
+        errors.push(`Entry ${index + 1}: Question must be at least 5 characters`);
+      } else if (question.length > 500) {
+        errors.push(`Entry ${index + 1}: Question must be less than 500 characters`);
       }
-      if (!entry.answer.trim()) {
+
+      // Answer validation (matches single form validation)
+      if (!answer) {
         errors.push(`Entry ${index + 1}: Answer is required`);
+      } else if (answer.length < 5) {
+        errors.push(`Entry ${index + 1}: Answer must be at least 5 characters`);
+      } else if (answer.length > 2000) {
+        errors.push(`Entry ${index + 1}: Answer must be less than 2000 characters`);
       }
     });
     setBulkErrors(errors);
@@ -437,6 +457,15 @@ const FAQ = () => {
   const handleCSVUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Validate file size
+    if (!validateCSVFileSize(file, MAX_CSV_FILE_SIZE)) {
+      toast.error(
+        `CSV file is too large. Please upload a file smaller than ${MAX_CSV_FILE_SIZE / (1024 * 1024)}MB.`
+      );
+      event.target.value = "";
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -485,43 +514,19 @@ const FAQ = () => {
           toast.error("No valid FAQs found in CSV file");
           setBulkErrors(errors);
         }
-      } catch {
-        toast.error("Failed to parse CSV file. Please check the format.");
+      } catch (err) {
+        console.error("Error parsing CSV file:", err);
+        toast.error(
+          err instanceof Error
+            ? `Failed to parse CSV file: ${err.message}`
+            : "Failed to parse CSV file. Please check the format."
+        );
       }
     };
     reader.readAsText(file);
 
     // Reset input
     event.target.value = "";
-  };
-
-  // Simple CSV parser that handles quoted values
-  const parseCSVLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (char === "," && !inQuotes) {
-        result.push(current);
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-    result.push(current);
-
-    return result;
   };
 
   // ============================================================================

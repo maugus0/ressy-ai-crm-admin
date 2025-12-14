@@ -58,7 +58,6 @@ import {
   EyeOff,
   UtensilsCrossed,
   Clock,
-  DollarSign,
   Filter,
   X,
   CheckSquare,
@@ -319,8 +318,10 @@ const Menu = () => {
         errors.avg_prep_time = "Please enter a valid number";
       } else if (prepTime < 0) {
         errors.avg_prep_time = "Prep time cannot be negative";
+      } else if (prepTime === 0) {
+        errors.avg_prep_time = "Prep time must be greater than 0";
       } else if (prepTime > 999) {
-        errors.avg_prep_time = "Prep time is too high";
+        errors.avg_prep_time = "Prep time is too high (max 999 minutes)";
       }
     }
 
@@ -380,9 +381,9 @@ const Menu = () => {
         item_name: formData.item_name.trim(),
         price: parseFloat(formData.price),
         category: formData.category.trim(),
-        sub_category: formData.sub_category.trim() || undefined,
-        item_desc: formData.item_desc.trim() || undefined,
-        avg_prep_time: formData.avg_prep_time ? parseInt(formData.avg_prep_time) : undefined,
+        ...(formData.sub_category.trim() && { sub_category: formData.sub_category.trim() }),
+        ...(formData.item_desc.trim() && { item_desc: formData.item_desc.trim() }),
+        ...(formData.avg_prep_time && { avg_prep_time: parseInt(formData.avg_prep_time) }),
         is_available: formData.is_available,
         is_special: formData.is_special,
       };
@@ -409,9 +410,9 @@ const Menu = () => {
         item_name: formData.item_name.trim(),
         price: parseFloat(formData.price),
         category: formData.category.trim(),
-        sub_category: formData.sub_category.trim() || undefined,
-        item_desc: formData.item_desc.trim() || undefined,
-        avg_prep_time: formData.avg_prep_time ? parseInt(formData.avg_prep_time) : undefined,
+        ...(formData.sub_category.trim() && { sub_category: formData.sub_category.trim() }),
+        ...(formData.item_desc.trim() && { item_desc: formData.item_desc.trim() }),
+        ...(formData.avg_prep_time && { avg_prep_time: parseInt(formData.avg_prep_time) }),
         is_available: formData.is_available,
         is_special: formData.is_special,
       });
