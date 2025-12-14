@@ -169,16 +169,23 @@ const Reservations = () => {
       const data = await getRestaurants();
       setRestaurants(data.items);
       // Auto-select first restaurant if none selected (only once)
-      if (data.items.length > 0 && !selectedRestaurantId && !hasAutoSelectedRestaurant.current) {
-        setSelectedRestaurantId(data.items[0].id);
-        hasAutoSelectedRestaurant.current = true;
-      }
+      // Use functional update to avoid dependency on selectedRestaurantId
+      setSelectedRestaurantId((currentId) => {
+        if (!currentId && data.items.length > 0 && !hasAutoSelectedRestaurant.current) {
+          hasAutoSelectedRestaurant.current = true;
+          return data.items[0].id;
+        }
+        return currentId;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load restaurants");
     } finally {
       setIsLoadingRestaurants(false);
     }
-  }, [selectedRestaurantId]);
+    // Removed selectedRestaurantId from deps to prevent infinite loop
+    // Ref (hasAutoSelectedRestaurant) ensures auto-selection happens only once
+    // Using functional update pattern to access current selectedRestaurantId without dependency
+  }, []);
 
   const fetchReservations = useCallback(async () => {
     if (!selectedRestaurantId) return;
