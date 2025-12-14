@@ -120,6 +120,54 @@ export interface MenuParams extends PaginationParams {
   search?: string;
 }
 
+export interface MenuItemCreateRequest {
+  item_name: string;
+  price: number;
+  category: string;
+  sub_category?: string;
+  item_desc?: string;
+  avg_prep_time?: number;
+  is_available?: boolean;
+  is_special?: boolean;
+}
+
+export interface MenuItemUpdateRequest {
+  item_name?: string;
+  price?: number;
+  category?: string;
+  sub_category?: string;
+  item_desc?: string;
+  avg_prep_time?: number;
+  is_available?: boolean;
+  is_special?: boolean;
+}
+
+export interface MenuAvailabilityRequest {
+  is_available: boolean;
+}
+
+export interface MenuSpecialRequest {
+  is_special: boolean;
+}
+
+export interface MenuBulkAvailabilityRequest {
+  menu_item_ids: number[];
+  is_available: boolean;
+}
+
+export interface MenuBulkAvailabilityResponse {
+  updated_count: number;
+}
+
+export interface MenuCategoriesResponse {
+  categories: Record<string, string[]>;
+}
+
+export interface MenuDeleteResponse {
+  message: string;
+  menu_id: number;
+}
+
 // ============================================================================
 // FAQ
 // ============================================================================
@@ -127,6 +175,7 @@ export interface MenuParams extends PaginationParams {
 export interface FAQ {
   id: number;
   restaurant_id: number;
+  restaurant_name?: string;
   question: string;
   answer: string;
   created_at: string;
@@ -135,6 +184,32 @@ export interface FAQ {
 
 export interface FAQParams extends PaginationParams {
   search?: string;
+}
+
+export interface FAQSearchParams extends PaginationParams {
+  q?: string;
+}
+
+export interface FAQCreateRequest {
+  question: string;
+  answer: string;
+}
+
+export interface FAQUpdateRequest {
+  question?: string;
+  answer?: string;
+}
+
+export interface FAQBulkCreateRequest {
+  faqs: FAQCreateRequest[];
+}
+
+export interface FAQBulkCreateResponse {
+  items: FAQ[];
+}
+
+export interface FAQDeleteResponse {
+  message: string;
 }
 
 // ============================================================================
