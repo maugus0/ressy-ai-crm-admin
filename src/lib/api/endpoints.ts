@@ -117,11 +117,15 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // Reservations (placeholder - API not ready)
+  // Reservations (Dashboard)
   // ============================================================================
   RESERVATIONS: {
-    LIST: "/reservations",
-    GET: (id: number) => `/reservations/${id}`,
+    LIST: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/reservations`,
+    CREATE: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/reservations`,
+    GET: (reservationId: number) => `/dashboard/reservations/${reservationId}`,
+    UPDATE: (reservationId: number) => `/dashboard/reservations/${reservationId}`,
+    FINALIZE: (reservationId: number) => `/dashboard/reservations/${reservationId}/finalize`,
+    CANCEL: (reservationId: number) => `/dashboard/reservations/${reservationId}/cancel`,
   },
 
   // ============================================================================
