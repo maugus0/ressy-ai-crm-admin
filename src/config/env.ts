@@ -50,9 +50,9 @@ export const env = {
   },
 
   /**
-   * Token refresh interval in milliseconds (10 minutes)
+   * Token refresh interval in milliseconds (15 minutes)
    */
-  TOKEN_REFRESH_INTERVAL: 10 * 60 * 1000,
+  TOKEN_REFRESH_INTERVAL: 15 * 60 * 1000,
 
   /**
    * Is development mode

@@ -4,6 +4,7 @@
  */
 
 import { env } from "@/config/env";
+import { refreshTokenDirect } from "@/lib/utils/tokenRefresh";
 
 // ============================================================================
 // Types
@@ -89,10 +90,36 @@ export async function apiRequest<T>(
   try {
     const url = endpoint.startsWith("http") ? endpoint : `${env.API_URL}${endpoint}`;
 
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       ...restConfig,
       headers: requestHeaders,
     });
+
+    // Handle 401 Unauthorized - try to refresh token once
+    if (response.status === 401 && !skipAuth && getAccessToken()) {
+      // Attempt to refresh token
+      const refreshResult = await refreshTokenDirect();
+
+      if (refreshResult.success) {
+        // Retry the original request with new token
+        const newToken = getAccessToken();
+        if (newToken) {
+          (requestHeaders as Record<string, string>)["Authorization"] = `Bearer ${newToken}`;
+
+          response = await fetch(url, {
+            ...restConfig,
+            headers: requestHeaders,
+          });
+        }
+      } else {
+        // Refresh failed, return 401 error
+        return {
+          data: null,
+          error: "Session expired. Please login again.",
+          status: 401,
+        };
+      }
+    }
 
     // Parse response
     let data: T | null = null;
