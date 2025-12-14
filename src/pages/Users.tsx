@@ -81,6 +81,12 @@ import {
 import { getRestaurants } from "@/services/restaurants";
 import type { AdminUser, ClientUser, Restaurant, PaginationInfo } from "@/types/api.types";
 import { toast } from "sonner";
+import {
+  parseCSVLine,
+  sanitizeCSVValue,
+  validateCSVFileSize,
+  MAX_CSV_FILE_SIZE,
+} from "@/lib/utils/csv";
 
 // Role definitions (matching database roles table)
 // role_id 1 = admin
@@ -532,58 +538,18 @@ const Users = () => {
     }
   };
 
-  /**
-   * Sanitize CSV value to prevent CSV injection attacks
-   * Removes potentially dangerous formula prefixes
-   */
-  const sanitizeCSVValue = (value: string): string => {
-    const trimmed = value.trim();
-    // Remove formula injection prefixes: =, +, -, @, \t, \r
-    if (/^[=+\-@\t\r]/.test(trimmed)) {
-      return trimmed.replace(/^[=+\-@\t\r]+/, "");
-    }
-    return trimmed;
-  };
-
-  /**
-   * Simple CSV parser that handles basic quoted values
-   */
-  const parseCSVLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          // Escaped quote
-          current += '"';
-          i++; // Skip next quote
-        } else {
-          // Toggle quote state
-          inQuotes = !inQuotes;
-        }
-      } else if (char === "," && !inQuotes) {
-        // Field separator
-        result.push(sanitizeCSVValue(current));
-        current = "";
-      } else {
-        current += char;
-      }
-    }
-
-    // Add last field
-    result.push(sanitizeCSVValue(current));
-
-    return result;
-  };
-
   const handleCSVUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    // Validate file size
+    if (!validateCSVFileSize(file, MAX_CSV_FILE_SIZE)) {
+      toast.error(
+        `CSV file is too large. Please upload a file smaller than ${MAX_CSV_FILE_SIZE / (1024 * 1024)}MB.`
+      );
+      event.target.value = "";
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -621,6 +587,7 @@ const Users = () => {
             return;
           }
 
+          // Sanitize values to prevent CSV injection
           const email = sanitizeCSVValue(parts[0]);
           const password = sanitizeCSVValue(parts[1]);
           let role_id = activeTab === "client" ? 2 : 1; // Default: manager for client, admin for admin

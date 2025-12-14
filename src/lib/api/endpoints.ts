@@ -29,18 +29,34 @@ export const ENDPOINTS = {
   // Menu (per restaurant)
   // ============================================================================
   MENU: {
+    // Restaurant-scoped operations
     LIST: (restaurantId: number) => `/admin/restaurants/${restaurantId}/menu`,
-    GET: (restaurantId: number, itemId: number) =>
-      `/admin/restaurants/${restaurantId}/menu/${itemId}`,
+    CREATE: (restaurantId: number) => `/admin/restaurants/${restaurantId}/menu`,
+    CATEGORIES: (restaurantId: number) => `/admin/restaurants/${restaurantId}/menu/categories`,
+    BULK_AVAILABILITY: (restaurantId: number) =>
+      `/admin/restaurants/${restaurantId}/menu/bulk-availability`,
+    // Menu item operations (by menu_id)
+    GET: (menuId: number) => `/admin/menu/${menuId}`,
+    UPDATE: (menuId: number) => `/admin/menu/${menuId}`,
+    DELETE: (menuId: number) => `/admin/menu/${menuId}`,
+    TOGGLE_AVAILABILITY: (menuId: number) => `/admin/menu/${menuId}/availability`,
+    TOGGLE_SPECIAL: (menuId: number) => `/admin/menu/${menuId}/special`,
   },
 
   // ============================================================================
   // FAQ (per restaurant)
   // ============================================================================
   FAQ: {
+    // Restaurant-scoped operations
     LIST: (restaurantId: number) => `/admin/restaurants/${restaurantId}/faqs`,
-    GET: (restaurantId: number, faqId: number) =>
-      `/admin/restaurants/${restaurantId}/faqs/${faqId}`,
+    CREATE: (restaurantId: number) => `/admin/restaurants/${restaurantId}/faqs`,
+    BULK_CREATE: (restaurantId: number) => `/admin/restaurants/${restaurantId}/faqs/bulk`,
+    // FAQ item operations (by faq_id)
+    GET: (faqId: number) => `/admin/faqs/${faqId}`,
+    UPDATE: (faqId: number) => `/admin/faqs/${faqId}`,
+    DELETE: (faqId: number) => `/admin/faqs/${faqId}`,
+    // Global search
+    SEARCH: "/admin/faqs/search",
   },
 
   // ============================================================================
