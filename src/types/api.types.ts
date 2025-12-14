@@ -477,11 +477,15 @@ export interface ReservationCancelResponse {
   message: string;
 }
 
+/**
+ * Parameters for querying reservations.
+ *
+ * Note: search is not supported by backend - handled client-side.
+ */
 export interface ReservationParams {
   status?: "pending" | "confirmed" | "cancelled" | "completed" | "no_show" | "all";
   start_date?: string; // ISO format
   end_date?: string; // ISO format
-  // Note: search is not supported by backend - handled client-side
   limit?: number; // default: 100, max: 1000
   offset?: number; // default: 0
 }

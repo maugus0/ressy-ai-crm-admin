@@ -144,6 +144,9 @@ const Reservations = () => {
   // Debounce search query
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Prevent infinite loop in fetchRestaurants
+  const hasAutoSelectedRestaurant = useRef(false);
+
   // Dialog state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -165,9 +168,10 @@ const Reservations = () => {
     try {
       const data = await getRestaurants();
       setRestaurants(data.items);
-      // Auto-select first restaurant if none selected
-      if (data.items.length > 0 && !selectedRestaurantId) {
+      // Auto-select first restaurant if none selected (only once)
+      if (data.items.length > 0 && !selectedRestaurantId && !hasAutoSelectedRestaurant.current) {
         setSelectedRestaurantId(data.items[0].id);
+        hasAutoSelectedRestaurant.current = true;
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load restaurants");
@@ -200,7 +204,10 @@ const Reservations = () => {
         params.status = statusFilter as Reservation["status"];
       }
       if (startDate) {
-        params.start_date = new Date(startDate).toISOString();
+        // Ensure start date is set to the start of the day (00:00:00)
+        const startDateTime = new Date(startDate);
+        startDateTime.setHours(0, 0, 0, 0);
+        params.start_date = startDateTime.toISOString();
       }
       if (endDate) {
         // Ensure end date includes end of day
@@ -277,8 +284,13 @@ const Reservations = () => {
   }, [searchQuery]);
 
   useEffect(() => {
-    fetchReservations();
-  }, [fetchReservations]);
+    if (selectedRestaurantId) {
+      fetchReservations();
+    }
+  }, [fetchReservations, selectedRestaurantId]);
+
+  // Separate state for date range validation error
+  const [dateRangeError, setDateRangeError] = useState<string | null>(null);
 
   // Validate date range
   useEffect(() => {
@@ -286,25 +298,13 @@ const Reservations = () => {
       const start = new Date(startDate);
       const end = new Date(endDate);
       if (end < start) {
-        setError((prev) =>
-          prev === "End date must be after start date" ? prev : "End date must be after start date"
-        );
-        return;
+        setDateRangeError("End date must be after start date");
+      } else {
+        setDateRangeError(null);
       }
+    } else {
+      setDateRangeError(null);
     }
-    // Clear date range error if dates are valid or cleared
-    setError((prev) => {
-      if (prev === "End date must be after start date") {
-        if (
-          !startDate ||
-          !endDate ||
-          (startDate && endDate && new Date(endDate) >= new Date(startDate))
-        ) {
-          return null;
-        }
-      }
-      return prev;
-    });
   }, [startDate, endDate]);
 
   // ============================================================================
@@ -333,8 +333,22 @@ const Reservations = () => {
 
   const openEditDialog = (reservation: Reservation) => {
     setSelectedReservation(reservation);
+    // Convert ISO date to datetime-local format (YYYY-MM-DDTHH:mm)
+    let dateTimeLocal = "";
+    if (reservation.date_time) {
+      const date = new Date(reservation.date_time);
+      if (!isNaN(date.getTime())) {
+        // Format as YYYY-MM-DDTHH:mm for datetime-local input
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        const hours = String(date.getHours()).padStart(2, "0");
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        dateTimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
+      }
+    }
     setFormData({
-      date_time: reservation.date_time ? reservation.date_time.slice(0, 16) : "",
+      date_time: dateTimeLocal,
       party_size: String(reservation.party_size),
       name: reservation.name,
       phone_number: reservation.phone_number,
@@ -411,15 +425,25 @@ const Reservations = () => {
         errors.name = "Name must be less than 100 characters";
       }
 
-      // Phone validation - improved regex
+      // Phone validation - validate cleaned phone number (digits only, optional leading '+')
       if (!formData.phone_number.trim()) {
         errors.phone_number = "Phone number is required";
       } else {
-        const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,9}$/;
-        const cleanedPhone = formData.phone_number.replace(/[\s\-().]/g, "");
-        if (cleanedPhone.length < 10 || cleanedPhone.length > 15) {
+        // Remove all non-digit characters, but keep leading '+' if present
+        let cleanedPhone = formData.phone_number.trim();
+        // Allow leading '+', then digits only
+        if (cleanedPhone.startsWith("+")) {
+          cleanedPhone = "+" + cleanedPhone.slice(1).replace(/\D/g, "");
+        } else {
+          cleanedPhone = cleanedPhone.replace(/\D/g, "");
+        }
+        // Check length (excluding '+')
+        const digitCount = cleanedPhone.startsWith("+")
+          ? cleanedPhone.length - 1
+          : cleanedPhone.length;
+        if (digitCount < 10 || digitCount > 15) {
           errors.phone_number = "Please enter a valid phone number (10-15 digits)";
-        } else if (!phoneRegex.test(formData.phone_number.trim())) {
+        } else if (!/^\+?\d{10,15}$/.test(cleanedPhone)) {
           errors.phone_number = "Please enter a valid phone number format";
         }
       }
@@ -452,16 +476,17 @@ const Reservations = () => {
 
     try {
       setIsSubmitting(true);
+      // Build payload with proper conditional inclusion
       const payload: ReservationCreateRequest = {
         date_time: new Date(formData.date_time).toISOString(),
         party_size: parseInt(formData.party_size),
         name: formData.name.trim(),
         phone_number: formData.phone_number.trim(),
-        ...(formData.email_address.trim() && { email_address: formData.email_address.trim() }),
-        ...(formData.special_request.trim() && {
-          special_request: formData.special_request.trim(),
-        }),
-        ...(formData.notes.trim() && { notes: formData.notes.trim() }),
+        ...(formData.email_address.trim() ? { email_address: formData.email_address.trim() } : {}),
+        ...(formData.special_request.trim()
+          ? { special_request: formData.special_request.trim() }
+          : {}),
+        ...(formData.notes.trim() ? { notes: formData.notes.trim() } : {}),
       };
 
       await createReservation(selectedRestaurantId, payload);
@@ -481,14 +506,15 @@ const Reservations = () => {
 
     try {
       setIsSubmitting(true);
+      // Build payload with proper conditional inclusion
       const payload: ReservationUpdateRequest = {
         date_time: new Date(formData.date_time).toISOString(),
         party_size: parseInt(formData.party_size),
-        ...(formData.special_request.trim() && {
-          special_request: formData.special_request.trim(),
-        }),
-        ...(formData.notes.trim() && { notes: formData.notes.trim() }),
-        ...(formData.status && { status: formData.status }),
+        ...(formData.special_request.trim()
+          ? { special_request: formData.special_request.trim() }
+          : {}),
+        ...(formData.notes.trim() ? { notes: formData.notes.trim() } : {}),
+        ...(formData.status ? { status: formData.status } : {}),
       };
 
       await updateReservation(selectedReservation.id, payload);
@@ -577,7 +603,6 @@ const Reservations = () => {
   // Reservations are already filtered by search query in fetchReservations
   const filteredReservations = reservations;
 
-  const currentPage = Math.floor(offset / limit) + 1;
   const totalPages = Math.ceil(total / limit);
 
   // ============================================================================
@@ -822,7 +847,11 @@ const Reservations = () => {
                   )}
 
                   {/* Add Reservation */}
-                  <Button onClick={openCreateDialog} disabled={!selectedRestaurantId}>
+                  <Button
+                    onClick={openCreateDialog}
+                    disabled={!selectedRestaurantId}
+                    aria-label="Add Reservation"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     <span className="sm:inline">Add Reservation</span>
                   </Button>
@@ -839,7 +868,7 @@ const Reservations = () => {
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
-                      setOffset(0); // Reset to first page on search
+                      // Offset reset is handled by debounce effect
                     }}
                   />
                   {searchQuery && (
@@ -849,8 +878,9 @@ const Reservations = () => {
                       className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
                       onClick={() => {
                         setSearchQuery("");
-                        setDebouncedSearchQuery("");
+                        // Debounce effect will handle debouncedSearchQuery update
                       }}
+                      aria-label="Clear search"
                     >
                       <X className="h-3 w-3" />
                     </Button>
@@ -889,6 +919,7 @@ const Reservations = () => {
                       size="sm"
                       onClick={handleClearFilters}
                       className="text-muted-foreground hover:text-foreground"
+                      aria-label="Clear all filters"
                     >
                       <X className="h-4 w-4 mr-1" />
                       <span className="hidden sm:inline">Clear</span>
@@ -924,9 +955,9 @@ const Reservations = () => {
                       min={startDate || undefined}
                     />
                   </div>
-                  {startDate && endDate && new Date(endDate) < new Date(startDate) && (
+                  {dateRangeError && (
                     <div className="w-full">
-                      <p className="text-sm text-destructive">End date must be after start date</p>
+                      <p className="text-sm text-destructive">{dateRangeError}</p>
                     </div>
                   )}
                 </div>
@@ -934,17 +965,21 @@ const Reservations = () => {
             </CardHeader>
 
             <CardContent>
-              {error && (
+              {(error || dateRangeError) && (
                 <div className="flex items-center gap-3 p-4 mb-4 text-sm bg-destructive/10 border border-destructive/20 rounded-lg">
                   <XCircle className="h-5 w-5 text-destructive flex-shrink-0" />
                   <div className="flex-1">
-                    <p className="font-medium text-destructive">{error}</p>
+                    <p className="font-medium text-destructive">{error || dateRangeError}</p>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                    onClick={() => setError(null)}
+                    onClick={() => {
+                      setError(null);
+                      setDateRangeError(null);
+                    }}
+                    aria-label="Dismiss error"
                   >
                     <X className="h-4 w-4" />
                   </Button>
@@ -1122,7 +1157,8 @@ const Reservations = () => {
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t">
                       <p className="text-sm text-muted-foreground text-center sm:text-left">
                         Showing {filteredReservations.length > 0 ? offset + 1 : 0} to{" "}
-                        {Math.min(offset + limit, total)} of {total} reservation
+                        {Math.min(offset + filteredReservations.length, total)} of {total}{" "}
+                        reservation
                         {total !== 1 ? "s" : ""}
                       </p>
                       <div className="flex gap-2">
@@ -1131,6 +1167,7 @@ const Reservations = () => {
                           size="sm"
                           onClick={() => setOffset((p) => Math.max(0, p - limit))}
                           disabled={offset === 0 || isLoadingReservations}
+                          aria-label="Previous page"
                         >
                           <ChevronLeft className="h-4 w-4" />
                           <span className="hidden sm:inline ml-1">Previous</span>
@@ -1138,8 +1175,9 @@ const Reservations = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setOffset((p) => Math.min(total - limit, p + limit))}
+                          onClick={() => setOffset((p) => p + limit)}
                           disabled={offset + limit >= total || isLoadingReservations}
+                          aria-label="Next page"
                         >
                           <span className="hidden sm:inline mr-1">Next</span>
                           <ChevronRight className="h-4 w-4" />
