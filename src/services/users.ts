@@ -31,9 +31,7 @@ import type {
 // ============================================================================
 
 const getErrorMessage = (error: string | null, fallback: string): string => {
-  if (!error) return fallback;
-  if (typeof error === "string") return error;
-  return fallback;
+  return error || fallback;
 };
 
 // ============================================================================

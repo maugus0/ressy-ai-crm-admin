@@ -144,7 +144,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (response.success && response.user) {
       setAuthenticated(true);
       setUser(response.user);
-      startRefreshInterval();
+
+      // Start refresh interval (inline setup to avoid dependency issues)
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+      }
+
+      refreshIntervalRef.current = window.setInterval(() => {
+        refreshAccessToken();
+      }, env.TOKEN_REFRESH_INTERVAL);
+
       return { success: true };
     }
 

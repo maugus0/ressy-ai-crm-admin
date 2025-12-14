@@ -4,7 +4,7 @@
  */
 
 import { env } from "@/config/env";
-import { refreshToken } from "@/services/auth";
+import { refreshTokenDirect } from "@/lib/utils/tokenRefresh";
 
 // ============================================================================
 // Types
@@ -98,7 +98,7 @@ export async function apiRequest<T>(
     // Handle 401 Unauthorized - try to refresh token once
     if (response.status === 401 && !skipAuth && getAccessToken()) {
       // Attempt to refresh token
-      const refreshResult = await refreshToken();
+      const refreshResult = await refreshTokenDirect();
 
       if (refreshResult.success) {
         // Retry the original request with new token

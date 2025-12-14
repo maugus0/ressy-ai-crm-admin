@@ -16,9 +16,8 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   // Check and refresh token on navigation if needed
   useEffect(() => {
     const checkAndRefreshToken = async () => {
-      // Only check once per location change
+      // Prevent multiple simultaneous refresh attempts
       if (refreshAttemptedRef.current) {
-        refreshAttemptedRef.current = false;
         return;
       }
 
@@ -33,7 +32,12 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
       if (shouldRefresh && isAuthenticated()) {
         refreshAttemptedRef.current = true;
-        await refreshToken();
+        try {
+          await refreshToken();
+        } finally {
+          // Reset flag after refresh completes (success or failure)
+          refreshAttemptedRef.current = false;
+        }
       }
     };
 

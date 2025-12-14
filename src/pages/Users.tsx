@@ -43,7 +43,6 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Search,
   Plus,
   Pencil,
   Trash2,
@@ -60,7 +59,6 @@ import {
   UserCog,
   Upload,
   X,
-  FileText,
 } from "lucide-react";
 import {
   getAdminUsers,
@@ -97,10 +95,12 @@ const CLIENT_ROLES = [
   { id: 2, name: "manager", label: "Manager" },
 ];
 
-// Email validation regex
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// Password validation: at least 8 chars, 1 uppercase, 1 lowercase, 1 number
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+// Email validation regex - more robust pattern (RFC 5322 compliant subset)
+const EMAIL_REGEX =
+  /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+// Password validation: at least 8 chars, max 128 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,128}$/;
 
 interface UserFormData {
   email: string;
@@ -172,17 +172,31 @@ const Users = () => {
   const fetchRestaurants = useCallback(async () => {
     try {
       setRestaurantsLoading(true);
-      const data = await getRestaurants({ limit: 100 });
+      // Fetch all restaurants - remove limit to get all available
+      const data = await getRestaurants({});
       setRestaurants(data.items);
-      if (data.items.length > 0 && !selectedRestaurantId) {
-        setSelectedRestaurantId(data.items[0].id);
+
+      // Warn if a suspiciously high number of restaurants is returned (possible truncation)
+      if (data.items.length >= 1000) {
+        toast.warning(
+          "Warning: A large number of restaurants were loaded. Please contact support if you cannot find a restaurant."
+        );
       }
+
+      // Only set default restaurant if none is selected
+      // Use functional update to avoid dependency on selectedRestaurantId
+      setSelectedRestaurantId((prevId) => {
+        if (!prevId && data.items.length > 0) {
+          return data.items[0].id;
+        }
+        return prevId;
+      });
     } catch (err) {
       toast.error("Failed to load restaurants");
     } finally {
       setRestaurantsLoading(false);
     }
-  }, [selectedRestaurantId]);
+  }, []); // Removed selectedRestaurantId from dependencies to prevent infinite loop
 
   // Fetch admin users
   const fetchAdminUsers = useCallback(async () => {
@@ -250,8 +264,11 @@ const Users = () => {
     if (isCreate) {
       if (!formData.password) {
         errors.password = "Password is required";
+      } else if (formData.password.length < 8 || formData.password.length > 128) {
+        errors.password = "Password must be 8-128 characters";
       } else if (!PASSWORD_REGEX.test(formData.password)) {
-        errors.password = "Password must be 8+ chars with uppercase, lowercase, and number";
+        errors.password =
+          "Password must contain uppercase, lowercase, number, and special character";
       }
     }
 
@@ -268,8 +285,12 @@ const Users = () => {
       setPasswordError("Password is required");
       return false;
     }
+    if (newPassword.length < 8 || newPassword.length > 128) {
+      setPasswordError("Password must be 8-128 characters");
+      return false;
+    }
     if (!PASSWORD_REGEX.test(newPassword)) {
-      setPasswordError("Password must be 8+ chars with uppercase, lowercase, and number");
+      setPasswordError("Password must contain uppercase, lowercase, number, and special character");
       return false;
     }
     setPasswordError("");
@@ -462,8 +483,12 @@ const Users = () => {
       if (!user.password) {
         userErrors.password = "Password is required";
         hasErrors = true;
+      } else if (user.password.length < 8 || user.password.length > 128) {
+        userErrors.password = "Password must be 8-128 characters";
+        hasErrors = true;
       } else if (!PASSWORD_REGEX.test(user.password)) {
-        userErrors.password = "Password must be 8+ chars with uppercase, lowercase, and number";
+        userErrors.password =
+          "Password must contain uppercase, lowercase, number, and special character";
         hasErrors = true;
       }
 
@@ -507,6 +532,55 @@ const Users = () => {
     }
   };
 
+  /**
+   * Sanitize CSV value to prevent CSV injection attacks
+   * Removes potentially dangerous formula prefixes
+   */
+  const sanitizeCSVValue = (value: string): string => {
+    const trimmed = value.trim();
+    // Remove formula injection prefixes: =, +, -, @, \t, \r
+    if (/^[=+\-@\t\r]/.test(trimmed)) {
+      return trimmed.replace(/^[=+\-@\t\r]+/, "");
+    }
+    return trimmed;
+  };
+
+  /**
+   * Simple CSV parser that handles basic quoted values
+   */
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      const nextChar = line[i + 1];
+
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          // Escaped quote
+          current += '"';
+          i++; // Skip next quote
+        } else {
+          // Toggle quote state
+          inQuotes = !inQuotes;
+        }
+      } else if (char === "," && !inQuotes) {
+        // Field separator
+        result.push(sanitizeCSVValue(current));
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+
+    // Add last field
+    result.push(sanitizeCSVValue(current));
+
+    return result;
+  };
+
   const handleCSVUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -515,49 +589,107 @@ const Users = () => {
     reader.onload = (e) => {
       const text = e.target?.result as string;
       try {
-        // Parse CSV (simple parser - expects: email,password,role_id or email,password,role_name)
-        const lines = text.split("\n").filter((line) => line.trim());
+        // Parse CSV with improved handling
+        const lines = text
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => line.length > 0); // Filter empty lines
+
+        if (lines.length === 0) {
+          toast.error("CSV file is empty");
+          return;
+        }
+
         const parsed: UserFormData[] = [];
+        const errors: string[] = [];
+        let isHeader = true;
 
         lines.forEach((line, lineIndex) => {
           // Skip header if present
           if (
-            lineIndex === 0 &&
+            isHeader &&
             (line.toLowerCase().includes("email") || line.toLowerCase().includes("mail"))
           ) {
+            isHeader = false;
+            return;
+          }
+          isHeader = false;
+
+          const parts = parseCSVLine(line);
+          if (parts.length < 2) {
+            errors.push(`Line ${lineIndex + 1}: Missing required fields (email, password)`);
             return;
           }
 
-          const parts = line.split(",").map((p) => p.trim());
-          if (parts.length < 2) return;
+          const email = sanitizeCSVValue(parts[0]);
+          const password = sanitizeCSVValue(parts[1]);
+          let role_id = activeTab === "client" ? 2 : 1; // Default: manager for client, admin for admin
 
-          const email = parts[0];
-          const password = parts[1];
-          let role_id = 1; // default to admin
-
+          // Parse role if provided
           if (parts.length >= 3) {
-            const roleValue = parts[2].toLowerCase();
+            const roleValue = sanitizeCSVValue(parts[2]).toLowerCase();
             if (roleValue === "2" || roleValue === "manager") {
               role_id = 2;
             } else if (roleValue === "1" || roleValue === "admin") {
               role_id = 1;
+            } else {
+              errors.push(`Line ${lineIndex + 1}: Invalid role "${parts[2]}", using default`);
             }
           }
 
-          if (email && password) {
-            parsed.push({ email, password, role_id });
+          // Validate email format
+          if (!email || !EMAIL_REGEX.test(email)) {
+            errors.push(`Line ${lineIndex + 1}: Invalid email format "${email}"`);
+            return;
           }
+
+          // Validate password strength and length
+          if (!password) {
+            errors.push(`Line ${lineIndex + 1}: Password is required`);
+            return;
+          }
+
+          if (password.length < 8 || password.length > 128) {
+            errors.push(
+              `Line ${lineIndex + 1}: Password must be 8-128 characters (email: ${email})`
+            );
+            return;
+          }
+
+          if (!PASSWORD_REGEX.test(password)) {
+            errors.push(
+              `Line ${lineIndex + 1}: Password must contain uppercase, lowercase, number, and special character (email: ${email})`
+            );
+            return;
+          }
+
+          parsed.push({ email, password, role_id });
         });
 
         if (parsed.length > 0) {
           setBulkUsers(parsed);
           setBulkCreateMode("manual");
-          toast.success(`Loaded ${parsed.length} user(s) from CSV`);
+          if (errors.length > 0) {
+            toast.warning(
+              `Loaded ${parsed.length} valid user(s). ${errors.length} error(s) - check console for details.`
+            );
+            console.warn("CSV parsing errors:", errors);
+          } else {
+            toast.success(`Loaded ${parsed.length} user(s) from CSV`);
+          }
         } else {
-          toast.error("No valid users found in CSV file");
+          toast.error(
+            errors.length > 0
+              ? `No valid users found. ${errors.length} error(s) - check console for details.`
+              : "No valid users found in CSV file"
+          );
+          if (errors.length > 0) {
+            console.error("CSV parsing errors:", errors);
+          }
         }
       } catch (err) {
         toast.error("Failed to parse CSV file. Please check the format.");
+        console.error("CSV parsing error:", err);
       }
     };
     reader.readAsText(file);
@@ -1011,7 +1143,7 @@ const Users = () => {
                     if (formErrors.password)
                       setFormErrors((prev) => ({ ...prev, password: undefined }));
                   }}
-                  placeholder="Min 8 chars, uppercase, lowercase, number"
+                  placeholder="8-128 chars: uppercase, lowercase, number, special char"
                   className={formErrors.password ? "border-destructive" : ""}
                 />
                 {formErrors.password && (
@@ -1086,7 +1218,7 @@ const Users = () => {
                   setNewPassword(e.target.value);
                   if (passwordError) setPasswordError("");
                 }}
-                placeholder="Min 8 chars, uppercase, lowercase, number"
+                placeholder="8-128 chars: uppercase, lowercase, number, special char"
                 className={passwordError ? "border-destructive" : ""}
               />
               {passwordError && <p className="text-xs text-destructive">{passwordError}</p>}
@@ -1307,7 +1439,7 @@ user2@example.com,StrongPass2,2`}
                             type="password"
                             value={user.password}
                             onChange={(e) => updateBulkUser(index, "password", e.target.value)}
-                            placeholder="Min 8 chars, uppercase, lowercase, number"
+                            placeholder="8-128 chars: uppercase, lowercase, number, special char"
                             className={
                               bulkErrors[index]?.password ? "border-destructive h-9" : "h-9"
                             }
