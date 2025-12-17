@@ -317,51 +317,161 @@ export interface MessageResponse {
 }
 
 // ============================================================================
-// Caller
+// Dashboard User (Caller/Customer)
 // ============================================================================
 
-export interface Caller {
-  id: number;
-  phone_number: string;
-  name: string | null;
-  email: string | null;
+export interface DashboardUserStatistics {
   total_calls: number;
   total_orders: number;
-  last_call_at: string | null;
-  created_at: string;
-  updated_at: string;
+  total_reservations: number;
 }
 
-export interface CallerParams extends PaginationParams {
+export interface DashboardUser {
+  id: number;
+  name: string;
+  phone_number: string;
+  email: string | null;
+  address: string | null;
+  is_spam: number | boolean;
+  credit_card: string | null;
+  created_at: string;
+  updated_at: string;
+  statistics?: DashboardUserStatistics;
+  restaurant_ids?: number[];
+}
+
+export interface DashboardUserListResponse {
+  restaurant_id: number;
+  users: DashboardUser[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+}
+
+export interface DashboardUserParams {
   search?: string;
+  is_spam?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface DashboardUserCreateRequest {
+  name: string;
+  phone_number: string;
+  email?: string;
+  address?: string;
+  is_spam?: boolean;
+  credit_card?: string;
+}
+
+export interface DashboardUserCreateResponse {
+  message: string;
+  user_id: number;
+  user: DashboardUser;
+  is_new_user: boolean;
+}
+
+export interface DashboardUserUpdateRequest {
+  name?: string;
+  phone_number?: string;
+  email?: string;
+  address?: string;
+  is_spam?: boolean;
+  credit_card?: string;
+}
+
+export interface DashboardUserUpdateResponse {
+  message: string;
+  user: DashboardUser;
+}
+
+export interface DashboardUserDetailsResponse extends DashboardUser {
+  restaurant_ids: number[];
 }
 
 // ============================================================================
 // Call
 // ============================================================================
 
-export interface Call {
-  id: number;
-  restaurant_id: number;
+export interface CallListItem {
+  call_id: string;
+  restaurant_id: string;
   restaurant_name: string;
-  caller_id: number | null;
   caller_phone: string;
-  direction: "inbound" | "outbound";
-  status: "completed" | "missed" | "failed" | "in-progress";
   duration_seconds: number;
-  recording_url: string | null;
-  transcript_id: number | null;
+  status: string;
   started_at: string;
-  ended_at: string | null;
-  created_at: string;
+  has_transcript: boolean;
+  summary: string | null;
 }
 
-export interface CallParams extends PaginationParams {
-  restaurant_id?: number;
-  status?: string;
-  direction?: string;
+export interface CallListResponse {
+  items: CallListItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface CallTranscriptEntry {
+  sequence: number;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+}
+
+export interface CallDetails {
+  call_id: string;
+  restaurant_id: string;
+  restaurant_name: string;
+  caller_phone: string;
+  status: string;
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number;
+  twilio_cost: number | null;
+  deepgram_cost: number | null;
+  ressy_cost: number | null;
+  call_direction: "inbound" | "outbound";
+  has_transcript: boolean;
+  transcript: CallTranscriptEntry[] | null;
+  order_id: string | null;
+  reservation_id: string | null;
+  summary: string | null;
+}
+
+export interface CallAnalytics {
+  total_calls: number;
+  average_call_duration: number;
+  status_breakdown: Record<string, number>;
+  time_of_day_distribution: Array<{ hour_bucket: number; count: number }>;
+  top_restaurants: Array<{ restaurant_id: string; count: number }>;
+  calls_by_day_of_week: Array<{ day_of_week: number; count: number }>;
+  conversion_rates: {
+    orders: number;
+    reservations: number;
+    rate: number;
+  };
+}
+
+export interface CallParams {
+  restaurant_id?: string;
   date_from?: string;
   date_to?: string;
+  status?: string;
+  duration_min?: number;
+  duration_max?: number;
+  caller_phone?: string;
+  page?: number;
+  limit?: number;
+  sort_by?: "created_at" | "duration" | "restaurant_id" | "started_at";
+  sort_order?: "asc" | "desc";
+}
+
+export interface CallAnalyticsParams {
+  restaurant_id?: string;
+  date_from: string;
+  date_to: string;
 }
 
 // ============================================================================

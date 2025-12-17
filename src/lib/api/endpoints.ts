@@ -93,19 +93,27 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // Callers (placeholder - API not ready)
+  // Dashboard Users (Callers/Customers)
   // ============================================================================
-  CALLERS: {
-    LIST: "/callers",
-    GET: (id: number) => `/callers/${id}`,
+  DASHBOARD_USERS: {
+    // Restaurant-scoped operations
+    LIST: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/users`,
+    CREATE: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/users`,
+    // User-scoped operations (by user_id)
+    GET: (userId: number) => `/dashboard/users/${userId}`,
+    UPDATE: (userId: number) => `/dashboard/users/${userId}`,
   },
 
   // ============================================================================
-  // Calls (placeholder - API not ready)
+  // Calls (Admin)
   // ============================================================================
   CALLS: {
-    LIST: "/calls",
-    GET: (id: number) => `/calls/${id}`,
+    LIST: "/admin/calls",
+    ANALYTICS: "/admin/calls/analytics",
+    SEARCH: "/admin/calls/search",
+    GET: (callId: string) => `/admin/calls/${callId}`,
+    DELETE: (callId: string) => `/admin/calls/${callId}`,
+    DELETE_TRANSCRIPT: (callId: string) => `/admin/calls/${callId}/transcript`,
   },
 
   // ============================================================================
