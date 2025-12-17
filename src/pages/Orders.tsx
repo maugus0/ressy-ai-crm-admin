@@ -51,10 +51,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import {
   ShoppingBag,
-  DollarSign,
   Clock,
   Search,
   Filter,
@@ -130,25 +129,6 @@ const formatCurrency = (amount: number): string => {
     style: "currency",
     currency: "USD",
   }).format(amount);
-};
-
-const getStatusColor = (status: DashboardOrderStatus) => {
-  switch (status) {
-    case "completed":
-      return "default" as const;
-    case "pending":
-      return "secondary" as const;
-    case "confirmed":
-      return "default" as const;
-    case "preparing":
-      return "secondary" as const;
-    case "ready":
-      return "default" as const;
-    case "cancelled":
-      return "destructive" as const;
-    default:
-      return "secondary" as const;
-  }
 };
 
 const getStatusStyles = (status: DashboardOrderStatus): string => {
@@ -659,7 +639,11 @@ const Orders = () => {
 
       const customization: DashboardOrderCustomization = {};
       if (formData.delivery) customization.delivery = true;
-      if (formData.table_number) customization.table_number = parseInt(formData.table_number);
+      {
+        const tableNumber = Number(formData.table_number.trim());
+        if (Number.isInteger(tableNumber) && tableNumber > 0)
+          customization.table_number = tableNumber;
+      }
       if (formData.notes.trim()) customization.notes = formData.notes.trim();
 
       const payload: DashboardOrderCreateRequest = {
@@ -703,7 +687,11 @@ const Orders = () => {
 
       const customization: DashboardOrderCustomization = {};
       if (formData.delivery) customization.delivery = true;
-      if (formData.table_number) customization.table_number = parseInt(formData.table_number);
+      {
+        const tableNumber = Number(formData.table_number.trim());
+        if (Number.isInteger(tableNumber) && tableNumber > 0)
+          customization.table_number = tableNumber;
+      }
       if (formData.notes.trim()) customization.notes = formData.notes.trim();
 
       const payload: DashboardOrderUpdateRequest = {

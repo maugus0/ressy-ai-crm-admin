@@ -37,7 +37,6 @@ import {
   Mail,
   MapPin,
   Search,
-  Filter,
   X,
   Eye,
   Pencil,
@@ -141,7 +140,6 @@ const Callers = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [spamFilter, setSpamFilter] = useState<string>("all");
-  const [showFilters, setShowFilters] = useState(false);
 
   // Pagination state
   const [limit] = useState(50);
@@ -325,16 +323,8 @@ const Callers = () => {
     if (!formData.phone_number.trim()) {
       errors.phone_number = "Phone number is required";
     } else {
-      let cleanedPhone = formData.phone_number.trim();
-      if (cleanedPhone.startsWith("+")) {
-        cleanedPhone = "+" + cleanedPhone.slice(1).replace(/\D/g, "");
-      } else {
-        cleanedPhone = cleanedPhone.replace(/\D/g, "");
-      }
-      const digitCount = cleanedPhone.startsWith("+")
-        ? cleanedPhone.length - 1
-        : cleanedPhone.length;
-      if (digitCount < 10 || digitCount > 15) {
+      const digitsOnly = formData.phone_number.replace(/\D/g, "");
+      if (digitsOnly.length < 10 || digitsOnly.length > 15) {
         errors.phone_number = "Please enter a valid phone number (10-15 digits)";
       }
     }

@@ -57,7 +57,6 @@ import {
   ChevronRight,
   BarChart3,
   TrendingUp,
-  Users,
   DollarSign,
   Calendar,
   XCircle,
@@ -186,7 +185,8 @@ const Calls = () => {
   const [debouncedCallerPhone, setDebouncedCallerPhone] = useState("");
   const [durationMin, setDurationMin] = useState<string>("");
   const [durationMax, setDurationMax] = useState<string>("");
-  const [sortBy, setSortBy] = useState<CallParams["sort_by"]>("created_at");
+  // started_at is more meaningful to admins than record created_at
+  const [sortBy, setSortBy] = useState<CallParams["sort_by"]>("started_at");
   const [sortOrder, setSortOrder] = useState<CallParams["sort_order"]>("desc");
   const [showFilters, setShowFilters] = useState(false);
 

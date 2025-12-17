@@ -31,6 +31,7 @@ const getErrorMessage = (error: string | null, fallback: string): string => {
 const toFriendlyOrderError = (error: string | null, fallback: string): string => {
   const msg = error || "";
   // Backend sometimes returns raw DB errors; map the common ones to admin-friendly text.
+  // Prefer backend-standardized error codes/messages over parsing DB/vendor strings when available.
   if (
     msg.includes("Column 'user_id' cannot be null") ||
     (msg.includes("user_id") && msg.includes("cannot be null"))
