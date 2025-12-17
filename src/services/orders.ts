@@ -28,6 +28,18 @@ const getErrorMessage = (error: string | null, fallback: string): string => {
   return error || fallback;
 };
 
+const toFriendlyOrderError = (error: string | null, fallback: string): string => {
+  const msg = error || "";
+  // Backend sometimes returns raw DB errors; map the common ones to admin-friendly text.
+  if (
+    msg.includes("Column 'user_id' cannot be null") ||
+    (msg.includes("user_id") && msg.includes("cannot be null"))
+  ) {
+    return "Customer phone number is required to create an order.";
+  }
+  return getErrorMessage(error, fallback);
+};
+
 // ============================================================================
 // List Orders for Restaurant
 // ============================================================================
@@ -93,7 +105,7 @@ export const createOrder = async (
   );
 
   if (response.error || !response.data) {
-    throw new Error(getErrorMessage(response.error, "Failed to create order"));
+    throw new Error(toFriendlyOrderError(response.error, "Failed to create order"));
   }
 
   return response.data;

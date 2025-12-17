@@ -1001,30 +1001,33 @@ const Callers = () => {
 
               {/* Statistics */}
               {selectedCaller.statistics && (
-                <div className="border rounded-lg p-4 bg-muted/30">
-                  <Label className="text-sm font-medium mb-3 block">Activity Statistics</Label>
-                  <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <div className="flex items-center justify-center gap-1 text-2xl font-bold">
-                        <PhoneCall className="h-5 w-5 text-blue-500" />
-                        {selectedCaller.statistics.total_calls}
-                      </div>
-                      <p className="text-xs text-muted-foreground">Calls</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg p-3 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border border-blue-200/50 dark:border-blue-800/50 text-center">
+                    <div className="flex items-center justify-center gap-1.5 text-2xl font-bold text-blue-700 dark:text-blue-300">
+                      <PhoneCall className="h-5 w-5" />
+                      {selectedCaller.statistics.total_calls}
                     </div>
-                    <div>
-                      <div className="flex items-center justify-center gap-1 text-2xl font-bold">
-                        <ShoppingCart className="h-5 w-5 text-green-500" />
-                        {selectedCaller.statistics.total_orders}
-                      </div>
-                      <p className="text-xs text-muted-foreground">Orders</p>
+                    <p className="text-xs text-blue-600/70 dark:text-blue-400/70 font-medium">
+                      Calls
+                    </p>
+                  </div>
+                  <div className="rounded-lg p-3 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 border border-emerald-200/50 dark:border-emerald-800/50 text-center">
+                    <div className="flex items-center justify-center gap-1.5 text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+                      <ShoppingCart className="h-5 w-5" />
+                      {selectedCaller.statistics.total_orders}
                     </div>
-                    <div>
-                      <div className="flex items-center justify-center gap-1 text-2xl font-bold">
-                        <CalendarCheck className="h-5 w-5 text-purple-500" />
-                        {selectedCaller.statistics.total_reservations}
-                      </div>
-                      <p className="text-xs text-muted-foreground">Reservations</p>
+                    <p className="text-xs text-emerald-600/70 dark:text-emerald-400/70 font-medium">
+                      Orders
+                    </p>
+                  </div>
+                  <div className="rounded-lg p-3 bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-950/50 dark:to-violet-900/30 border border-violet-200/50 dark:border-violet-800/50 text-center">
+                    <div className="flex items-center justify-center gap-1.5 text-2xl font-bold text-violet-700 dark:text-violet-300">
+                      <CalendarCheck className="h-5 w-5" />
+                      {selectedCaller.statistics.total_reservations}
                     </div>
+                    <p className="text-xs text-violet-600/70 dark:text-violet-400/70 font-medium">
+                      Reservations
+                    </p>
                   </div>
                 </div>
               )}

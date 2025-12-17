@@ -93,6 +93,7 @@ import {
   deleteOrder,
   restoreOrder,
 } from "@/services/orders";
+import { getMenuItems, getMenuCategories } from "@/services/menu";
 import type {
   Restaurant,
   DashboardOrder,
@@ -101,6 +102,8 @@ import type {
   DashboardOrderUpdateRequest,
   DashboardOrderCreateItem,
   DashboardOrderCustomization,
+  MenuItem,
+  MenuCategoriesResponse,
 } from "@/types/api.types";
 
 // ============================================================================
@@ -136,15 +139,34 @@ const getStatusColor = (status: DashboardOrderStatus) => {
     case "pending":
       return "secondary" as const;
     case "confirmed":
-      return "outline" as const;
+      return "default" as const;
     case "preparing":
-      return "outline" as const;
+      return "secondary" as const;
     case "ready":
       return "default" as const;
     case "cancelled":
       return "destructive" as const;
     default:
       return "secondary" as const;
+  }
+};
+
+const getStatusStyles = (status: DashboardOrderStatus): string => {
+  switch (status) {
+    case "pending":
+      return "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border-amber-200 dark:border-amber-800";
+    case "confirmed":
+      return "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border-blue-200 dark:border-blue-800";
+    case "preparing":
+      return "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-300 border-violet-200 dark:border-violet-800";
+    case "ready":
+      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
+    case "completed":
+      return "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border-green-200 dark:border-green-800";
+    case "cancelled":
+      return "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 border-red-200 dark:border-red-800";
+    default:
+      return "bg-gray-100 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300 border-gray-200 dark:border-gray-800";
   }
 };
 
@@ -269,6 +291,13 @@ const Orders = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
+  // Menu state for order creation
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [menuCategories, setMenuCategories] = useState<MenuCategoriesResponse>({ categories: {} });
+  const [isLoadingMenu, setIsLoadingMenu] = useState(false);
+  const [selectedMenuCategory, setSelectedMenuCategory] = useState<string>("all");
+  const [menuSearchQuery, setMenuSearchQuery] = useState("");
+
   // ============================================================================
   // Fetch Functions
   // ============================================================================
@@ -335,6 +364,40 @@ const Orders = () => {
     }
   }, [selectedRestaurantId, statusFilter, startDate, endDate, includeDeleted, limit, offset]);
 
+  const fetchMenu = useCallback(async () => {
+    if (!selectedRestaurantId) return;
+
+    try {
+      setIsLoadingMenu(true);
+      // Fetch menu items with pagination (API max is 100)
+      const allMenuItems: MenuItem[] = [];
+      let page = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        const menuData = await getMenuItems(selectedRestaurantId, {
+          page,
+          limit: 100,
+          is_available: true,
+        });
+        allMenuItems.push(...menuData.items);
+        hasMore = menuData.items.length === 100;
+        page++;
+        // Safety limit to prevent infinite loops
+        if (page > 10) break;
+      }
+
+      const categoriesData = await getMenuCategories(selectedRestaurantId);
+      setMenuItems(allMenuItems);
+      setMenuCategories(categoriesData);
+    } catch (err) {
+      console.error("Failed to load menu:", err);
+      toast.error("Failed to load menu items");
+    } finally {
+      setIsLoadingMenu(false);
+    }
+  }, [selectedRestaurantId]);
+
   // ============================================================================
   // Effects
   // ============================================================================
@@ -377,7 +440,10 @@ const Orders = () => {
   const openCreateDialog = () => {
     setFormData(defaultFormData);
     setFormErrors({});
+    setSelectedMenuCategory("all");
+    setMenuSearchQuery("");
     setIsCreateDialogOpen(true);
+    fetchMenu();
   };
 
   const openEditDialog = (order: DashboardOrder) => {
@@ -466,8 +532,73 @@ const Orders = () => {
     });
   };
 
+  // Add menu item to order
+  const addMenuItemToOrder = (menuItem: MenuItem) => {
+    const newItem: OrderItemFormData = {
+      item_id: menuItem.id,
+      name: menuItem.item_name,
+      quantity: 1,
+      price: parseFloat(menuItem.price),
+      instructions: "",
+    };
+    // Check if item already exists in order
+    const existingIndex = formData.items.findIndex(
+      (item) => item.item_id === menuItem.id && !item.instructions
+    );
+    if (existingIndex >= 0) {
+      // Increment quantity
+      const newItems = [...formData.items];
+      newItems[existingIndex].quantity += 1;
+      const total = calculateTotal(newItems);
+      setFormData({
+        ...formData,
+        items: newItems,
+        total_amount: total.toFixed(2),
+      });
+      toast.success(`Added another ${menuItem.item_name}`);
+    } else {
+      // Add new item (replace empty first item if exists)
+      let newItems: OrderItemFormData[];
+      if (formData.items.length === 1 && !formData.items[0].name) {
+        newItems = [newItem];
+      } else {
+        newItems = [...formData.items, newItem];
+      }
+      const total = calculateTotal(newItems);
+      setFormData({
+        ...formData,
+        items: newItems,
+        total_amount: total.toFixed(2),
+      });
+      toast.success(`Added ${menuItem.item_name} to order`);
+    }
+  };
+
+  // Filter menu items based on category and search
+  const filteredMenuItems = menuItems.filter((item) => {
+    const matchesCategory =
+      selectedMenuCategory === "all" || item.category === selectedMenuCategory;
+    const matchesSearch =
+      !menuSearchQuery ||
+      item.item_name.toLowerCase().includes(menuSearchQuery.toLowerCase()) ||
+      item.item_desc?.toLowerCase().includes(menuSearchQuery.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  // Group filtered menu items by category
+  const groupedMenuItems = filteredMenuItems.reduce(
+    (acc, item) => {
+      if (!acc[item.category]) {
+        acc[item.category] = [];
+      }
+      acc[item.category].push(item);
+      return acc;
+    },
+    {} as Record<string, MenuItem[]>
+  );
+
   // Form validation
-  const validateForm = (): boolean => {
+  const validateForm = (opts?: { requireCustomerPhone?: boolean }): boolean => {
     const errors: Record<string, string> = {};
 
     // Validate items
@@ -501,13 +632,20 @@ const Orders = () => {
       }
     }
 
+    // Customer phone (required for create; backend needs it to associate/resolve user)
+    if (opts?.requireCustomerPhone) {
+      if (!formData.customer_phone.trim()) {
+        errors.customer_phone = "Customer phone number is required";
+      }
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleCreate = async () => {
     if (!selectedRestaurantId) return;
-    if (!validateForm()) return;
+    if (!validateForm({ requireCustomerPhone: true })) return;
 
     try {
       setIsSubmitting(true);
@@ -661,60 +799,197 @@ const Orders = () => {
 
   const renderForm = (isEditMode: boolean = false) => (
     <div className="space-y-6">
+      {/* Menu Browser - Only show for create mode */}
+      {!isEditMode && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label className="text-base font-semibold flex items-center gap-2">
+              <UtensilsCrossed className="h-4 w-4" />
+              Select from Menu
+            </Label>
+            {isLoadingMenu && (
+              <span className="text-xs text-muted-foreground">Loading menu...</span>
+            )}
+          </div>
+
+          {menuItems.length > 0 && (
+            <>
+              {/* Menu Filters */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search menu items..."
+                    className="pl-9"
+                    value={menuSearchQuery}
+                    onChange={(e) => setMenuSearchQuery(e.target.value)}
+                  />
+                </div>
+                <Select value={selectedMenuCategory} onValueChange={setSelectedMenuCategory}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {Object.keys(menuCategories.categories || {}).map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Menu Items Grid */}
+              <ScrollArea className="h-[200px] rounded-lg border bg-muted/20">
+                <div className="p-3 space-y-4">
+                  {Object.entries(groupedMenuItems).map(([category, items]) => (
+                    <div key={category}>
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                        {category}
+                      </h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        {items.map((menuItem) => (
+                          <div
+                            key={menuItem.id}
+                            className="flex items-center justify-between p-2.5 rounded-md border bg-background hover:bg-accent/50 cursor-pointer transition-colors group"
+                            onClick={() => addMenuItemToOrder(menuItem)}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{menuItem.item_name}</p>
+                              {menuItem.item_desc && (
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {menuItem.item_desc}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 ml-2">
+                              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                ${parseFloat(menuItem.price).toFixed(2)}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:hover:bg-emerald-800/50"
+                              >
+                                <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {filteredMenuItems.length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <UtensilsCrossed className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No menu items found</p>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          )}
+
+          {!isLoadingMenu && menuItems.length === 0 && (
+            <div className="text-center py-6 text-muted-foreground border rounded-lg bg-muted/20">
+              <UtensilsCrossed className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No menu items available</p>
+              <p className="text-xs">You can still add custom items below</p>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Order Items */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <Label className="text-base font-semibold">Order Items *</Label>
+          <Label className="text-base font-semibold">
+            {isEditMode ? "Order Items *" : "Order Items"}
+            {formData.items.length > 0 && formData.items[0].name && (
+              <Badge variant="secondary" className="ml-2">
+                {formData.items.reduce((sum, item) => sum + item.quantity, 0)} items
+              </Badge>
+            )}
+          </Label>
           <Button type="button" variant="outline" size="sm" onClick={addItem}>
             <Plus className="h-4 w-4 mr-1" />
-            Add Item
+            Custom Item
           </Button>
         </div>
         {formErrors.items && <p className="text-sm text-destructive">{formErrors.items}</p>}
 
-        <ScrollArea className="max-h-[300px] pr-4">
-          <div className="space-y-4">
+        <ScrollArea className="max-h-[250px] pr-4">
+          <div className="space-y-3">
             {formData.items.map((item, index) => (
-              <div key={index} className="p-4 border rounded-lg space-y-3 bg-muted/30">
+              <div
+                key={index}
+                className={`p-3 border rounded-lg space-y-2 ${
+                  item.item_id
+                    ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/50"
+                    : "bg-muted/30"
+                }`}
+              >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Item {index + 1}</span>
-                  {formData.items.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">
+                      {item.item_id ? (
+                        <span className="flex items-center gap-1">
+                          <UtensilsCrossed className="h-3 w-3 text-emerald-600" />
+                          {item.name}
+                        </span>
+                      ) : (
+                        `Item ${index + 1}`
+                      )}
+                    </span>
+                    {item.item_id && (
+                      <Badge variant="outline" className="text-xs">
+                        From Menu
+                      </Badge>
+                    )}
+                  </div>
+                  {(formData.items.length > 1 || item.name) && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-6 w-6 text-destructive"
+                      className="h-6 w-6 text-destructive hover:bg-destructive/10"
                       onClick={() => removeItem(index)}
                     >
                       <X className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2 space-y-1">
-                    <Label className="text-xs">Item Name *</Label>
-                    <Input
-                      placeholder="Margherita Pizza"
-                      value={item.name}
-                      onChange={(e) => updateItem(index, "name", e.target.value)}
-                      className={formErrors[`item_${index}_name`] ? "border-destructive" : ""}
-                    />
-                    {formErrors[`item_${index}_name`] && (
-                      <p className="text-xs text-destructive">{formErrors[`item_${index}_name`]}</p>
-                    )}
-                  </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {!item.item_id && (
+                    <div className="col-span-4 space-y-1">
+                      <Label className="text-xs">Item Name *</Label>
+                      <Input
+                        placeholder="Custom item name"
+                        value={item.name}
+                        onChange={(e) => updateItem(index, "name", e.target.value)}
+                        className={formErrors[`item_${index}_name`] ? "border-destructive" : ""}
+                      />
+                      {formErrors[`item_${index}_name`] && (
+                        <p className="text-xs text-destructive">
+                          {formErrors[`item_${index}_name`]}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   <div className="space-y-1">
-                    <Label className="text-xs">Quantity *</Label>
+                    <Label className="text-xs">Qty</Label>
                     <Input
                       type="number"
                       min="1"
                       value={item.quantity}
                       onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 1)}
-                      className={formErrors[`item_${index}_quantity`] ? "border-destructive" : ""}
+                      className={`text-center ${formErrors[`item_${index}_quantity`] ? "border-destructive" : ""}`}
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Price ($) *</Label>
+                    <Label className="text-xs">Price</Label>
                     <Input
                       type="number"
                       min="0"
@@ -722,12 +997,13 @@ const Orders = () => {
                       value={item.price}
                       onChange={(e) => updateItem(index, "price", parseFloat(e.target.value) || 0)}
                       className={formErrors[`item_${index}_price`] ? "border-destructive" : ""}
+                      disabled={!!item.item_id}
                     />
                   </div>
                   <div className="col-span-2 space-y-1">
-                    <Label className="text-xs">Special Instructions</Label>
+                    <Label className="text-xs">Instructions</Label>
                     <Input
-                      placeholder="No onions, extra cheese..."
+                      placeholder="Special requests..."
                       value={item.instructions}
                       onChange={(e) => updateItem(index, "instructions", e.target.value)}
                     />
@@ -738,9 +1014,9 @@ const Orders = () => {
           </div>
         </ScrollArea>
 
-        <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border">
-          <span className="font-medium">Total Amount:</span>
-          <span className="text-xl font-bold">
+        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 rounded-lg border border-emerald-200/50 dark:border-emerald-800/50">
+          <span className="font-medium text-emerald-700 dark:text-emerald-300">Total Amount:</span>
+          <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
             {formatCurrency(parseFloat(formData.total_amount) || 0)}
           </span>
         </div>
@@ -760,13 +1036,25 @@ const Orders = () => {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="customer_phone">Phone</Label>
+            <Label htmlFor="customer_phone">
+              Phone{" "}
+              <span className="text-destructive" aria-hidden="true">
+                *
+              </span>
+            </Label>
             <Input
               id="customer_phone"
               placeholder="+1234567890"
               value={formData.customer_phone}
-              onChange={(e) => setFormData({ ...formData, customer_phone: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, customer_phone: e.target.value });
+                if (formErrors.customer_phone) setFormErrors({ ...formErrors, customer_phone: "" });
+              }}
+              className={formErrors.customer_phone ? "border-destructive" : ""}
             />
+            {formErrors.customer_phone && (
+              <p className="text-sm text-destructive">{formErrors.customer_phone}</p>
+            )}
           </div>
         </div>
         <div className="space-y-2">
@@ -1088,7 +1376,7 @@ const Orders = () => {
                                   </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <span className="font-semibold text-green-600 dark:text-green-400">
+                                  <span className="font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-md">
                                     {formatCurrency(order.total_amount)}
                                   </span>
                                 </TableCell>
@@ -1100,13 +1388,12 @@ const Orders = () => {
                                         className="h-auto p-0 hover:bg-transparent"
                                         disabled={isDeleted}
                                       >
-                                        <Badge
-                                          variant={getStatusColor(order.status)}
-                                          className="gap-1 cursor-pointer capitalize"
+                                        <span
+                                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer capitalize ${getStatusStyles(order.status)}`}
                                         >
                                           {getStatusIcon(order.status)}
                                           {order.status}
-                                        </Badge>
+                                        </span>
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="center">
@@ -1337,13 +1624,12 @@ const Orders = () => {
             <div className="space-y-6">
               {/* Status & Deleted Badge */}
               <div className="flex items-center justify-center gap-2">
-                <Badge
-                  variant={getStatusColor(selectedOrder.status)}
-                  className="gap-1 capitalize text-sm px-3 py-1"
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border capitalize ${getStatusStyles(selectedOrder.status)}`}
                 >
                   {getStatusIcon(selectedOrder.status)}
                   {selectedOrder.status}
-                </Badge>
+                </span>
                 {selectedOrder.deleted_at && (
                   <Badge variant="destructive" className="gap-1 text-sm px-3 py-1">
                     <Trash2 className="h-3 w-3" />

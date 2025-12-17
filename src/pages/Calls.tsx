@@ -126,8 +126,25 @@ const getStatusColor = (status: string) => {
 };
 
 const getDayName = (dayOfWeek: number): string => {
+  // Backend day_of_week can be either:
+  // - ISO: 1..7 (Mon..Sun)
+  // - JS/Python-style: 0..6 (Sun..Sat)
+  if (dayOfWeek >= 1 && dayOfWeek <= 7) {
+    const isoDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    return isoDays[dayOfWeek - 1] || `Day ${dayOfWeek}`;
+  }
+
   const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   return days[dayOfWeek] || `Day ${dayOfWeek}`;
+};
+
+const getDaySortKeyMonFirst = (dayOfWeek: number): number => {
+  // Normalize to 0..6 where 0=Monday ... 6=Sunday
+  // ISO: 1..7 (Mon..Sun) => 0..6
+  if (dayOfWeek >= 1 && dayOfWeek <= 7) return dayOfWeek - 1;
+  // JS/Python-style: 0..6 (Sun..Sat) => Mon-first
+  // Sunday(0)->6, Monday(1)->0, ..., Saturday(6)->5
+  return (dayOfWeek + 6) % 7;
 };
 
 const formatCost = (cost: number | null): string => {
@@ -442,74 +459,84 @@ const Calls = () => {
         <main className="flex-1 p-6 space-y-6">
           {/* Analytics Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
+            <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200/50 dark:border-blue-800/50">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
                   Total Calls
                 </CardTitle>
-                <Phone className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 rounded-full bg-blue-500/10">
+                  <Phone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoadingAnalytics ? (
                   <Skeleton className="h-8 w-20" />
                 ) : (
-                  <div className="text-2xl font-bold">{analytics?.total_calls ?? 0}</div>
+                  <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">
+                    {analytics?.total_calls ?? 0}
+                  </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-950/50 dark:to-violet-900/30 border-violet-200/50 dark:border-violet-800/50">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-sm font-medium text-violet-700 dark:text-violet-300">
                   Avg Duration
                 </CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 rounded-full bg-violet-500/10">
+                  <Clock className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoadingAnalytics ? (
                   <Skeleton className="h-8 w-20" />
                 ) : (
-                  <div className="text-2xl font-bold">
+                  <div className="text-3xl font-bold text-violet-900 dark:text-violet-100">
                     {formatDuration(analytics?.average_call_duration ?? 0)}
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 border-emerald-200/50 dark:border-emerald-800/50">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
                   Conversion Rate
                 </CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 rounded-full bg-emerald-500/10">
+                  <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoadingAnalytics ? (
                   <Skeleton className="h-8 w-20" />
                 ) : (
-                  <div className="text-2xl font-bold">
+                  <div className="text-3xl font-bold text-emerald-900 dark:text-emerald-100">
                     {((analytics?.conversion_rates?.rate ?? 0) * 100).toFixed(1)}%
                   </div>
                 )}
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
                   {analytics?.conversion_rates?.orders ?? 0} orders,{" "}
                   {analytics?.conversion_rates?.reservations ?? 0} reservations
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 dark:from-amber-950/50 dark:to-amber-900/30 border-amber-200/50 dark:border-amber-800/50">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-sm font-medium text-amber-700 dark:text-amber-300">
                   Status Breakdown
                 </CardTitle>
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <div className="p-2 rounded-full bg-amber-500/10">
+                  <BarChart3 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoadingAnalytics ? (
                   <Skeleton className="h-8 w-full" />
                 ) : (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {analytics?.status_breakdown &&
                       Object.entries(analytics.status_breakdown).map(([status, count]) => (
                         <Badge key={status} variant={getStatusColor(status)} className="text-xs">
@@ -528,32 +555,40 @@ const Calls = () => {
 
           {/* Call Distribution Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Peak Hours</CardTitle>
-                <CardDescription>Calls by time of day</CardDescription>
+            <Card className="shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-900/50">
+                    <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-semibold">Peak Hours</CardTitle>
+                    <CardDescription className="text-xs">Calls by time of day</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoadingAnalytics ? (
-                  <div className="space-y-2">
-                    {[...Array(4)].map((_, i) => (
-                      <Skeleton key={i} className="h-6 w-full" />
+                  <div className="space-y-3">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-7 w-full" />
                     ))}
                   </div>
                 ) : analytics?.time_of_day_distribution &&
                   analytics.time_of_day_distribution.length > 0 ? (
-                  <div className="space-y-2">
-                    {analytics.time_of_day_distribution
+                  <div className="space-y-2.5">
+                    {[...analytics.time_of_day_distribution]
                       .sort((a, b) => b.count - a.count)
                       .slice(0, 5)
-                      .map((item) => (
+                      .sort((a, b) => a.hour_bucket - b.hour_bucket)
+                      .map((item, idx) => (
                         <div key={item.hour_bucket} className="flex items-center gap-3">
-                          <span className="text-sm font-medium w-20">
+                          <span className="text-sm font-mono font-medium w-14 text-muted-foreground">
                             {item.hour_bucket.toString().padStart(2, "0")}:00
                           </span>
-                          <div className="flex-1 h-4 bg-muted rounded overflow-hidden">
+                          <div className="flex-1 h-6 bg-blue-100/50 dark:bg-blue-900/30 rounded-md overflow-hidden">
                             <div
-                              className="h-full bg-primary transition-all"
+                              className="h-full bg-gradient-to-r from-blue-500 to-blue-400 dark:from-blue-600 dark:to-blue-500 transition-all duration-500 rounded-md"
                               style={{
                                 width: `${
                                   (item.count /
@@ -565,42 +600,56 @@ const Calls = () => {
                               }}
                             />
                           </div>
-                          <span className="text-sm text-muted-foreground w-10 text-right">
+                          <span className="text-sm font-semibold w-10 text-right text-blue-700 dark:text-blue-300">
                             {item.count}
                           </span>
                         </div>
                       ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No data available</p>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No data available</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Busiest Days</CardTitle>
-                <CardDescription>Calls by day of week</CardDescription>
+            <Card className="shadow-sm">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-md bg-violet-100 dark:bg-violet-900/50">
+                    <Calendar className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-semibold">Busiest Days</CardTitle>
+                    <CardDescription className="text-xs">Calls by day of week</CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoadingAnalytics ? (
-                  <div className="space-y-2">
-                    {[...Array(4)].map((_, i) => (
-                      <Skeleton key={i} className="h-6 w-full" />
+                  <div className="space-y-3">
+                    {[...Array(7)].map((_, i) => (
+                      <Skeleton key={i} className="h-7 w-full" />
                     ))}
                   </div>
                 ) : analytics?.calls_by_day_of_week && analytics.calls_by_day_of_week.length > 0 ? (
-                  <div className="space-y-2">
-                    {analytics.calls_by_day_of_week
-                      .sort((a, b) => b.count - a.count)
+                  <div className="space-y-2.5">
+                    {[...analytics.calls_by_day_of_week]
+                      .sort(
+                        (a, b) =>
+                          getDaySortKeyMonFirst(a.day_of_week) -
+                          getDaySortKeyMonFirst(b.day_of_week)
+                      )
                       .map((item) => (
                         <div key={item.day_of_week} className="flex items-center gap-3">
-                          <span className="text-sm font-medium w-24">
-                            {getDayName(item.day_of_week)}
+                          <span className="text-sm font-medium w-20 text-muted-foreground">
+                            {getDayName(item.day_of_week).slice(0, 3)}
                           </span>
-                          <div className="flex-1 h-4 bg-muted rounded overflow-hidden">
+                          <div className="flex-1 h-6 bg-violet-100/50 dark:bg-violet-900/30 rounded-md overflow-hidden">
                             <div
-                              className="h-full bg-primary transition-all"
+                              className="h-full bg-gradient-to-r from-violet-500 to-violet-400 dark:from-violet-600 dark:to-violet-500 transition-all duration-500 rounded-md"
                               style={{
                                 width: `${
                                   (item.count /
@@ -612,14 +661,17 @@ const Calls = () => {
                               }}
                             />
                           </div>
-                          <span className="text-sm text-muted-foreground w-10 text-right">
+                          <span className="text-sm font-semibold w-10 text-right text-violet-700 dark:text-violet-300">
                             {item.count}
                           </span>
                         </div>
                       ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No data available</p>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Calendar className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No data available</p>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -1091,36 +1143,55 @@ const Calls = () => {
               {(selectedCall.twilio_cost ||
                 selectedCall.deepgram_cost ||
                 selectedCall.ressy_cost) && (
-                <div className="border rounded-lg p-4 bg-muted/30">
-                  <div className="flex items-center gap-2 mb-3">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <Label className="font-medium">Call Costs</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Internal Cost */}
+                  <div className="border rounded-lg p-4 bg-slate-50 dark:bg-slate-900/50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <DollarSign className="h-4 w-4 text-slate-500" />
+                      <Label className="font-medium text-slate-700 dark:text-slate-300">
+                        Internal Cost
+                      </Label>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Twilio</span>
+                        <span className="font-mono">{formatCost(selectedCall.twilio_cost)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Deepgram</span>
+                        <span className="font-mono">{formatCost(selectedCall.deepgram_cost)}</span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t font-medium">
+                        <span>Total Internal</span>
+                        <span className="font-mono text-slate-600 dark:text-slate-400">
+                          {formatCost(
+                            (selectedCall.twilio_cost || 0) + (selectedCall.deepgram_cost || 0)
+                          )}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Twilio:</span>
-                      <span className="ml-2 font-mono">{formatCost(selectedCall.twilio_cost)}</span>
+
+                  {/* Customer Billing */}
+                  <div className="border rounded-lg p-4 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800">
+                    <div className="flex items-center gap-2 mb-3">
+                      <DollarSign className="h-4 w-4 text-emerald-600" />
+                      <Label className="font-medium text-emerald-700 dark:text-emerald-300">
+                        Customer Billing
+                      </Label>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Deepgram:</span>
-                      <span className="ml-2 font-mono">
-                        {formatCost(selectedCall.deepgram_cost)}
-                      </span>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Ressy Fee</span>
+                        <span className="font-mono">{formatCost(selectedCall.ressy_cost)}</span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t border-emerald-200 dark:border-emerald-800 font-medium">
+                        <span>Amount Billed</span>
+                        <span className="font-mono text-emerald-600 dark:text-emerald-400 text-lg">
+                          {formatCost(selectedCall.ressy_cost)}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Ressy:</span>
-                      <span className="ml-2 font-mono">{formatCost(selectedCall.ressy_cost)}</span>
-                    </div>
-                  </div>
-                  <div className="mt-2 pt-2 border-t">
-                    <span className="text-muted-foreground">Total:</span>
-                    <span className="ml-2 font-mono font-medium">
-                      {formatCost(
-                        (selectedCall.twilio_cost || 0) +
-                          (selectedCall.deepgram_cost || 0) +
-                          (selectedCall.ressy_cost || 0)
-                      )}
-                    </span>
                   </div>
                 </div>
               )}
