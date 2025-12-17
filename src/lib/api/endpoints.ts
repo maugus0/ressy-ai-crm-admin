@@ -117,11 +117,19 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
-  // Orders (placeholder - API not ready)
+  // Dashboard Orders
   // ============================================================================
-  ORDERS: {
-    LIST: "/orders",
-    GET: (id: number) => `/orders/${id}`,
+  DASHBOARD_ORDERS: {
+    // Restaurant-scoped operations
+    LIST: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/orders`,
+    CREATE: (restaurantId: number) => `/dashboard/restaurants/${restaurantId}/orders`,
+    // Order-scoped operations (by order_id)
+    GET: (orderId: number) => `/dashboard/orders/${orderId}`,
+    UPDATE: (orderId: number) => `/dashboard/orders/${orderId}`,
+    DELETE: (orderId: number) => `/dashboard/orders/${orderId}`,
+    UPDATE_STATUS: (orderId: number) => `/dashboard/orders/${orderId}/status`,
+    CANCEL: (orderId: number) => `/dashboard/orders/${orderId}/cancel`,
+    RESTORE: (orderId: number) => `/dashboard/orders/${orderId}/restore`,
   },
 
   // ============================================================================

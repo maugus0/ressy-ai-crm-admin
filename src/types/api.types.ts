@@ -475,38 +475,124 @@ export interface CallAnalyticsParams {
 }
 
 // ============================================================================
-// Order
+// Dashboard Order
 // ============================================================================
 
-export interface OrderItem {
-  id: number;
-  menu_item_id: number;
-  item_name: string;
+export type DashboardOrderStatus =
+  | "pending"
+  | "confirmed"
+  | "preparing"
+  | "ready"
+  | "completed"
+  | "cancelled";
+
+export interface DashboardOrderItem {
+  item_id: number;
+  name: string;
   quantity: number;
-  unit_price: string;
-  total_price: string;
+  price: number;
+  instructions?: string | null;
 }
 
-export interface Order {
+export interface DashboardOrderCustomization {
+  delivery?: boolean;
+  notes?: string;
+  table_number?: number;
+  [key: string]: unknown;
+}
+
+export interface DashboardOrder {
   id: number;
+  user_id: number | null;
   restaurant_id: number;
-  restaurant_name: string;
-  caller_id: number | null;
-  caller_phone: string | null;
-  call_id: number | null;
-  status: "pending" | "confirmed" | "preparing" | "ready" | "completed" | "cancelled";
-  total_amount: string;
-  items: OrderItem[];
-  notes: string | null;
+  status: DashboardOrderStatus;
+  total_amount: number;
+  order_details: DashboardOrderItem[];
+  customization: DashboardOrderCustomization | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_email: string | null;
   created_at: string;
   updated_at: string;
+  deleted_at: string | null;
 }
 
-export interface OrderParams extends PaginationParams {
-  restaurant_id?: number;
-  status?: string;
-  date_from?: string;
-  date_to?: string;
+export interface DashboardOrderListResponse {
+  restaurant_id: number;
+  orders: DashboardOrder[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface DashboardOrderParams {
+  status?: DashboardOrderStatus;
+  start_date?: string;
+  end_date?: string;
+  include_deleted?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface DashboardOrderCreateItem {
+  item_id?: number;
+  name: string;
+  quantity: number;
+  price: number;
+  instructions?: string;
+}
+
+export interface DashboardOrderCreateRequest {
+  order_details: DashboardOrderCreateItem[];
+  total_amount: number;
+  customer_name?: string;
+  customer_phone?: string;
+  customer_email?: string;
+  customization?: DashboardOrderCustomization;
+  status?: DashboardOrderStatus;
+}
+
+export interface DashboardOrderCreateResponse {
+  order_id: number;
+  restaurant_id: number;
+  user_id: number | null;
+  status: DashboardOrderStatus;
+  total_amount: number;
+  order_details: DashboardOrderItem[];
+  customization: DashboardOrderCustomization | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  customer_email: string | null;
+  message: string;
+}
+
+export interface DashboardOrderUpdateRequest {
+  status?: DashboardOrderStatus;
+  total_amount?: number;
+  order_details?: DashboardOrderCreateItem[];
+  customization?: DashboardOrderCustomization;
+}
+
+export interface DashboardOrderStatusUpdateRequest {
+  status: DashboardOrderStatus;
+}
+
+export interface DashboardOrderStatusUpdateResponse {
+  order_id: number;
+  status: DashboardOrderStatus;
+  message: string;
+}
+
+export interface DashboardOrderCancelResponse {
+  order_id: number;
+  status: "cancelled";
+  previous_status: DashboardOrderStatus;
+  message: string;
+}
+
+export interface DashboardOrderRestoreResponse {
+  order_id: number;
+  message: string;
 }
 
 // ============================================================================
