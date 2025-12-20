@@ -151,4 +151,13 @@ export const ENDPOINTS = {
     LIST: "/transcripts",
     GET: (id: number) => `/transcripts/${id}`,
   },
+
+  // ============================================================================
+  // SSE (Server-Sent Events)
+  // ============================================================================
+  SSE: {
+    STREAM: "/sse/events/stream",
+    ESCALATION: (restaurantId: number) => `/sse/events/escalation/${restaurantId}`,
+    STATS: "/sse/events/stats",
+  },
 } as const;

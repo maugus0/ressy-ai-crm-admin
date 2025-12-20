@@ -261,6 +261,8 @@ const Menu = () => {
       setAvailableSubCategories([]);
     }
     setSelectedSubCategory("");
+    // Reset to page 1 when category changes
+    setCurrentPage(1);
   }, [selectedCategory, categories]);
 
   // ============================================================================

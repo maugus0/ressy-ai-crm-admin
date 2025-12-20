@@ -60,9 +60,11 @@ import {
   XCircle,
   Filter,
   X,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
 import { getRestaurants } from "@/services/restaurants";
 import {
   getReservations,
@@ -122,6 +124,7 @@ const defaultFormData: ReservationFormData = {
  */
 const Reservations = () => {
   const { user } = useAuth();
+  const { events } = useSSE();
   const isAdmin = user?.role === "admin" || user?.permissions?.includes("*");
 
   // Layout state
@@ -303,6 +306,28 @@ const Reservations = () => {
       fetchReservations();
     }
   }, [fetchReservations, selectedRestaurantId]);
+
+  // Track last processed event to avoid duplicate refreshes
+  const lastProcessedReservationEventRef = useRef<string | null>(null);
+
+  // Auto-refresh when reservation events arrive from SSE
+  useEffect(() => {
+    // Find the most recent reservation event for this restaurant
+    const reservationEvents = events.filter(
+      (e) =>
+        e.event_type === "reservation" &&
+        (selectedRestaurantId === null || e.restaurant_id === Number(selectedRestaurantId))
+    );
+
+    if (
+      reservationEvents.length > 0 &&
+      reservationEvents[0].id !== lastProcessedReservationEventRef.current
+    ) {
+      lastProcessedReservationEventRef.current = reservationEvents[0].id;
+      // Silently refresh the reservations list
+      fetchReservations();
+    }
+  }, [events, selectedRestaurantId, fetchReservations]);
 
   // Separate state for date range validation error
   const [dateRangeError, setDateRangeError] = useState<string | null>(null);
@@ -870,6 +895,21 @@ const Reservations = () => {
                     <Plus className="h-4 w-4 mr-2" />
                     <span className="hidden sm:inline">Add Reservation</span>
                     <span className="sm:hidden">Add</span>
+                  </Button>
+
+                  {/* Refresh */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={fetchReservations}
+                    disabled={isLoadingReservations || !selectedRestaurantId}
+                    className="w-full sm:w-10 sm:h-10"
+                    aria-label="Refresh reservations"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${isLoadingReservations ? "animate-spin" : ""}`}
+                    />
+                    <span className="ml-2 sm:hidden">Refresh</span>
                   </Button>
                 </div>
               </div>

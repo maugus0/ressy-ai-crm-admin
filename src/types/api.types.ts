@@ -706,3 +706,43 @@ export interface Transcript {
 export interface DeleteResponse {
   message: string;
 }
+
+// ============================================================================
+// SSE (Server-Sent Events)
+// ============================================================================
+
+export type SSEEscalationType = "user_requested" | "internal_server_error" | "suspected_spam";
+
+export type SSEEventType = "escalation" | "order" | "reservation" | "heartbeat";
+
+export type SSEEventSubtype =
+  | "user_requested"
+  | "internal_server_error"
+  | "suspected_spam"
+  | "new_order"
+  | "order_updated"
+  | "order_cancelled"
+  | "new_reservation"
+  | "reservation_updated"
+  | "reservation_cancelled";
+
+export interface SSEEvent {
+  id: string;
+  event_type: SSEEventType;
+  subtype: SSEEventSubtype;
+  restaurant_id: number;
+  timestamp: string;
+  data: Record<string, unknown>;
+}
+
+export interface SSEConnectionStats {
+  total_connections: number;
+  admin_connections: number;
+  restaurants_with_connections: number;
+  connections_per_restaurant: Record<string, number>;
+}
+
+export interface SSEEscalationRequest {
+  type: SSEEscalationType;
+  data: Record<string, unknown>;
+}

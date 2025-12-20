@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -66,6 +67,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
 import { getRestaurants } from "@/services/restaurants";
 import {
   getCalls,
@@ -160,6 +162,8 @@ const formatCost = (cost: number | null): string => {
 
 const Calls = () => {
   const { user } = useAuth();
+  const { events } = useSSE();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isAdmin = user?.role === "admin" || user?.permissions?.includes("*");
 
   // Layout state
@@ -345,6 +349,40 @@ const Calls = () => {
   useEffect(() => {
     fetchAnalytics();
   }, [fetchAnalytics]);
+
+  // Track last processed event to avoid duplicate refreshes
+  const lastProcessedEscalationEventRef = useRef<string | null>(null);
+
+  // Auto-refresh when escalation events arrive from SSE
+  useEffect(() => {
+    // Find the most recent escalation event for this restaurant
+    const escalationEvents = events.filter(
+      (e) =>
+        e.event_type === "escalation" &&
+        (selectedRestaurantId === "" || e.restaurant_id === Number(selectedRestaurantId))
+    );
+
+    if (
+      escalationEvents.length > 0 &&
+      escalationEvents[0].id !== lastProcessedEscalationEventRef.current
+    ) {
+      lastProcessedEscalationEventRef.current = escalationEvents[0].id;
+      // Refresh calls and analytics when escalation occurs
+      fetchCalls();
+      fetchAnalytics();
+    }
+  }, [events, selectedRestaurantId, fetchCalls, fetchAnalytics]);
+
+  // Handle call_id URL parameter (from escalation links)
+  useEffect(() => {
+    const callIdFromUrl = searchParams.get("call_id");
+    if (callIdFromUrl && !isLoadingCalls) {
+      // Clear the URL parameter to avoid re-opening on refresh
+      setSearchParams({}, { replace: true });
+      // Open the call details
+      handleViewDetails(callIdFromUrl);
+    }
+  }, [searchParams, isLoadingCalls, setSearchParams]);
 
   // Reset page when filters change
   useEffect(() => {

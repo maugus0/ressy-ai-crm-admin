@@ -82,6 +82,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
 import { getRestaurants } from "@/services/restaurants";
 import {
   getOrders,
@@ -231,6 +232,7 @@ const defaultFormData: OrderFormData = {
 
 const Orders = () => {
   const { user } = useAuth();
+  const { events } = useSSE();
   const isAdmin = user?.role === "admin" || user?.permissions?.includes("*");
 
   // Layout state
@@ -395,6 +397,25 @@ const Orders = () => {
       fetchOrders();
     }
   }, [fetchOrders, selectedRestaurantId]);
+
+  // Track last processed event to avoid duplicate refreshes
+  const lastProcessedEventRef = useRef<string | null>(null);
+
+  // Auto-refresh when order events arrive from SSE
+  useEffect(() => {
+    // Find the most recent order event for this restaurant
+    const orderEvents = events.filter(
+      (e) =>
+        e.event_type === "order" &&
+        (selectedRestaurantId === null || e.restaurant_id === Number(selectedRestaurantId))
+    );
+
+    if (orderEvents.length > 0 && orderEvents[0].id !== lastProcessedEventRef.current) {
+      lastProcessedEventRef.current = orderEvents[0].id;
+      // Silently refresh the orders list
+      fetchOrders();
+    }
+  }, [events, selectedRestaurantId, fetchOrders]);
 
   useEffect(() => {
     setOffset(0);

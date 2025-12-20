@@ -4,10 +4,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { SSEProvider } from "@/contexts/SSEContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import Callers from "./pages/Callers";
 import Calls from "./pages/Calls";
+import Escalations from "./pages/Escalations";
 import FAQ from "./pages/FAQ";
 import Menu from "./pages/Menu";
 import Orders from "./pages/Orders";
@@ -32,87 +34,97 @@ const App = () => (
       <Toaster />
       <Sonner />
       <AuthProvider>
-        <BrowserRouter basename={getBasename()}>
-          <div className="w-full">
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Navigate to="/restaurants" replace />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/callers"
-                element={
-                  <ProtectedRoute>
-                    <Callers />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/calls"
-                element={
-                  <ProtectedRoute>
-                    <Calls />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/faq"
-                element={
-                  <ProtectedRoute>
-                    <FAQ />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/menu"
-                element={
-                  <ProtectedRoute>
-                    <Menu />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/orders"
-                element={
-                  <ProtectedRoute>
-                    <Orders />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/reservations"
-                element={
-                  <ProtectedRoute>
-                    <Reservations />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/restaurants"
-                element={
-                  <ProtectedRoute>
-                    <Restaurants />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/users"
-                element={
-                  <ProtectedRoute>
-                    <Users />
-                  </ProtectedRoute>
-                }
-              />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </div>
-        </BrowserRouter>
+        <SSEProvider>
+          <BrowserRouter basename={getBasename()}>
+            <div className="w-full">
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <Navigate to="/restaurants" replace />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/callers"
+                  element={
+                    <ProtectedRoute>
+                      <Callers />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/calls"
+                  element={
+                    <ProtectedRoute>
+                      <Calls />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/escalations"
+                  element={
+                    <ProtectedRoute>
+                      <Escalations />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/faq"
+                  element={
+                    <ProtectedRoute>
+                      <FAQ />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/menu"
+                  element={
+                    <ProtectedRoute>
+                      <Menu />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/orders"
+                  element={
+                    <ProtectedRoute>
+                      <Orders />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/reservations"
+                  element={
+                    <ProtectedRoute>
+                      <Reservations />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/restaurants"
+                  element={
+                    <ProtectedRoute>
+                      <Restaurants />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/users"
+                  element={
+                    <ProtectedRoute>
+                      <Users />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </div>
+          </BrowserRouter>
+        </SSEProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
