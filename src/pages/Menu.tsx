@@ -61,6 +61,9 @@ import {
   Filter,
   X,
   CheckSquare,
+  FileText,
+  Upload,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getRestaurants } from "@/services/restaurants";
@@ -75,6 +78,12 @@ import {
   toggleMenuItemSpecial,
   bulkUpdateMenuAvailability,
 } from "@/services/menu";
+import {
+  parseCSVLine,
+  sanitizeCSVValue,
+  validateCSVFileSize,
+  MAX_CSV_FILE_SIZE,
+} from "@/lib/utils/csv";
 import type {
   Restaurant,
   MenuItem,
@@ -154,6 +163,11 @@ const Menu = () => {
   const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [bulkAvailability, setBulkAvailability] = useState(true);
+
+  // CSV upload state
+  const [isCsvDialogOpen, setIsCsvDialogOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvParsing, setCsvParsing] = useState(false);
 
   // Form validation state
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -507,6 +521,109 @@ const Menu = () => {
     }
   };
 
+  // CSV Upload Handler
+  const handleCsvFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.name.endsWith(".csv")) {
+      toast.error("Please select a CSV file");
+      return;
+    }
+
+    // Validate file size
+    if (!validateCSVFileSize(file)) {
+      toast.error(`File size must be less than ${MAX_CSV_FILE_SIZE / 1024 / 1024}MB`);
+      return;
+    }
+
+    setCsvFile(file);
+  };
+
+  const handleCsvUpload = async () => {
+    if (!csvFile || !selectedRestaurantId) return;
+
+    try {
+      setCsvParsing(true);
+      const text = await csvFile.text();
+      const lines = text.split("\n").filter((line) => line.trim() !== "");
+
+      if (lines.length === 0) {
+        toast.error("CSV file is empty");
+        return;
+      }
+
+      // Parse CSV - expect format: menu_item_id (first column)
+      // Optional header row - skip if first line doesn't look like a number
+      let startIndex = 0;
+      const firstLine = parseCSVLine(lines[0]);
+      if (firstLine.length > 0 && isNaN(Number(sanitizeCSVValue(firstLine[0])))) {
+        // First line is likely a header, skip it
+        startIndex = 1;
+      }
+
+      const menuItemIds: number[] = [];
+      const errors: string[] = [];
+
+      for (let i = startIndex; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const columns = parseCSVLine(line);
+        if (columns.length === 0) continue;
+
+        // Get first column (menu_item_id)
+        const idStr = sanitizeCSVValue(columns[0]);
+        const id = parseInt(idStr, 10);
+
+        if (isNaN(id)) {
+          errors.push(`Line ${i + 1}: Invalid menu item ID "${idStr}"`);
+          continue;
+        }
+
+        if (id <= 0) {
+          errors.push(`Line ${i + 1}: Menu item ID must be positive`);
+          continue;
+        }
+
+        menuItemIds.push(id);
+      }
+
+      if (menuItemIds.length === 0) {
+        toast.error("No valid menu item IDs found in CSV file");
+        if (errors.length > 0) {
+          console.error("CSV parsing errors:", errors);
+        }
+        return;
+      }
+
+      if (errors.length > 0) {
+        toast.warning(
+          `${errors.length} error(s) found, but processing ${menuItemIds.length} valid ID(s)`
+        );
+        console.warn("CSV parsing warnings:", errors);
+      }
+
+      // Perform bulk update
+      setIsSubmitting(true);
+      const result = await bulkUpdateMenuAvailability(selectedRestaurantId, {
+        menu_item_ids: menuItemIds,
+        is_available: bulkAvailability,
+      });
+
+      toast.success(`Updated availability for ${result.updated_count} item(s) from CSV`);
+      setIsCsvDialogOpen(false);
+      setCsvFile(null);
+      fetchMenuItems();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to process CSV file");
+    } finally {
+      setCsvParsing(false);
+      setIsSubmitting(false);
+    }
+  };
+
   // ============================================================================
   // Helper Functions
   // ============================================================================
@@ -555,7 +672,7 @@ const Menu = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="price">Price *</Label>
               <Input
@@ -595,40 +712,87 @@ const Menu = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
-              <Input
-                id="category"
-                placeholder="e.g., Pizza"
-                value={formData.category}
-                onChange={(e) => {
-                  setFormData({ ...formData, category: e.target.value });
-                  if (formErrors.category) setFormErrors({ ...formErrors, category: "" });
-                }}
-                className={formErrors.category ? "border-destructive" : ""}
-                maxLength={100}
-              />
+              <div className="space-y-2">
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => {
+                    if (value === "__new__") {
+                      setFormData({ ...formData, category: "" });
+                    } else {
+                      setFormData({ ...formData, category: value, sub_category: "" });
+                    }
+                    if (formErrors.category) setFormErrors({ ...formErrors, category: "" });
+                  }}
+                >
+                  <SelectTrigger className={formErrors.category ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Select or type new" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getCategoryList().map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__new__">+ New Category</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(formData.category === "" || !getCategoryList().includes(formData.category)) && (
+                  <Input
+                    placeholder="Type new category..."
+                    value={formData.category}
+                    onChange={(e) => {
+                      setFormData({ ...formData, category: e.target.value });
+                      if (formErrors.category) setFormErrors({ ...formErrors, category: "" });
+                    }}
+                    maxLength={100}
+                  />
+                )}
+              </div>
               {formErrors.category && (
                 <p className="text-sm text-destructive">{formErrors.category}</p>
               )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="sub_category">Sub-Category</Label>
-              <Input
-                id="sub_category"
-                placeholder="e.g., Classic"
-                value={formData.sub_category}
-                onChange={(e) => {
-                  setFormData({ ...formData, sub_category: e.target.value });
-                  if (formErrors.sub_category) setFormErrors({ ...formErrors, sub_category: "" });
-                }}
-                className={formErrors.sub_category ? "border-destructive" : ""}
-                maxLength={100}
-              />
-              {formErrors.sub_category && (
-                <p className="text-sm text-destructive">{formErrors.sub_category}</p>
-              )}
+              <div className="space-y-2">
+                {categories?.categories[formData.category]?.length ? (
+                  <Select
+                    value={formData.sub_category}
+                    onValueChange={(value) => {
+                      if (value === "__new__") {
+                        setFormData({ ...formData, sub_category: "" });
+                      } else {
+                        setFormData({ ...formData, sub_category: value });
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select or type new" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.categories[formData.category].map((sub) => (
+                        <SelectItem key={sub} value={sub}>
+                          {sub}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__new__">+ New Sub-Category</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : null}
+                {(!categories?.categories[formData.category]?.length ||
+                  formData.sub_category === "" ||
+                  !categories?.categories[formData.category]?.includes(formData.sub_category)) && (
+                  <Input
+                    placeholder="Type sub-category (optional)..."
+                    value={formData.sub_category}
+                    onChange={(e) => setFormData({ ...formData, sub_category: e.target.value })}
+                    maxLength={100}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -697,18 +861,22 @@ const Menu = () => {
           title="Menu Management"
           description="Manage menu items, categories, and specials"
         />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-3 sm:p-4 lg:p-6">
           <Card>
-            <CardHeader className="space-y-4">
+            <CardHeader className="space-y-4 p-4 sm:p-6">
               {/* Header Row */}
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <UtensilsCrossed className="h-6 w-6 text-primary" />
-                  <CardTitle>Menu Items</CardTitle>
-                  {pagination && <Badge variant="secondary">{pagination.total} items</Badge>}
+                  <UtensilsCrossed className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                  <CardTitle className="text-lg sm:text-xl">Menu Items</CardTitle>
+                  {pagination && (
+                    <Badge variant="secondary" className="text-xs sm:text-sm">
+                      {pagination.total} items
+                    </Badge>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   {/* Restaurant Selector */}
                   <Select
                     value={selectedRestaurantId?.toString() || ""}
@@ -734,7 +902,7 @@ const Menu = () => {
                     className="w-full sm:w-auto"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    <span className="sm:inline">Add Item</span>
+                    <span>Add Item</span>
                   </Button>
                 </div>
               </div>
@@ -745,20 +913,20 @@ const Menu = () => {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search menu items..."
-                    className="pl-9"
+                    className="pl-9 w-full"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   />
                 </div>
 
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex flex-wrap gap-2">
                   {/* Category Filter */}
                   <Select
                     value={selectedCategory || "all"}
                     onValueChange={(v) => setSelectedCategory(v === "all" ? "" : v)}
                   >
-                    <SelectTrigger className="w-[160px]">
+                    <SelectTrigger className="w-full sm:w-[140px] md:w-[160px]">
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -777,7 +945,7 @@ const Menu = () => {
                       value={selectedSubCategory || "all"}
                       onValueChange={(v) => setSelectedSubCategory(v === "all" ? "" : v)}
                     >
-                      <SelectTrigger className="w-[160px]">
+                      <SelectTrigger className="w-full sm:w-[140px] md:w-[160px]">
                         <SelectValue placeholder="Sub-category" />
                       </SelectTrigger>
                       <SelectContent>
@@ -794,17 +962,24 @@ const Menu = () => {
                   {/* More Filters Toggle */}
                   <Button
                     variant={showFilters ? "secondary" : "outline"}
-                    size="icon"
+                    size="sm"
                     onClick={() => setShowFilters(!showFilters)}
+                    className="flex-1 sm:flex-initial"
                   >
-                    <Filter className="h-4 w-4" />
+                    <Filter className="h-4 w-4 mr-1 sm:mr-0" />
+                    <span className="sm:hidden">Filters</span>
                   </Button>
 
                   {/* Clear Filters */}
                   {(selectedCategory || searchQuery || filterAvailable !== undefined) && (
-                    <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearFilters}
+                      className="flex-1 sm:flex-initial"
+                    >
                       <X className="h-4 w-4 mr-1" />
-                      Clear
+                      <span className="sm:hidden">Clear</span>
                     </Button>
                   )}
                 </div>
@@ -812,16 +987,16 @@ const Menu = () => {
 
               {/* Additional Filters */}
               {showFilters && (
-                <div className="flex flex-wrap gap-4 p-4 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm">Availability:</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <Label className="text-sm whitespace-nowrap">Availability:</Label>
                     <Select
                       value={filterAvailable === undefined ? "all" : String(filterAvailable)}
                       onValueChange={(v) =>
                         setFilterAvailable(v === "all" ? undefined : v === "true")
                       }
                     >
-                      <SelectTrigger className="w-[120px]">
+                      <SelectTrigger className="w-full sm:w-[140px]">
                         <SelectValue placeholder="All" />
                       </SelectTrigger>
                       <SelectContent>
@@ -832,15 +1007,15 @@ const Menu = () => {
                     </Select>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm">Special:</Label>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <Label className="text-sm whitespace-nowrap">Special:</Label>
                     <Select
                       value={filterSpecial === undefined ? "all" : String(filterSpecial)}
                       onValueChange={(v) =>
                         setFilterSpecial(v === "all" ? undefined : v === "true")
                       }
                     >
-                      <SelectTrigger className="w-[120px]">
+                      <SelectTrigger className="w-full sm:w-[140px]">
                         <SelectValue placeholder="All" />
                       </SelectTrigger>
                       <SelectContent>
@@ -854,44 +1029,75 @@ const Menu = () => {
               )}
 
               {/* Bulk Actions */}
-              {selectedItemIds.size > 0 && (
-                <div className="flex items-center gap-3 p-3 bg-primary/10 rounded-lg">
-                  <CheckSquare className="h-4 w-4" />
-                  <span className="text-sm font-medium">
-                    {selectedItemIds.size} item(s) selected
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setBulkAvailability(true);
-                      setIsBulkDialogOpen(true);
-                    }}
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    Set Available
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setBulkAvailability(false);
-                      setIsBulkDialogOpen(true);
-                    }}
-                  >
-                    <EyeOff className="h-4 w-4 mr-1" />
-                    Set Unavailable
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedItemIds(new Set())}>
-                    Clear
-                  </Button>
-                </div>
-              )}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-muted/30 rounded-lg -mb-10">
+                {selectedItemIds.size > 0 ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <CheckSquare className="h-4 w-4" />
+                      <span className="text-sm font-medium">
+                        {selectedItemIds.size} item(s) selected
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBulkAvailability(true);
+                          setIsBulkDialogOpen(true);
+                        }}
+                        className="flex-1 sm:flex-initial"
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Set Available
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBulkAvailability(false);
+                          setIsBulkDialogOpen(true);
+                        }}
+                        className="flex-1 sm:flex-initial"
+                      >
+                        <EyeOff className="h-4 w-4 mr-1" />
+                        Set Unavailable
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSelectedItemIds(new Set())}
+                        className="flex-1 sm:flex-initial"
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Bulk update via CSV:</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setBulkAvailability(true);
+                        setIsCsvDialogOpen(true);
+                      }}
+                      disabled={!selectedRestaurantId}
+                      className="flex-1 sm:flex-initial"
+                    >
+                      <Upload className="h-4 w-4 mr-1" />
+                      Upload CSV
+                    </Button>
+                  </>
+                )}
+              </div>
             </CardHeader>
 
-            <CardContent>
+            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
               {error && (
-                <div className="text-center py-8 px-4 text-destructive bg-destructive/5 rounded-lg mb-4">
+                <div className="text-center py-6 px-4 text-sm sm:text-base text-destructive bg-destructive/5 rounded-lg mb-4">
                   {error}
                 </div>
               )}
@@ -904,12 +1110,13 @@ const Menu = () => {
                 </div>
               ) : (
                 <>
-                  <div className="overflow-x-auto border rounded-lg">
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block overflow-x-auto border rounded-lg">
                     <TooltipProvider>
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-muted/50">
-                            <TableHead className="w-[40px] hidden sm:table-cell">
+                            <TableHead className="w-[40px]">
                               <Checkbox
                                 checked={
                                   menuItems.length > 0 &&
@@ -919,19 +1126,13 @@ const Menu = () => {
                               />
                             </TableHead>
                             <TableHead className="font-semibold">Item</TableHead>
-                            <TableHead className="font-semibold hidden md:table-cell">
-                              Category
-                            </TableHead>
-                            <TableHead className="font-semibold text-right hidden sm:table-cell">
-                              Price
-                            </TableHead>
+                            <TableHead className="font-semibold">Category</TableHead>
+                            <TableHead className="font-semibold text-right">Price</TableHead>
                             <TableHead className="font-semibold text-center hidden lg:table-cell">
                               Prep
                             </TableHead>
                             <TableHead className="font-semibold text-center">Available</TableHead>
-                            <TableHead className="font-semibold text-center hidden sm:table-cell">
-                              Special
-                            </TableHead>
+                            <TableHead className="font-semibold text-center">Special</TableHead>
                             <TableHead className="font-semibold text-right">Actions</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -941,7 +1142,7 @@ const Menu = () => {
                               key={item.id}
                               className="group hover:bg-muted/30 transition-colors"
                             >
-                              <TableCell className="hidden sm:table-cell">
+                              <TableCell>
                                 <Checkbox
                                   checked={selectedItemIds.has(item.id)}
                                   onCheckedChange={(checked) =>
@@ -950,27 +1151,16 @@ const Menu = () => {
                                 />
                               </TableCell>
                               <TableCell>
-                                <div className="min-w-[140px] sm:min-w-[200px]">
-                                  <p className="font-medium text-sm sm:text-base">
-                                    {item.item_name}
-                                  </p>
+                                <div className="min-w-[200px]">
+                                  <p className="font-medium text-base">{item.item_name}</p>
                                   {item.item_desc && (
-                                    <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[180px] sm:max-w-[280px]">
+                                    <p className="text-sm text-muted-foreground truncate max-w-[280px]">
                                       {item.item_desc}
                                     </p>
                                   )}
-                                  {/* Mobile-only: Show price and category inline */}
-                                  <div className="flex items-center gap-2 mt-1 sm:hidden">
-                                    <span className="text-xs font-semibold text-primary">
-                                      ${item.price}
-                                    </span>
-                                    <Badge variant="outline" className="text-xs px-1.5 py-0">
-                                      {item.category}
-                                    </Badge>
-                                  </div>
                                 </div>
                               </TableCell>
-                              <TableCell className="hidden md:table-cell">
+                              <TableCell>
                                 <div className="flex flex-col gap-1">
                                   <Badge variant="outline" className="w-fit">
                                     {item.category}
@@ -982,7 +1172,7 @@ const Menu = () => {
                                   )}
                                 </div>
                               </TableCell>
-                              <TableCell className="text-right hidden sm:table-cell">
+                              <TableCell className="text-right">
                                 <span className="font-semibold text-primary">${item.price}</span>
                               </TableCell>
                               <TableCell className="text-center hidden lg:table-cell">
@@ -1003,17 +1193,17 @@ const Menu = () => {
                                   {item.is_available ? (
                                     <>
                                       <Eye className="h-3 w-3 mr-1" />
-                                      <span className="hidden sm:inline">Yes</span>
+                                      <span>Yes</span>
                                     </>
                                   ) : (
                                     <>
                                       <EyeOff className="h-3 w-3 mr-1" />
-                                      <span className="hidden sm:inline">No</span>
+                                      <span>No</span>
                                     </>
                                   )}
                                 </button>
                               </TableCell>
-                              <TableCell className="text-center hidden sm:table-cell">
+                              <TableCell className="text-center">
                                 <button
                                   onClick={() => handleToggleSpecial(item)}
                                   className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
@@ -1042,10 +1232,10 @@ const Menu = () => {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 sm:h-8 sm:w-8"
+                                        className="h-8 w-8"
                                         onClick={() => openDetailsDialog(item)}
                                       >
-                                        <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600" />
+                                        <Eye className="h-4 w-4 text-blue-600" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>View Details</TooltipContent>
@@ -1056,13 +1246,13 @@ const Menu = () => {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 sm:h-8 sm:w-8"
+                                        className="h-8 w-8"
                                         onClick={() => handleToggleSpecial(item)}
                                       >
                                         {item.is_special ? (
-                                          <StarOff className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-500" />
+                                          <StarOff className="h-4 w-4 text-orange-500" />
                                         ) : (
-                                          <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-500" />
+                                          <Star className="h-4 w-4 text-orange-500" />
                                         )}
                                       </Button>
                                     </TooltipTrigger>
@@ -1076,10 +1266,10 @@ const Menu = () => {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 sm:h-8 sm:w-8"
+                                        className="h-8 w-8"
                                         onClick={() => openEditDialog(item)}
                                       >
-                                        <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                        <Pencil className="h-4 w-4" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Edit</TooltipContent>
@@ -1090,10 +1280,10 @@ const Menu = () => {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-7 w-7 sm:h-8 sm:w-8"
+                                        className="h-8 w-8"
                                         onClick={() => openDeleteDialog(item)}
                                       >
-                                        <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
+                                        <Trash2 className="h-4 w-4 text-destructive" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Delete</TooltipContent>
@@ -1107,29 +1297,147 @@ const Menu = () => {
                     </TooltipProvider>
                   </div>
 
+                  {/* Mobile Card View */}
+                  <div className="md:hidden space-y-3">
+                    {menuItems.map((item) => (
+                      <Card key={item.id} className="p-4">
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Checkbox
+                                checked={selectedItemIds.has(item.id)}
+                                onCheckedChange={(checked) =>
+                                  handleSelectItem(item.id, checked as boolean)
+                                }
+                                className="flex-shrink-0"
+                              />
+                              <h3 className="font-semibold text-base truncate">{item.item_name}</h3>
+                            </div>
+                            {item.item_desc && (
+                              <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                                {item.item_desc}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                {item.category}
+                              </Badge>
+                              {item.sub_category && (
+                                <Badge variant="outline" className="text-xs">
+                                  {item.sub_category}
+                                </Badge>
+                              )}
+                              <span className="text-sm font-semibold text-primary">
+                                ${item.price}
+                              </span>
+                              {item.avg_prep_time && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  <span>{item.avg_prep_time}m</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between pt-3 border-t">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleToggleAvailability(item)}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                                item.is_available
+                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                              }`}
+                            >
+                              {item.is_available ? (
+                                <>
+                                  <Eye className="h-3 w-3" />
+                                  <span>Available</span>
+                                </>
+                              ) : (
+                                <>
+                                  <EyeOff className="h-3 w-3" />
+                                  <span>Unavailable</span>
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleToggleSpecial(item)}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                                item.is_special
+                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                  : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                              }`}
+                            >
+                              {item.is_special ? (
+                                <>
+                                  <Star className="h-3 w-3 fill-current" />
+                                  <span>Special</span>
+                                </>
+                              ) : (
+                                <>
+                                  <StarOff className="h-3 w-3" />
+                                  <span>Regular</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openDetailsDialog(item)}
+                            >
+                              <Eye className="h-4 w-4 text-blue-600" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEditDialog(item)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openDeleteDialog(item)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+
                   {/* Pagination */}
                   {pagination && pagination.pages > 1 && (
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                      <p className="text-sm text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground text-center sm:text-left">
                         Page {pagination.page} of {pagination.pages} ({pagination.total} items)
                       </p>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 w-full sm:w-auto">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                           disabled={currentPage === 1}
+                          className="flex-1 sm:flex-initial"
                         >
                           <ChevronLeft className="h-4 w-4" />
-                          Previous
+                          <span className="hidden sm:inline ml-1">Previous</span>
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
                           disabled={currentPage === pagination.pages}
+                          className="flex-1 sm:flex-initial"
                         >
-                          Next
+                          <span className="hidden sm:inline mr-1">Next</span>
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
@@ -1162,14 +1470,18 @@ const Menu = () => {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Menu Item</DialogTitle>
             <DialogDescription>Create a new menu item for this restaurant</DialogDescription>
           </DialogHeader>
           {renderForm()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
             <Button
@@ -1177,8 +1489,16 @@ const Menu = () => {
               disabled={
                 isSubmitting || !formData.item_name || !formData.price || !formData.category
               }
+              className="w-full sm:w-auto"
             >
-              {isSubmitting ? "Creating..." : "Create Item"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Item"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1186,14 +1506,18 @@ const Menu = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Menu Item</DialogTitle>
             <DialogDescription>Update the menu item details</DialogDescription>
           </DialogHeader>
           {renderForm()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
             <Button
@@ -1201,8 +1525,16 @@ const Menu = () => {
               disabled={
                 isSubmitting || !formData.item_name || !formData.price || !formData.category
               }
+              className="w-full sm:w-auto"
             >
-              {isSubmitting ? "Saving..." : "Save Changes"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1232,42 +1564,42 @@ const Menu = () => {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{selectedMenuItem?.item_name}</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">{selectedMenuItem?.item_name}</DialogTitle>
             <DialogDescription>Menu item details</DialogDescription>
           </DialogHeader>
           {selectedMenuItem && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">Category</Label>
+                  <Label className="text-muted-foreground text-sm">Category</Label>
                   <p className="font-medium">{selectedMenuItem.category}</p>
                   {selectedMenuItem.sub_category && (
                     <p className="text-sm text-muted-foreground">{selectedMenuItem.sub_category}</p>
                   )}
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Price</Label>
+                  <Label className="text-muted-foreground text-sm">Price</Label>
                   <p className="font-medium text-lg">${selectedMenuItem.price}</p>
                 </div>
               </div>
 
               {selectedMenuItem.item_desc && (
                 <div>
-                  <Label className="text-muted-foreground">Description</Label>
-                  <p>{selectedMenuItem.item_desc}</p>
+                  <Label className="text-muted-foreground text-sm">Description</Label>
+                  <p className="text-sm sm:text-base">{selectedMenuItem.item_desc}</p>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">Prep Time</Label>
+                  <Label className="text-muted-foreground text-sm">Prep Time</Label>
                   <p className="font-medium">{selectedMenuItem.avg_prep_time} minutes</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Status</Label>
-                  <div className="flex gap-2 mt-1">
+                  <Label className="text-muted-foreground text-sm">Status</Label>
+                  <div className="flex flex-wrap gap-2 mt-1">
                     <Badge variant={selectedMenuItem.is_available ? "default" : "secondary"}>
                       {selectedMenuItem.is_available ? "Available" : "Unavailable"}
                     </Badge>
@@ -1276,20 +1608,24 @@ const Menu = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
                 <div>
-                  <Label className="text-muted-foreground">Created</Label>
+                  <Label className="text-muted-foreground text-sm">Created</Label>
                   <p className="text-sm">{formatDate(selectedMenuItem.created_at)}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Updated</Label>
+                  <Label className="text-muted-foreground text-sm">Updated</Label>
                   <p className="text-sm">{formatDate(selectedMenuItem.updated_at)}</p>
                 </div>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsDetailsDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
               Close
             </Button>
             {selectedMenuItem && (
@@ -1298,6 +1634,7 @@ const Menu = () => {
                   setIsDetailsDialogOpen(false);
                   openEditDialog(selectedMenuItem);
                 }}
+                className="w-full sm:w-auto"
               >
                 Edit Item
               </Button>
@@ -1327,6 +1664,91 @@ const Menu = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* CSV Upload Dialog */}
+      <Dialog open={isCsvDialogOpen} onOpenChange={setIsCsvDialogOpen}>
+        <DialogContent className="max-w-md w-[95vw] sm:w-full">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Bulk Update via CSV
+            </DialogTitle>
+            <DialogDescription>
+              Upload a CSV file with menu item IDs to bulk update availability. CSV format: one menu
+              item ID per line (first column).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="csv-file">CSV File</Label>
+              <Input
+                id="csv-file"
+                type="file"
+                accept=".csv"
+                onChange={handleCsvFileSelect}
+                disabled={csvParsing || isSubmitting}
+              />
+              {csvFile && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {csvFile.name} ({(csvFile.size / 1024).toFixed(2)} KB)
+                </p>
+              )}
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>• CSV format: One menu item ID per line (first column)</p>
+                <p>• Optional header row will be automatically skipped</p>
+                <p>• Maximum file size: {(MAX_CSV_FILE_SIZE / 1024 / 1024).toFixed(0)}MB</p>
+                <p>• Example:</p>
+                <pre className="bg-muted p-2 rounded text-xs font-mono">
+                  menu_item_id{`\n`}123{`\n`}456{`\n`}789
+                </pre>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+              <div className="space-y-0.5">
+                <Label>Set Availability To:</Label>
+                <p className="text-sm text-muted-foreground">
+                  {bulkAvailability ? "Available" : "Unavailable"}
+                </p>
+              </div>
+              <Switch
+                checked={bulkAvailability}
+                onCheckedChange={setBulkAvailability}
+                disabled={csvParsing || isSubmitting}
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCsvDialogOpen(false);
+                setCsvFile(null);
+              }}
+              disabled={csvParsing || isSubmitting}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCsvUpload}
+              disabled={!csvFile || csvParsing || isSubmitting || !selectedRestaurantId}
+              className="w-full sm:w-auto"
+            >
+              {csvParsing || isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload & Update
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

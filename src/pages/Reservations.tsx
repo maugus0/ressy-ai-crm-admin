@@ -6,7 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import {
   Select,
   SelectContent,
@@ -76,6 +78,13 @@ import type {
   ReservationCreateRequest,
   ReservationUpdateRequest,
 } from "@/types/api.types";
+import {
+  vancouverDateTimeToISO,
+  isoToVancouverDateTime,
+  formatVancouverDateTime,
+  isWithinOpeningHours,
+  getTimeFromDateTime,
+} from "@/lib/utils/timezone";
 
 // ============================================================================
 // Types
@@ -211,16 +220,15 @@ const Reservations = () => {
         params.status = statusFilter as Reservation["status"];
       }
       if (startDate) {
-        // Ensure start date is set to the start of the day (00:00:00)
-        const startDateTime = new Date(startDate);
-        startDateTime.setHours(0, 0, 0, 0);
-        params.start_date = startDateTime.toISOString();
+        // Ensure start date is set to the start of the day in Vancouver timezone
+        // Convert date string (YYYY-MM-DD) to datetime-local format, then to ISO
+        const startDateTimeLocal = `${startDate}T00:00`;
+        params.start_date = vancouverDateTimeToISO(startDateTimeLocal);
       }
       if (endDate) {
-        // Ensure end date includes end of day
-        const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999);
-        params.end_date = endDateTime.toISOString();
+        // Ensure end date includes end of day in Vancouver timezone
+        const endDateTimeLocal = `${endDate}T23:59`;
+        params.end_date = vancouverDateTimeToISO(endDateTimeLocal);
       }
 
       const data = await getReservations(selectedRestaurantId, params);
@@ -340,20 +348,10 @@ const Reservations = () => {
 
   const openEditDialog = (reservation: Reservation) => {
     setSelectedReservation(reservation);
-    // Convert ISO date to datetime-local format (YYYY-MM-DDTHH:mm)
-    let dateTimeLocal = "";
-    if (reservation.date_time) {
-      const date = new Date(reservation.date_time);
-      if (!isNaN(date.getTime())) {
-        // Format as YYYY-MM-DDTHH:mm for datetime-local input
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        const hours = String(date.getHours()).padStart(2, "0");
-        const minutes = String(date.getMinutes()).padStart(2, "0");
-        dateTimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
-      }
-    }
+    // Convert ISO date to datetime-local format in Vancouver timezone
+    const dateTimeLocal = reservation.date_time
+      ? isoToVancouverDateTime(reservation.date_time)
+      : "";
     setFormData({
       date_time: dateTimeLocal,
       party_size: String(reservation.party_size),
@@ -396,16 +394,33 @@ const Reservations = () => {
     if (!formData.date_time) {
       errors.date_time = "Date and time are required";
     } else {
-      const selectedDate = new Date(formData.date_time);
-      const now = new Date();
-      // For create mode, don't allow past dates
-      // For edit mode, allow past dates (for historical records)
-      if (!isEditMode && selectedDate < now) {
-        errors.date_time = "Reservation date cannot be in the past";
-      }
-      // Still validate it's a valid date
-      if (isNaN(selectedDate.getTime())) {
+      // Parse the datetime-local value
+      const [datePart, timePart] = formData.date_time.split("T");
+      if (!datePart || !timePart) {
         errors.date_time = "Please enter a valid date and time";
+      } else {
+        const [year, month, day] = datePart.split("-").map(Number);
+        const selectedDate = new Date(year, month - 1, day);
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        selectedDate.setHours(0, 0, 0, 0);
+
+        // For create mode, don't allow past dates
+        // For edit mode, allow past dates (for historical records)
+        if (!isEditMode && selectedDate < now) {
+          errors.date_time = "Reservation date cannot be in the past";
+        }
+
+        // Validate opening hours if restaurant is selected
+        if (selectedRestaurantId && !isEditMode) {
+          const restaurant = restaurants.find((r) => r.id === selectedRestaurantId);
+          if (restaurant?.opening_time && restaurant?.closing_time) {
+            const time = getTimeFromDateTime(formData.date_time); // HH:mm format
+            if (!isWithinOpeningHours(time, restaurant.opening_time, restaurant.closing_time)) {
+              errors.date_time = `Reservation time must be within opening hours (${restaurant.opening_time.slice(0, 5)} - ${restaurant.closing_time.slice(0, 5)})`;
+            }
+          }
+        }
       }
     }
 
@@ -432,25 +447,15 @@ const Reservations = () => {
         errors.name = "Name must be less than 100 characters";
       }
 
-      // Phone validation - validate cleaned phone number (digits only, optional leading '+')
+      // Phone validation (with country code)
       if (!formData.phone_number.trim()) {
         errors.phone_number = "Phone number is required";
       } else {
-        // Remove all non-digit characters, but keep leading '+' if present
-        let cleanedPhone = formData.phone_number.trim();
-        // Allow leading '+', then digits only
-        if (cleanedPhone.startsWith("+")) {
-          cleanedPhone = "+" + cleanedPhone.slice(1).replace(/\D/g, "");
-        } else {
-          cleanedPhone = cleanedPhone.replace(/\D/g, "");
-        }
-        // Check length (excluding '+')
-        const digitCount = cleanedPhone.startsWith("+")
-          ? cleanedPhone.length - 1
-          : cleanedPhone.length;
-        if (digitCount < 10 || digitCount > 15) {
-          errors.phone_number = "Please enter a valid phone number (10-15 digits)";
-        } else if (!/^\+?\d{10,15}$/.test(cleanedPhone)) {
+        // Remove country code prefix for digit counting
+        const phoneWithoutCode = formData.phone_number.replace(/^\+\d{1,3}/, "").replace(/\D/g, "");
+        if (phoneWithoutCode.length < 7 || phoneWithoutCode.length > 15) {
+          errors.phone_number = "Please enter a valid phone number (7-15 digits)";
+        } else if (!/^\+\d{1,3}\d{7,15}$/.test(formData.phone_number.trim())) {
           errors.phone_number = "Please enter a valid phone number format";
         }
       }
@@ -484,8 +489,9 @@ const Reservations = () => {
     try {
       setIsSubmitting(true);
       // Build payload with proper conditional inclusion
+      // Convert Vancouver local time to ISO string
       const payload: ReservationCreateRequest = {
-        date_time: new Date(formData.date_time).toISOString(),
+        date_time: vancouverDateTimeToISO(formData.date_time),
         party_size: parseInt(formData.party_size),
         name: formData.name.trim(),
         phone_number: formData.phone_number.trim(),
@@ -514,8 +520,9 @@ const Reservations = () => {
     try {
       setIsSubmitting(true);
       // Build payload with proper conditional inclusion
+      // Convert Vancouver local time to ISO string
       const payload: ReservationUpdateRequest = {
-        date_time: new Date(formData.date_time).toISOString(),
+        date_time: vancouverDateTimeToISO(formData.date_time),
         party_size: parseInt(formData.party_size),
         ...(formData.special_request.trim()
           ? { special_request: formData.special_request.trim() }
@@ -593,17 +600,17 @@ const Reservations = () => {
   };
 
   const formatDateTime = (dateTime: string) => {
-    const date = new Date(dateTime);
+    // Format in Vancouver timezone
+    const formatted = formatVancouverDateTime(dateTime, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+    // Parse the formatted string to extract date and time
+    // Format is typically "MMM DD, YYYY, HH:MM AM/PM"
+    const parts = formatted.split(", ");
     return {
-      date: date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-      time: date.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
+      date: parts.slice(0, -1).join(", "), // Everything except last part (time)
+      time: parts[parts.length - 1] || "", // Last part (time)
     };
   };
 
@@ -622,7 +629,7 @@ const Reservations = () => {
         <>
           <div className="p-4 bg-muted/50 rounded-lg space-y-2">
             <Label className="text-sm font-medium text-muted-foreground">Guest Information</Label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-muted-foreground">Name</p>
                 <p className="font-medium">{selectedReservation.name}</p>
@@ -663,22 +670,18 @@ const Reservations = () => {
         </>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="date_time">Date & Time *</Label>
-          <Input
-            id="date_time"
-            type="datetime-local"
+          <DateTimePicker
             value={formData.date_time}
-            onChange={(e) => {
-              setFormData({ ...formData, date_time: e.target.value });
+            onChange={(value) => {
+              setFormData({ ...formData, date_time: value });
               if (formErrors.date_time) setFormErrors({ ...formErrors, date_time: "" });
             }}
-            className={formErrors.date_time ? "border-destructive" : ""}
+            label="Date & Time *"
+            error={formErrors.date_time}
+            minDate={!isEditMode ? new Date() : undefined}
           />
-          {formErrors.date_time && (
-            <p className="text-sm text-destructive">{formErrors.date_time}</p>
-          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="party_size">Party Size *</Label>
@@ -721,15 +724,15 @@ const Reservations = () => {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="phone_number">Phone Number *</Label>
-              <Input
+              <PhoneInput
                 id="phone_number"
-                placeholder="+1234567890"
+                placeholder="1234567890"
                 value={formData.phone_number}
-                onChange={(e) => {
-                  setFormData({ ...formData, phone_number: e.target.value });
+                onChange={(value) => {
+                  setFormData({ ...formData, phone_number: value });
                   if (formErrors.phone_number) setFormErrors({ ...formErrors, phone_number: "" });
                 }}
-                className={formErrors.phone_number ? "border-destructive" : ""}
+                error={!!formErrors.phone_number}
               />
               {formErrors.phone_number && (
                 <p className="text-sm text-destructive">{formErrors.phone_number}</p>
@@ -821,18 +824,22 @@ const Reservations = () => {
           title="Reservations"
           description="Manage restaurant reservations"
         />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 lg:p-6">
           <Card>
             <CardHeader className="space-y-4">
               {/* Header Row */}
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <Calendar className="h-6 w-6 text-primary" />
                   <CardTitle>Reservations</CardTitle>
-                  {total > 0 && <Badge variant="secondary">{total} total</Badge>}
+                  {total > 0 && (
+                    <Badge variant="secondary" className="hidden sm:inline-flex">
+                      {total} total
+                    </Badge>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
                   {/* Restaurant selector - required to specify which restaurant's reservations to manage */}
                   {isAdmin && (
                     <Select
@@ -858,9 +865,11 @@ const Reservations = () => {
                     onClick={openCreateDialog}
                     disabled={!selectedRestaurantId}
                     aria-label="Add Reservation"
+                    className="w-full sm:w-auto"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    <span className="sm:inline">Add Reservation</span>
+                    <span className="hidden sm:inline">Add Reservation</span>
+                    <span className="sm:hidden">Add</span>
                   </Button>
                 </div>
               </div>
@@ -1168,16 +1177,18 @@ const Reservations = () => {
                         reservation
                         {total !== 1 ? "s" : ""}
                       </p>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 w-full sm:w-auto">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setOffset((p) => Math.max(0, p - limit))}
                           disabled={offset === 0 || isLoadingReservations}
                           aria-label="Previous page"
+                          className="flex-1 sm:flex-initial"
                         >
                           <ChevronLeft className="h-4 w-4" />
                           <span className="hidden sm:inline ml-1">Previous</span>
+                          <span className="sm:hidden">Prev</span>
                         </Button>
                         <Button
                           variant="outline"
@@ -1185,8 +1196,10 @@ const Reservations = () => {
                           onClick={() => setOffset((p) => p + limit)}
                           disabled={offset + limit >= total || isLoadingReservations}
                           aria-label="Next page"
+                          className="flex-1 sm:flex-initial"
                         >
                           <span className="hidden sm:inline mr-1">Next</span>
+                          <span className="sm:hidden">Next</span>
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
@@ -1230,7 +1243,7 @@ const Reservations = () => {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Reservation</DialogTitle>
             <DialogDescription>Create a new confirmed reservation</DialogDescription>
@@ -1249,7 +1262,7 @@ const Reservations = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Reservation</DialogTitle>
             <DialogDescription>
@@ -1270,7 +1283,7 @@ const Reservations = () => {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle>Reservation Details</DialogTitle>
             <DialogDescription>{selectedReservation?.confirmation_number}</DialogDescription>

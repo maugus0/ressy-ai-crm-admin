@@ -62,6 +62,9 @@ import {
   X,
   Globe,
   Building2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getRestaurants } from "@/services/restaurants";
@@ -120,6 +123,8 @@ const FAQ = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingFAQs, setIsLoadingFAQs] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sortColumn, setSortColumn] = useState<"id" | null>("id");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   // Search state
   const [searchMode, setSearchMode] = useState<"restaurant" | "global">("restaurant");
@@ -258,6 +263,40 @@ const FAQ = () => {
       setSearchQuery("");
       setDebouncedSearch("");
     }
+  };
+
+  // Sort FAQs based on sortColumn and sortDirection
+  const sortedFAQs = [...faqs].sort((a, b) => {
+    if (!sortColumn) return 0;
+
+    let comparison = 0;
+    if (sortColumn === "id") {
+      comparison = a.id - b.id;
+    }
+
+    return sortDirection === "asc" ? comparison : -comparison;
+  });
+
+  const handleSort = (column: "id") => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // Set new column with ascending direction
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  const getSortIcon = (column: "id") => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3.5 w-3.5 ml-1 text-muted-foreground" />;
+    }
+    return sortDirection === "asc" ? (
+      <ArrowUp className="h-3.5 w-3.5 ml-1 text-primary" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5 ml-1 text-primary" />
+    );
   };
 
   // Form validation
@@ -613,18 +652,22 @@ const FAQ = () => {
           title="FAQ Management"
           description="Manage frequently asked questions for restaurants"
         />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 lg:p-6">
           <Card>
             <CardHeader className="space-y-4">
               {/* Header Row */}
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <HelpCircle className="h-6 w-6 text-primary" />
                   <CardTitle>FAQs</CardTitle>
-                  {pagination && <Badge variant="secondary">{pagination.total} items</Badge>}
+                  {pagination && (
+                    <Badge variant="secondary" className="hidden sm:inline-flex">
+                      {pagination.total} items
+                    </Badge>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
                   {/* Search Mode Toggle */}
                   <div className="flex rounded-lg border overflow-hidden">
                     <Button
@@ -654,7 +697,7 @@ const FAQ = () => {
                       onValueChange={handleRestaurantChange}
                       disabled={isLoadingRestaurants}
                     >
-                      <SelectTrigger className="w-[140px] sm:w-[200px]">
+                      <SelectTrigger className="w-full sm:w-[140px] md:w-[200px]">
                         <SelectValue placeholder="Select" />
                       </SelectTrigger>
                       <SelectContent>
@@ -674,14 +717,20 @@ const FAQ = () => {
                         variant="outline"
                         onClick={openBulkCreateDialog}
                         disabled={!selectedRestaurantId}
-                        className="hidden sm:flex"
+                        className="w-full sm:w-auto"
                       >
                         <Upload className="h-4 w-4 mr-2" />
-                        Bulk Add
+                        <span className="hidden sm:inline">Bulk Add</span>
+                        <span className="sm:hidden">Bulk</span>
                       </Button>
-                      <Button onClick={openCreateDialog} disabled={!selectedRestaurantId}>
+                      <Button
+                        onClick={openCreateDialog}
+                        disabled={!selectedRestaurantId}
+                        className="w-full sm:w-auto"
+                      >
                         <Plus className="h-4 w-4 sm:mr-2" />
                         <span className="hidden sm:inline">Add FAQ</span>
+                        <span className="sm:hidden">Add</span>
                       </Button>
                     </>
                   )}
@@ -734,7 +783,13 @@ const FAQ = () => {
                         <TableHeader>
                           <TableRow className="bg-muted/50">
                             <TableHead className="w-[60px] font-semibold hidden sm:table-cell">
-                              ID
+                              <button
+                                onClick={() => handleSort("id")}
+                                className="flex items-center hover:text-primary transition-colors"
+                              >
+                                ID
+                                {getSortIcon("id")}
+                              </button>
                             </TableHead>
                             {searchMode === "global" && (
                               <TableHead className="font-semibold hidden md:table-cell">
@@ -754,7 +809,7 @@ const FAQ = () => {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {faqs.map((faq) => (
+                          {sortedFAQs.map((faq) => (
                             <TableRow
                               key={faq.id}
                               className="group hover:bg-muted/30 transition-colors"
@@ -853,7 +908,7 @@ const FAQ = () => {
                     </div>
                     <div className="bg-muted/30 rounded-lg p-6 border">
                       <Accordion type="single" collapsible className="w-full space-y-3">
-                        {faqs.map((faq) => (
+                        {sortedFAQs.map((faq) => (
                           <AccordionItem
                             key={faq.id}
                             value={`faq-${faq.id}`}
@@ -887,27 +942,31 @@ const FAQ = () => {
 
                   {/* Pagination */}
                   {pagination && pagination.pages > 1 && (
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t">
-                      <p className="text-sm text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground text-center sm:text-left">
                         Page {pagination.page} of {pagination.pages} ({pagination.total} items)
                       </p>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 w-full sm:w-auto">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                           disabled={currentPage === 1}
+                          className="flex-1 sm:flex-initial"
                         >
                           <ChevronLeft className="h-4 w-4" />
-                          Previous
+                          <span className="hidden sm:inline">Previous</span>
+                          <span className="sm:hidden">Prev</span>
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
                           disabled={currentPage === pagination.pages}
+                          className="flex-1 sm:flex-initial"
                         >
-                          Next
+                          <span className="hidden sm:inline">Next</span>
+                          <span className="sm:hidden">Next</span>
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
@@ -926,12 +985,16 @@ const FAQ = () => {
                         : "Add your first FAQ to get started"}
                   </p>
                   {searchMode === "restaurant" && !searchQuery && selectedRestaurantId && (
-                    <div className="flex gap-2 justify-center mt-4">
-                      <Button onClick={openCreateDialog}>
+                    <div className="flex flex-col sm:flex-row gap-2 justify-center mt-4">
+                      <Button onClick={openCreateDialog} className="w-full sm:w-auto">
                         <Plus className="h-4 w-4 mr-2" />
                         Add FAQ
                       </Button>
-                      <Button variant="outline" onClick={openBulkCreateDialog}>
+                      <Button
+                        variant="outline"
+                        onClick={openBulkCreateDialog}
+                        className="w-full sm:w-auto"
+                      >
                         <Upload className="h-4 w-4 mr-2" />
                         Bulk Add
                       </Button>
@@ -946,7 +1009,7 @@ const FAQ = () => {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle>Add FAQ</DialogTitle>
             <DialogDescription>Create a new frequently asked question</DialogDescription>
@@ -968,7 +1031,7 @@ const FAQ = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle>Edit FAQ</DialogTitle>
             <DialogDescription>Update the question and answer</DialogDescription>
@@ -1014,7 +1077,7 @@ const FAQ = () => {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle>FAQ Details</DialogTitle>
             <DialogDescription>
@@ -1033,7 +1096,7 @@ const FAQ = () => {
                 <p className="mt-1 whitespace-pre-wrap">{selectedFAQ.answer}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="text-sm">{formatDate(selectedFAQ.created_at)}</p>
@@ -1065,7 +1128,7 @@ const FAQ = () => {
 
       {/* Bulk Create Dialog */}
       <Dialog open={isBulkCreateDialogOpen} onOpenChange={setIsBulkCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Bulk Add FAQs</DialogTitle>
             <DialogDescription>Add multiple FAQs at once</DialogDescription>

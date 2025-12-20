@@ -710,7 +710,9 @@ const Users = () => {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Never";
-    return new Date(dateString).toLocaleString();
+    return new Date(dateString).toLocaleString("en-US", {
+      timeZone: "America/Vancouver",
+    });
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -756,8 +758,8 @@ const Users = () => {
                   <TableRow className="bg-muted/50 hover:bg-muted/50">
                     <TableHead className="font-semibold">Email</TableHead>
                     <TableHead className="font-semibold">Role</TableHead>
-                    <TableHead className="font-semibold">Last Login</TableHead>
-                    <TableHead className="font-semibold">Created</TableHead>
+                    <TableHead className="font-semibold hidden md:table-cell">Last Login</TableHead>
+                    <TableHead className="font-semibold hidden lg:table-cell">Created</TableHead>
                     <TableHead className="font-semibold text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -775,7 +777,7 @@ const Users = () => {
                           value={String(user.role_id)}
                           onValueChange={(value) => handleRoleChange(user, Number(value))}
                         >
-                          <SelectTrigger className="w-[140px] h-8">
+                          <SelectTrigger className="w-[120px] sm:w-[140px] h-8">
                             <SelectValue>
                               <Badge variant={getRoleBadgeVariant(user.role)}>{user.role}</Badge>
                             </SelectValue>
@@ -789,13 +791,13 @@ const Users = () => {
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           {formatDate(user.last_login)}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                           <Calendar className="h-3 w-3" />
                           {formatDate(user.created_at)}
@@ -808,10 +810,10 @@ const Users = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8"
+                                className="h-7 w-7 sm:h-8 sm:w-8"
                                 onClick={() => openDetailsDialog(user)}
                               >
-                                <Eye className="h-4 w-4 text-blue-600" />
+                                <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>View Details</TooltipContent>
@@ -822,10 +824,10 @@ const Users = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8"
+                                className="h-7 w-7 sm:h-8 sm:w-8"
                                 onClick={() => openResetPasswordDialog(user)}
                               >
-                                <Key className="h-4 w-4 text-orange-600" />
+                                <Key className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-600" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>Reset Password</TooltipContent>
@@ -836,10 +838,10 @@ const Users = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8"
+                                className="h-7 w-7 sm:h-8 sm:w-8"
                                 onClick={() => openEditDialog(user)}
                               >
-                                <Pencil className="h-4 w-4" />
+                                <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>Edit</TooltipContent>
@@ -850,10 +852,10 @@ const Users = () => {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8"
+                                className="h-7 w-7 sm:h-8 sm:w-8"
                                 onClick={() => openDeleteDialog(user)}
                               >
-                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>Delete</TooltipContent>
@@ -879,27 +881,31 @@ const Users = () => {
           )}
 
           {pagination && pagination.pages > 1 && (
-            <div className="flex items-center justify-between mt-4 pt-4 border-t">
-              <p className="text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t">
+              <p className="text-sm text-muted-foreground text-center sm:text-left">
                 Page {pagination.page} of {pagination.pages} ({pagination.total} users)
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setPage(Math.max(1, page - 1))}
                   disabled={page === 1}
+                  className="flex-1 sm:flex-initial"
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" />
-                  Previous
+                  <span className="hidden sm:inline">Previous</span>
+                  <span className="sm:hidden">Prev</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setPage(Math.min(pagination.pages, page + 1))}
                   disabled={page === pagination.pages}
+                  className="flex-1 sm:flex-initial"
                 >
-                  Next
+                  <span className="hidden sm:inline">Next</span>
+                  <span className="sm:hidden">Next</span>
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               </div>
@@ -922,28 +928,31 @@ const Users = () => {
         <main className="flex-1 p-4 lg:p-6">
           <Card className="shadow-sm">
             <CardHeader className="pb-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-primary/10">
                     <UserCog className="h-5 w-5 text-primary" />
                   </div>
                   <div>
                     <CardTitle className="text-lg">User Management</CardTitle>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground hidden sm:block">
                       Manage admin and client user accounts
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     variant="outline"
                     onClick={() => setIsBulkCreateDialogOpen(true)}
-                    className="shadow-sm"
+                    className="shadow-sm w-full sm:w-auto"
                   >
                     <Upload className="h-4 w-4 mr-2" />
                     Bulk Create
                   </Button>
-                  <Button onClick={() => setIsCreateDialogOpen(true)} className="shadow-sm">
+                  <Button
+                    onClick={() => setIsCreateDialogOpen(true)}
+                    className="shadow-sm w-full sm:w-auto"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add User
                   </Button>
@@ -990,10 +999,10 @@ const Users = () => {
 
                 <TabsContent value="client" className="mt-4 space-y-4">
                   {/* Restaurant selector */}
-                  <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-lg">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 p-4 bg-muted/50 rounded-lg">
                     <Label className="whitespace-nowrap font-medium">Restaurant:</Label>
                     {restaurantsLoading ? (
-                      <Skeleton className="h-10 w-[250px]" />
+                      <Skeleton className="h-10 w-full sm:w-[250px]" />
                     ) : (
                       <Select
                         value={selectedRestaurantId ? String(selectedRestaurantId) : ""}
@@ -1002,7 +1011,7 @@ const Users = () => {
                           setClientPage(1);
                         }}
                       >
-                        <SelectTrigger className="w-[300px]">
+                        <SelectTrigger className="w-full sm:w-[300px]">
                           <SelectValue placeholder="Select a restaurant" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1050,7 +1059,7 @@ const Users = () => {
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {isEditDialogOpen ? (
@@ -1158,7 +1167,7 @@ const Users = () => {
 
       {/* Reset Password Dialog */}
       <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Key className="h-5 w-5 text-orange-600" /> Reset Password
@@ -1205,7 +1214,7 @@ const Users = () => {
 
       {/* User Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-blue-600" /> User Details
@@ -1220,7 +1229,7 @@ const Users = () => {
             </div>
           ) : userDetails ? (
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">UUID:</span>
                   <p className="font-mono text-xs mt-1 break-all">{userDetails.uuid}</p>
@@ -1298,7 +1307,7 @@ const Users = () => {
 
       {/* Bulk Create Dialog */}
       <Dialog open={isBulkCreateDialogOpen} onOpenChange={setIsBulkCreateDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl w-[calc(100%-2rem)] sm:w-full max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" /> Bulk Create{" "}
@@ -1374,7 +1383,7 @@ user2@example.com,StrongPass2,2`}
                         key={index}
                         className="grid grid-cols-12 gap-2 items-start p-3 bg-background border rounded-lg"
                       >
-                        <div className="col-span-12 sm:col-span-4">
+                        <div className="col-span-12 md:col-span-4">
                           <Label className="text-xs mb-1">
                             Email <span className="text-destructive">*</span>
                           </Label>
@@ -1392,7 +1401,7 @@ user2@example.com,StrongPass2,2`}
                           )}
                         </div>
 
-                        <div className="col-span-12 sm:col-span-4">
+                        <div className="col-span-12 md:col-span-4">
                           <Label className="text-xs mb-1">
                             Password <span className="text-destructive">*</span>
                           </Label>
@@ -1412,7 +1421,7 @@ user2@example.com,StrongPass2,2`}
                           )}
                         </div>
 
-                        <div className="col-span-10 sm:col-span-3">
+                        <div className="col-span-10 md:col-span-3">
                           <Label className="text-xs mb-1">
                             Role <span className="text-destructive">*</span>
                           </Label>
@@ -1444,7 +1453,7 @@ user2@example.com,StrongPass2,2`}
                           )}
                         </div>
 
-                        <div className="col-span-2 sm:col-span-1 flex items-end">
+                        <div className="col-span-2 md:col-span-1 flex items-end">
                           <Button
                             type="button"
                             variant="ghost"
