@@ -12,10 +12,10 @@ import {
   useRef,
   ReactNode,
 } from "react";
-import { connectToSSE, disconnectFromSSE } from "@/services/sse";
+import { connectToSSE, disconnectFromSSE, getSSEStats } from "@/services/sse";
 import { useAuth } from "./AuthContext";
 import { toast } from "sonner";
-import type { SSEEvent } from "@/types/api.types";
+import type { SSEEvent, SSEConnectionStats } from "@/types/api.types";
 import {
   playNotificationSound,
   initializeAudio,
@@ -39,6 +39,10 @@ interface SSEContextType {
   unreadCount: number;
   /** Whether notification sounds are enabled */
   soundsEnabled: boolean;
+  /** SSE connection statistics */
+  connectionStats: SSEConnectionStats | null;
+  /** Whether stats are loading */
+  isLoadingStats: boolean;
   /** Toggle notification sounds on/off */
   toggleSounds: () => void;
   /** Clear all events */
@@ -47,6 +51,8 @@ interface SSEContextType {
   markAsRead: () => void;
   /** Dismiss a specific event */
   dismissEvent: (eventId: string) => void;
+  /** Refresh connection stats */
+  refreshStats: () => Promise<void>;
 }
 
 // ============================================================================
@@ -61,6 +67,7 @@ const SSEContext = createContext<SSEContextType | undefined>(undefined);
 
 const MAX_EVENTS = 100; // Keep last 100 events in memory
 const RECONNECT_DELAY = 5000; // 5 seconds
+const STATS_REFRESH_INTERVAL = 120000; // 2 minutes
 
 // ============================================================================
 // Provider
@@ -72,8 +79,11 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [soundsEnabled, setSoundsEnabledState] = useState(areSoundsEnabled());
+  const [connectionStats, setConnectionStats] = useState<SSEConnectionStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
+  const statsIntervalRef = useRef<number | null>(null);
 
   // Initialize audio context on mount (for user interaction)
   useEffect(() => {
@@ -281,6 +291,49 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   }, [soundsEnabled]);
 
   /**
+   * Fetch SSE connection stats (admin only)
+   */
+  const refreshStats = useCallback(async () => {
+    if (!isAuthenticated || !user) return;
+
+    // Only admins can view stats
+    const isAdmin = user.role === "admin" || user.permissions?.includes("*");
+    if (!isAdmin) return;
+
+    try {
+      setIsLoadingStats(true);
+      const stats = await getSSEStats();
+      setConnectionStats(stats);
+    } catch (error) {
+      console.error("Failed to fetch SSE stats:", error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  }, [isAuthenticated, user]);
+
+  /**
+   * Fetch stats periodically when connected
+   */
+  useEffect(() => {
+    if (isConnected && isAuthenticated && user) {
+      // Fetch immediately
+      refreshStats();
+
+      // Set up interval
+      statsIntervalRef.current = window.setInterval(() => {
+        refreshStats();
+      }, STATS_REFRESH_INTERVAL);
+    }
+
+    return () => {
+      if (statsIntervalRef.current) {
+        clearInterval(statsIntervalRef.current);
+        statsIntervalRef.current = null;
+      }
+    };
+  }, [isConnected, isAuthenticated, user, refreshStats]);
+
+  /**
    * Get escalation events only
    */
   const escalations = events.filter((e) => e.event_type === "escalation");
@@ -293,10 +346,13 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         isConnected,
         unreadCount,
         soundsEnabled,
+        connectionStats,
+        isLoadingStats,
         toggleSounds: toggleSoundsHandler,
         clearEvents,
         markAsRead,
         dismissEvent,
+        refreshStats,
       }}
     >
       {children}

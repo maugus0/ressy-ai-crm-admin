@@ -217,7 +217,7 @@ interface OrderItemFormData {
   item_id?: number;
   name: string;
   quantity: number;
-  price: number;
+  price: string; // String to avoid leading zero issue
   instructions: string;
 }
 
@@ -236,7 +236,7 @@ interface OrderFormData {
 const defaultItemFormData: OrderItemFormData = {
   name: "",
   quantity: 1,
-  price: 0,
+  price: "", // Empty string to avoid leading zero
   instructions: "",
 };
 
@@ -465,7 +465,10 @@ const Orders = () => {
   };
 
   const calculateTotal = (items: OrderItemFormData[]): number => {
-    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return items.reduce((sum, item) => {
+      const price = parseFloat(item.price) || 0;
+      return sum + price * item.quantity;
+    }, 0);
   };
 
   const openCreateDialog = () => {
@@ -483,7 +486,7 @@ const Orders = () => {
       item_id: item.item_id,
       name: item.name,
       quantity: item.quantity,
-      price: item.price,
+      price: String(item.price), // Convert to string for form
       instructions: item.instructions || "",
     }));
     if (items.length === 0) {
@@ -569,7 +572,7 @@ const Orders = () => {
       item_id: menuItem.id,
       name: menuItem.item_name,
       quantity: 1,
-      price: parseFloat(menuItem.price),
+      price: menuItem.price, // Keep as string
       instructions: "",
     };
     // Check if item already exists in order
@@ -643,8 +646,19 @@ const Orders = () => {
         if (item.quantity < 1) {
           errors[`item_${index}_quantity`] = "Quantity must be at least 1";
         }
-        if (item.price < 0) {
-          errors[`item_${index}_price`] = "Price cannot be negative";
+        // Price validation - now it's a string
+        const priceStr = item.price.trim();
+        if (!priceStr) {
+          errors[`item_${index}_price`] = "Price is required";
+        } else {
+          const price = parseFloat(priceStr);
+          if (isNaN(price)) {
+            errors[`item_${index}_price`] = "Please enter a valid price";
+          } else if (price < 0) {
+            errors[`item_${index}_price`] = "Price cannot be negative";
+          } else if (price > 99999.99) {
+            errors[`item_${index}_price`] = "Price is too high (max $99,999.99)";
+          }
         }
       });
     }
@@ -684,7 +698,7 @@ const Orders = () => {
         item_id: item.item_id,
         name: item.name.trim(),
         quantity: item.quantity,
-        price: item.price,
+        price: parseFloat(item.price) || 0, // Parse string to number for API
         ...(item.instructions.trim() ? { instructions: item.instructions.trim() } : {}),
       }));
 
@@ -732,7 +746,7 @@ const Orders = () => {
         item_id: item.item_id,
         name: item.name.trim(),
         quantity: item.quantity,
-        price: item.price,
+        price: parseFloat(item.price) || 0, // Parse string to number for API
         ...(item.instructions.trim() ? { instructions: item.instructions.trim() } : {}),
       }));
 
@@ -1045,15 +1059,19 @@ const Orders = () => {
                       )}
                     </div>
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-medium">Price</Label>
+                      <Label className="text-xs font-medium">Price *</Label>
                       <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.00"
                         value={item.price}
-                        onChange={(e) =>
-                          updateItem(index, "price", parseFloat(e.target.value) || 0)
-                        }
+                        onChange={(e) => {
+                          // Allow only valid decimal input
+                          const value = e.target.value;
+                          if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
+                            updateItem(index, "price", value);
+                          }
+                        }}
                         className={`h-9 ${formErrors[`item_${index}_price`] ? "border-destructive" : ""}`}
                         disabled={!!item.item_id}
                       />

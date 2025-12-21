@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Menu,
   LogOut,
@@ -11,6 +11,9 @@ import {
   WifiOff,
   Volume2,
   VolumeX,
+  Users,
+  RefreshCw,
+  Building2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -19,7 +22,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
-import type { SSEEvent } from "@/types/api.types";
+import { getRestaurants } from "@/services/restaurants";
+import type { SSEEvent, Restaurant } from "@/types/api.types";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -87,12 +91,62 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
     unreadCount,
     isConnected,
     soundsEnabled,
+    connectionStats,
+    isLoadingStats,
     toggleSounds,
     markAsRead,
     dismissEvent,
     clearEvents,
+    refreshStats,
   } = useSSE();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isConnectionsOpen, setIsConnectionsOpen] = useState(false);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if user is admin
+  const isAdmin = user?.role === "admin" || user?.permissions?.includes("*");
+
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640); // sm breakpoint
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Fetch restaurants for name lookup
+  const fetchRestaurants = useCallback(async () => {
+    if (restaurants.length > 0) return; // Already fetched
+    try {
+      setIsLoadingRestaurants(true);
+      const data = await getRestaurants({ limit: 100 }); // Fetch all restaurants
+      setRestaurants(data.items);
+    } catch (error) {
+      console.error("Failed to fetch restaurants:", error);
+    } finally {
+      setIsLoadingRestaurants(false);
+    }
+  }, [restaurants.length]);
+
+  // Get restaurant name by ID
+  const getRestaurantName = useCallback(
+    (restaurantId: string) => {
+      const restaurant = restaurants.find((r) => r.id === parseInt(restaurantId));
+      return restaurant?.name || `Restaurant #${restaurantId}`;
+    },
+    [restaurants]
+  );
+
+  // Fetch restaurants when connections panel opens
+  useEffect(() => {
+    if (isConnectionsOpen && isAdmin) {
+      fetchRestaurants();
+    }
+  }, [isConnectionsOpen, isAdmin, fetchRestaurants]);
 
   const handleLogout = async () => {
     await logout();
@@ -127,7 +181,7 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
           )}
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Connection Status Indicator */}
+          {/* Connection Status Indicator (Always visible) */}
           <div
             className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground"
             title={isConnected ? "Live updates connected" : "Live updates disconnected"}
@@ -139,6 +193,162 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
             )}
             <span className="hidden lg:inline">{isConnected ? "Live" : "Offline"}</span>
           </div>
+
+          {/* SSE Connections Panel (Admin Only) */}
+          {isAdmin && (
+            <Popover open={isConnectionsOpen} onOpenChange={setIsConnectionsOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative text-muted-foreground hover:text-foreground"
+                  title="Active Connections"
+                >
+                  <Users className="w-5 h-5" />
+                  {connectionStats && connectionStats.total_connections > 0 && (
+                    <Badge
+                      variant="secondary"
+                      className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1.5 text-xs flex items-center justify-center"
+                    >
+                      {connectionStats.total_connections}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="w-[calc(100vw-2rem)] max-w-[400px] p-0"
+                align={isMobile ? "center" : "end"}
+                sideOffset={8}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <h3 className="font-semibold text-sm">Active Connections</h3>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      refreshStats();
+                    }}
+                    disabled={isLoadingStats}
+                    title="Refresh stats"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isLoadingStats ? "animate-spin" : ""}`} />
+                  </Button>
+                </div>
+
+                {/* Stats Content */}
+                <div className="p-3 sm:p-4 space-y-4">
+                  {/* Connection Status */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs sm:text-sm text-muted-foreground">
+                      Your Connection
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {isConnected ? (
+                        <>
+                          <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                          <span className="text-xs sm:text-sm font-medium text-green-600">
+                            Connected
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="h-2 w-2 rounded-full bg-red-500" />
+                          <span className="text-xs sm:text-sm font-medium text-destructive">
+                            Disconnected
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {connectionStats ? (
+                    <>
+                      {/* Connection Stats Grid - 3 columns */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="p-2 sm:p-3 rounded-lg bg-muted/50 text-center">
+                          <p className="text-lg sm:text-2xl font-bold text-foreground">
+                            {connectionStats.total_connections}
+                          </p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">Total</p>
+                        </div>
+                        <div className="p-2 sm:p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 text-center">
+                          <p className="text-lg sm:text-2xl font-bold text-blue-600">
+                            {connectionStats.admin_connections}
+                          </p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">Admins</p>
+                        </div>
+                        <div className="p-2 sm:p-3 rounded-lg bg-green-50 dark:bg-green-950/30 text-center">
+                          <p className="text-lg sm:text-2xl font-bold text-green-600">
+                            {connectionStats.total_connections - connectionStats.admin_connections}
+                          </p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">Clients</p>
+                        </div>
+                      </div>
+
+                      {/* Restaurants with Connections */}
+                      <div className="pt-2 border-t">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs sm:text-sm font-medium">
+                            Restaurants Connected
+                          </span>
+                          <Badge variant="secondary" className="text-xs">
+                            {connectionStats.restaurants_with_connections}
+                          </Badge>
+                        </div>
+
+                        {Object.keys(connectionStats.connections_per_restaurant).length > 0 ? (
+                          <ScrollArea className="max-h-[120px] sm:max-h-[150px]">
+                            <div className="space-y-1.5 sm:space-y-2">
+                              {Object.entries(connectionStats.connections_per_restaurant).map(
+                                ([restaurantId, count]) => (
+                                  <div
+                                    key={restaurantId}
+                                    className="flex items-center justify-between py-1.5 px-2 rounded bg-muted/30"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                                      <Building2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                                      <span className="text-xs sm:text-sm truncate">
+                                        {isLoadingRestaurants
+                                          ? `Loading...`
+                                          : getRestaurantName(restaurantId)}
+                                      </span>
+                                    </div>
+                                    <Badge variant="outline" className="text-xs flex-shrink-0 ml-2">
+                                      {count} {count === 1 ? "user" : "users"}
+                                    </Badge>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </ScrollArea>
+                        ) : (
+                          <p className="text-xs text-muted-foreground text-center py-2">
+                            No restaurant clients connected
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  ) : isLoadingStats ? (
+                    <div className="text-center py-4">
+                      <RefreshCw className="h-6 w-6 mx-auto mb-2 animate-spin text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">Loading stats...</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <Wifi className="h-6 w-6 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No connection data available</p>
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
 
           {/* Notifications Bell */}
           <Popover open={isNotificationsOpen} onOpenChange={handleNotificationsOpen}>
@@ -160,9 +370,13 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 sm:w-96 p-0" align="end" sideOffset={8}>
+            <PopoverContent
+              className="w-[calc(100vw-2rem)] max-w-[400px] p-0"
+              align="end"
+              sideOffset={8}
+            >
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b">
+              <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-sm">Notifications</h3>
                   {events.length > 0 && (
@@ -176,7 +390,10 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7"
-                    onClick={toggleSounds}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSounds();
+                    }}
                     title={
                       soundsEnabled ? "Mute notification sounds" : "Enable notification sounds"
                     }
@@ -188,8 +405,17 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                     )}
                   </Button>
                   {events.length > 0 && (
-                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={clearEvents}>
-                      Clear all
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-xs h-7"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearEvents();
+                      }}
+                    >
+                      <span className="hidden sm:inline">Clear all</span>
+                      <span className="sm:hidden">Clear</span>
                     </Button>
                   )}
                 </div>
@@ -197,30 +423,35 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
 
               {/* Events List */}
               {events.length > 0 ? (
-                <ScrollArea className="h-[400px]">
+                <ScrollArea className="h-[calc(100vh-250px)] max-h-[400px] sm:h-[400px]">
                   <div className="divide-y">
                     {events.map((event) => (
                       <div
                         key={event.id}
-                        className={`px-4 py-3 hover:bg-muted/50 transition-colors ${
+                        className={`px-3 sm:px-4 py-3 hover:bg-muted/50 transition-colors ${
                           event.event_type === "escalation" ? "bg-destructive/5" : ""
                         }`}
                       >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5">{getEventIcon(event)}</div>
+                        <div className="flex items-start gap-2 sm:gap-3">
+                          <div className="mt-0.5 flex-shrink-0">{getEventIcon(event)}</div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-medium truncate">{getEventTitle(event)}</p>
+                              <p className="text-xs sm:text-sm font-medium truncate break-words">
+                                {getEventTitle(event)}
+                              </p>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-5 w-5 flex-shrink-0 opacity-50 hover:opacity-100"
-                                onClick={() => dismissEvent(event.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  dismissEvent(event.id);
+                                }}
                               >
                                 <X className="h-3 w-3" />
                               </Button>
                             </div>
-                            <p className="text-xs text-muted-foreground truncate">
+                            <p className="text-xs text-muted-foreground truncate break-words">
                               {getEventDescription(event)}
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
@@ -233,7 +464,7 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                   </div>
                 </ScrollArea>
               ) : (
-                <div className="px-4 py-8 text-center text-muted-foreground">
+                <div className="px-3 sm:px-4 py-8 text-center text-muted-foreground">
                   <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">No notifications yet</p>
                   <p className="text-xs mt-1">Events will appear here in real-time</p>
@@ -241,19 +472,24 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
               )}
 
               {/* Footer - Always show View Escalations link */}
-              <div className="px-4 py-3 border-t bg-muted/30">
+              <div className="px-3 sm:px-4 py-3 border-t bg-muted/30">
                 <Button
                   variant={hasEscalations ? "default" : "outline"}
                   size="sm"
-                  className="w-full text-sm"
-                  onClick={handleViewEscalations}
+                  className="w-full text-xs sm:text-sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewEscalations();
+                  }}
                 >
                   <AlertTriangle
-                    className={`h-4 w-4 mr-2 ${hasEscalations ? "" : "text-muted-foreground"}`}
+                    className={`h-4 w-4 mr-2 flex-shrink-0 ${hasEscalations ? "" : "text-muted-foreground"}`}
                   />
-                  {hasEscalations
-                    ? `View Escalations (${events.filter((e) => e.event_type === "escalation").length})`
-                    : "View Escalations"}
+                  <span className="truncate">
+                    {hasEscalations
+                      ? `View Escalations (${events.filter((e) => e.event_type === "escalation").length})`
+                      : "View Escalations"}
+                  </span>
                 </Button>
               </div>
             </PopoverContent>
