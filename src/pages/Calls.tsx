@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -66,6 +67,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
 import { getRestaurants } from "@/services/restaurants";
 import {
   getCalls,
@@ -94,16 +96,19 @@ const formatDuration = (seconds: number): string => {
 };
 
 const formatDateTime = (dateTime: string) => {
+  // Format in Vancouver timezone
   const date = new Date(dateTime);
   return {
     date: date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "America/Vancouver",
     }),
     time: date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Vancouver",
     }),
   };
 };
@@ -157,6 +162,8 @@ const formatCost = (cost: number | null): string => {
 
 const Calls = () => {
   const { user } = useAuth();
+  const { events } = useSSE();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isAdmin = user?.role === "admin" || user?.permissions?.includes("*");
 
   // Layout state
@@ -343,6 +350,40 @@ const Calls = () => {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
+  // Track last processed event to avoid duplicate refreshes
+  const lastProcessedEscalationEventRef = useRef<string | null>(null);
+
+  // Auto-refresh when escalation events arrive from SSE
+  useEffect(() => {
+    // Find the most recent escalation event for this restaurant
+    const escalationEvents = events.filter(
+      (e) =>
+        e.event_type === "escalation" &&
+        (selectedRestaurantId === "" || e.restaurant_id === Number(selectedRestaurantId))
+    );
+
+    if (
+      escalationEvents.length > 0 &&
+      escalationEvents[0].id !== lastProcessedEscalationEventRef.current
+    ) {
+      lastProcessedEscalationEventRef.current = escalationEvents[0].id;
+      // Refresh calls and analytics when escalation occurs
+      fetchCalls();
+      fetchAnalytics();
+    }
+  }, [events, selectedRestaurantId, fetchCalls, fetchAnalytics]);
+
+  // Handle call_id URL parameter (from escalation links)
+  useEffect(() => {
+    const callIdFromUrl = searchParams.get("call_id");
+    if (callIdFromUrl && !isLoadingCalls) {
+      // Clear the URL parameter to avoid re-opening on refresh
+      setSearchParams({}, { replace: true });
+      // Open the call details
+      handleViewDetails(callIdFromUrl);
+    }
+  }, [searchParams, isLoadingCalls, setSearchParams]);
+
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
@@ -456,7 +497,7 @@ const Calls = () => {
           title="Calls"
           description="View call history, transcripts, and analytics"
         />
-        <main className="flex-1 p-6 space-y-6">
+        <main className="flex-1 p-4 lg:p-6 space-y-6">
           {/* Analytics Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200/50 dark:border-blue-800/50">
@@ -680,14 +721,18 @@ const Calls = () => {
           {/* Call History Table */}
           <Card>
             <CardHeader className="space-y-4">
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <Phone className="h-6 w-6 text-primary" />
                   <CardTitle>Call History</CardTitle>
-                  {total > 0 && <Badge variant="secondary">{total} total</Badge>}
+                  {total > 0 && (
+                    <Badge variant="secondary" className="hidden sm:inline-flex">
+                      {total} total
+                    </Badge>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
                   {/* Restaurant selector */}
                   {isAdmin && (
                     <Select
@@ -720,6 +765,7 @@ const Calls = () => {
                       fetchAnalytics();
                     }}
                     disabled={isLoadingCalls}
+                    className="w-full sm:w-10 sm:h-10"
                   >
                     <RefreshCw className={`h-4 w-4 ${isLoadingCalls ? "animate-spin" : ""}`} />
                   </Button>
@@ -733,8 +779,13 @@ const Calls = () => {
                   <Input
                     placeholder="Search by caller phone..."
                     className="pl-9"
+                    type="tel"
                     value={callerPhoneSearch}
-                    onChange={(e) => setCallerPhoneSearch(e.target.value)}
+                    onChange={(e) => {
+                      // Remove any non-digit characters and decimal points
+                      const digitsOnly = e.target.value.replace(/[^\d+]/g, "");
+                      setCallerPhoneSearch(digitsOnly);
+                    }}
                   />
                   {callerPhoneSearch && (
                     <Button
@@ -896,11 +947,13 @@ const Calls = () => {
                         <TableHeader>
                           <TableRow className="bg-muted/50">
                             <TableHead className="font-semibold">ID</TableHead>
-                            <TableHead className="font-semibold">Restaurant</TableHead>
+                            <TableHead className="font-semibold hidden md:table-cell">
+                              Restaurant
+                            </TableHead>
                             <TableHead className="font-semibold">Caller</TableHead>
                             <TableHead className="font-semibold text-center">Duration</TableHead>
                             <TableHead className="font-semibold text-center">Status</TableHead>
-                            <TableHead className="font-semibold hidden md:table-cell">
+                            <TableHead className="font-semibold hidden lg:table-cell">
                               Started At
                             </TableHead>
                             <TableHead className="font-semibold text-center hidden sm:table-cell">
@@ -918,7 +971,7 @@ const Calls = () => {
                                 className="group hover:bg-muted/30 transition-colors"
                               >
                                 <TableCell className="font-mono text-sm">{call.call_id}</TableCell>
-                                <TableCell>
+                                <TableCell className="hidden md:table-cell">
                                   <div className="max-w-[200px]">
                                     <p className="font-medium truncate">{call.restaurant_name}</p>
                                   </div>
@@ -943,7 +996,7 @@ const Calls = () => {
                                     {call.status}
                                   </Badge>
                                 </TableCell>
-                                <TableCell className="hidden md:table-cell">
+                                <TableCell className="hidden lg:table-cell">
                                   <div className="flex flex-col gap-0.5">
                                     <span className="text-sm">{date}</span>
                                     <span className="text-xs text-muted-foreground">{time}</span>
@@ -966,10 +1019,10 @@ const Calls = () => {
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                          className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
                                           onClick={() => handleViewDetails(call.call_id)}
                                         >
-                                          <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                          <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent>View Details</TooltipContent>
@@ -981,10 +1034,10 @@ const Calls = () => {
                                           <Button
                                             variant="ghost"
                                             size="icon"
-                                            className="h-8 w-8 hover:bg-orange-50 dark:hover:bg-orange-950"
+                                            className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-orange-50 dark:hover:bg-orange-950"
                                             onClick={() => openDeleteTranscriptDialog(call.call_id)}
                                           >
-                                            <FileText className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                            <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-600 dark:text-orange-400" />
                                           </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>Delete Transcript</TooltipContent>
@@ -996,10 +1049,10 @@ const Calls = () => {
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-8 w-8 hover:bg-destructive/10"
+                                          className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-destructive/10"
                                           onClick={() => openDeleteCallDialog(call.call_id)}
                                         >
-                                          <Trash2 className="h-4 w-4 text-destructive" />
+                                          <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent>Delete Call</TooltipContent>
@@ -1021,16 +1074,18 @@ const Calls = () => {
                         Showing {calls.length > 0 ? (page - 1) * limit + 1 : 0} to{" "}
                         {Math.min(page * limit, total)} of {total} calls
                       </p>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 w-full sm:w-auto">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setPage((p) => Math.max(1, p - 1))}
                           disabled={page === 1 || isLoadingCalls}
                           aria-label="Previous page"
+                          className="flex-1 sm:flex-initial"
                         >
                           <ChevronLeft className="h-4 w-4" />
                           <span className="hidden sm:inline ml-1">Previous</span>
+                          <span className="sm:hidden">Prev</span>
                         </Button>
                         <div className="flex items-center gap-1 px-2">
                           <span className="text-sm text-muted-foreground">
@@ -1043,8 +1098,10 @@ const Calls = () => {
                           onClick={() => setPage((p) => p + 1)}
                           disabled={page >= totalPages || isLoadingCalls}
                           aria-label="Next page"
+                          className="flex-1 sm:flex-initial"
                         >
                           <span className="hidden sm:inline mr-1">Next</span>
+                          <span className="sm:hidden">Next</span>
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
@@ -1079,7 +1136,7 @@ const Calls = () => {
 
       {/* Call Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-3xl w-[calc(100%-2rem)] sm:w-full max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Phone className="h-5 w-5" />
@@ -1281,7 +1338,11 @@ const Calls = () => {
                               <p className="whitespace-pre-wrap">{entry.content}</p>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {new Date(entry.timestamp).toLocaleTimeString()}
+                              {new Date(entry.timestamp).toLocaleTimeString("en-US", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                timeZone: "America/Vancouver",
+                              })}
                             </p>
                           </div>
                         </div>

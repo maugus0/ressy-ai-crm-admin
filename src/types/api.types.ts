@@ -595,6 +595,30 @@ export interface DashboardOrderRestoreResponse {
   message: string;
 }
 
+// Order History Types
+export type OrderHistoryAction =
+  | "created"
+  | "status_changed"
+  | "items_updated"
+  | "amount_updated"
+  | "customer_updated"
+  | "customization_updated"
+  | "deleted"
+  | "restored";
+
+export interface OrderHistoryEntry {
+  id: number;
+  action: OrderHistoryAction;
+  previous_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  change_summary: string;
+  created_at: string;
+}
+
+export interface DashboardOrderWithHistory extends DashboardOrder {
+  history: OrderHistoryEntry[];
+}
+
 // ============================================================================
 // Reservation
 // ============================================================================
@@ -686,6 +710,29 @@ export interface ReservationParams {
   offset?: number; // default: 0
 }
 
+// Reservation History Types
+export type ReservationHistoryAction =
+  | "created"
+  | "status_changed"
+  | "party_size_changed"
+  | "date_time_changed"
+  | "guest_info_updated"
+  | "notes_updated"
+  | "cancelled";
+
+export interface ReservationHistoryEntry {
+  id: number;
+  action: ReservationHistoryAction;
+  previous_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  change_summary: string;
+  created_at: string;
+}
+
+export interface ReservationWithHistory extends Reservation {
+  history: ReservationHistoryEntry[];
+}
+
 // ============================================================================
 // Transcript
 // ============================================================================
@@ -705,4 +752,44 @@ export interface Transcript {
 
 export interface DeleteResponse {
   message: string;
+}
+
+// ============================================================================
+// SSE (Server-Sent Events)
+// ============================================================================
+
+export type SSEEscalationType = "user_requested" | "internal_server_error" | "suspected_spam";
+
+export type SSEEventType = "escalation" | "order" | "reservation" | "heartbeat";
+
+export type SSEEventSubtype =
+  | "user_requested"
+  | "internal_server_error"
+  | "suspected_spam"
+  | "new_order"
+  | "order_updated"
+  | "order_cancelled"
+  | "new_reservation"
+  | "reservation_updated"
+  | "reservation_cancelled";
+
+export interface SSEEvent {
+  id: string;
+  event_type: SSEEventType;
+  subtype: SSEEventSubtype;
+  restaurant_id: number;
+  timestamp: string;
+  data: Record<string, unknown>;
+}
+
+export interface SSEConnectionStats {
+  total_connections: number;
+  admin_connections: number;
+  restaurants_with_connections: number;
+  connections_per_restaurant: Record<string, number>;
+}
+
+export interface SSEEscalationRequest {
+  type: SSEEscalationType;
+  data: Record<string, unknown>;
 }

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -78,9 +79,12 @@ import {
   Building2,
   AlertTriangle,
   StickyNote,
+  History,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSSE } from "@/contexts/SSEContext";
 import { getRestaurants } from "@/services/restaurants";
 import {
   getOrders,
@@ -96,6 +100,7 @@ import { getMenuItems, getMenuCategories } from "@/services/menu";
 import type {
   Restaurant,
   DashboardOrder,
+  DashboardOrderWithHistory,
   DashboardOrderStatus,
   DashboardOrderCreateRequest,
   DashboardOrderUpdateRequest,
@@ -110,16 +115,19 @@ import type {
 // ============================================================================
 
 const formatDateTime = (dateTime: string) => {
+  // Format in Vancouver timezone
   const date = new Date(dateTime);
   return {
     date: date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "America/Vancouver",
     }),
     time: date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Vancouver",
     }),
   };
 };
@@ -166,6 +174,29 @@ const getStatusIcon = (status: DashboardOrderStatus) => {
       return <XCircle className="h-3 w-3" />;
     default:
       return null;
+  }
+};
+
+const getHistoryActionIcon = (action: string) => {
+  switch (action) {
+    case "created":
+      return <Plus className="h-4 w-4 text-green-500" />;
+    case "status_changed":
+      return <RefreshCw className="h-4 w-4 text-blue-500" />;
+    case "items_updated":
+      return <Pencil className="h-4 w-4 text-amber-500" />;
+    case "amount_updated":
+      return <Pencil className="h-4 w-4 text-amber-500" />;
+    case "customer_updated":
+      return <User className="h-4 w-4 text-purple-500" />;
+    case "customization_updated":
+      return <StickyNote className="h-4 w-4 text-cyan-500" />;
+    case "deleted":
+      return <Trash2 className="h-4 w-4 text-destructive" />;
+    case "restored":
+      return <RotateCcw className="h-4 w-4 text-green-500" />;
+    default:
+      return <History className="h-4 w-4 text-muted-foreground" />;
   }
 };
 
@@ -227,6 +258,7 @@ const defaultFormData: OrderFormData = {
 
 const Orders = () => {
   const { user } = useAuth();
+  const { events } = useSSE();
   const isAdmin = user?.role === "admin" || user?.permissions?.includes("*");
 
   // Layout state
@@ -264,7 +296,7 @@ const Orders = () => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRestoreDialogOpen, setIsRestoreDialogOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<DashboardOrderWithHistory | null>(null);
   const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<DashboardOrder | null>(null);
   const [formData, setFormData] = useState<OrderFormData>(defaultFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -391,6 +423,25 @@ const Orders = () => {
       fetchOrders();
     }
   }, [fetchOrders, selectedRestaurantId]);
+
+  // Track last processed event to avoid duplicate refreshes
+  const lastProcessedEventRef = useRef<string | null>(null);
+
+  // Auto-refresh when order events arrive from SSE
+  useEffect(() => {
+    // Find the most recent order event for this restaurant
+    const orderEvents = events.filter(
+      (e) =>
+        e.event_type === "order" &&
+        (selectedRestaurantId === null || e.restaurant_id === Number(selectedRestaurantId))
+    );
+
+    if (orderEvents.length > 0 && orderEvents[0].id !== lastProcessedEventRef.current) {
+      lastProcessedEventRef.current = orderEvents[0].id;
+      // Silently refresh the orders list
+      fetchOrders();
+    }
+  }, [events, selectedRestaurantId, fetchOrders]);
 
   useEffect(() => {
     setOffset(0);
@@ -803,7 +854,7 @@ const Orders = () => {
           {menuItems.length > 0 && (
             <>
               {/* Menu Filters */}
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -814,7 +865,7 @@ const Orders = () => {
                   />
                 </div>
                 <Select value={selectedMenuCategory} onValueChange={setSelectedMenuCategory}>
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-full sm:w-[160px]">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -829,54 +880,60 @@ const Orders = () => {
               </div>
 
               {/* Menu Items Grid */}
-              <ScrollArea className="h-[200px] rounded-lg border bg-muted/20">
-                <div className="p-3 space-y-4">
-                  {Object.entries(groupedMenuItems).map(([category, items]) => (
-                    <div key={category}>
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                        {category}
-                      </h4>
-                      <div className="grid grid-cols-1 gap-2">
-                        {items.map((menuItem) => (
-                          <div
-                            key={menuItem.id}
-                            className="flex items-center justify-between p-2.5 rounded-md border bg-background hover:bg-accent/50 cursor-pointer transition-colors group"
-                            onClick={() => addMenuItemToOrder(menuItem)}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">{menuItem.item_name}</p>
-                              {menuItem.item_desc && (
-                                <p className="text-xs text-muted-foreground truncate">
-                                  {menuItem.item_desc}
-                                </p>
-                              )}
+              <div className="border rounded-lg bg-muted/20">
+                <ScrollArea className="h-[200px] w-full">
+                  <div className="p-3 space-y-3">
+                    {Object.entries(groupedMenuItems).map(([category, items]) => (
+                      <div key={category}>
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2 px-1">
+                          {category}
+                        </h4>
+                        <div className="grid grid-cols-1 gap-2">
+                          {items.map((menuItem) => (
+                            <div
+                              key={menuItem.id}
+                              className="flex items-center justify-between p-3 rounded-md border bg-background hover:bg-accent/50 cursor-pointer transition-colors group"
+                              onClick={() => addMenuItemToOrder(menuItem)}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{menuItem.item_name}</p>
+                                {menuItem.item_desc && (
+                                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                    {menuItem.item_desc}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                                  ${parseFloat(menuItem.price).toFixed(2)}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:hover:bg-emerald-800/50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    addMenuItemToOrder(menuItem);
+                                  }}
+                                >
+                                  <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                </Button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 ml-2">
-                              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                                ${parseFloat(menuItem.price).toFixed(2)}
-                              </span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-900/50 dark:hover:bg-emerald-800/50"
-                              >
-                                <Plus className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {filteredMenuItems.length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <UtensilsCrossed className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No menu items found</p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
+                    ))}
+                    {filteredMenuItems.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <UtensilsCrossed className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No menu items found</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
             </>
           )}
 
@@ -908,99 +965,128 @@ const Orders = () => {
         </div>
         {formErrors.items && <p className="text-sm text-destructive">{formErrors.items}</p>}
 
-        <ScrollArea className="max-h-[250px] pr-4">
-          <div className="space-y-3">
-            {formData.items.map((item, index) => (
-              <div
-                key={index}
-                className={`p-3 border rounded-lg space-y-2 ${
-                  item.item_id
-                    ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/50"
-                    : "bg-muted/30"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {item.item_id ? (
-                        <span className="flex items-center gap-1">
-                          <UtensilsCrossed className="h-3 w-3 text-emerald-600" />
-                          {item.name}
-                        </span>
-                      ) : (
-                        `Item ${index + 1}`
+        <div className="border rounded-lg bg-muted/20">
+          <ScrollArea className="h-[300px] w-full">
+            <div className="p-4 space-y-3">
+              {formData.items.map((item, index) => (
+                <div
+                  key={index}
+                  className={`p-4 border rounded-lg space-y-3 bg-background ${
+                    item.item_id
+                      ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-sm font-medium truncate">
+                        {item.item_id ? (
+                          <span className="flex items-center gap-1.5">
+                            <UtensilsCrossed className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                            <span className="truncate">{item.name}</span>
+                          </span>
+                        ) : (
+                          `Item ${index + 1}`
+                        )}
+                      </span>
+                      {item.item_id && (
+                        <Badge variant="outline" className="text-xs flex-shrink-0">
+                          From Menu
+                        </Badge>
                       )}
-                    </span>
-                    {item.item_id && (
-                      <Badge variant="outline" className="text-xs">
-                        From Menu
-                      </Badge>
+                    </div>
+                    {(formData.items.length > 1 || item.name) && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:bg-destructive/10 flex-shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeItem(index);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
-                  {(formData.items.length > 1 || item.name) && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-destructive hover:bg-destructive/10"
-                      onClick={() => removeItem(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {!item.item_id && (
-                    <div className="col-span-4 space-y-1">
-                      <Label className="text-xs">Item Name *</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {!item.item_id && (
+                      <div className="col-span-2 sm:col-span-4 space-y-1.5">
+                        <Label className="text-xs font-medium">Item Name *</Label>
+                        <Input
+                          placeholder="Custom item name"
+                          value={item.name}
+                          onChange={(e) => updateItem(index, "name", e.target.value)}
+                          className={`h-9 ${formErrors[`item_${index}_name`] ? "border-destructive" : ""}`}
+                        />
+                        {formErrors[`item_${index}_name`] && (
+                          <p className="text-xs text-destructive">
+                            {formErrors[`item_${index}_name`]}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Quantity</Label>
                       <Input
-                        placeholder="Custom item name"
-                        value={item.name}
-                        onChange={(e) => updateItem(index, "name", e.target.value)}
-                        className={formErrors[`item_${index}_name`] ? "border-destructive" : ""}
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) =>
+                          updateItem(index, "quantity", parseInt(e.target.value) || 1)
+                        }
+                        className={`h-9 text-center ${formErrors[`item_${index}_quantity`] ? "border-destructive" : ""}`}
                       />
-                      {formErrors[`item_${index}_name`] && (
+                      {formErrors[`item_${index}_quantity`] && (
                         <p className="text-xs text-destructive">
-                          {formErrors[`item_${index}_name`]}
+                          {formErrors[`item_${index}_quantity`]}
                         </p>
                       )}
                     </div>
-                  )}
-                  <div className="space-y-1">
-                    <Label className="text-xs">Qty</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 1)}
-                      className={`text-center ${formErrors[`item_${index}_quantity`] ? "border-destructive" : ""}`}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Price</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.price}
-                      onChange={(e) => updateItem(index, "price", parseFloat(e.target.value) || 0)}
-                      className={formErrors[`item_${index}_price`] ? "border-destructive" : ""}
-                      disabled={!!item.item_id}
-                    />
-                  </div>
-                  <div className="col-span-2 space-y-1">
-                    <Label className="text-xs">Instructions</Label>
-                    <Input
-                      placeholder="Special requests..."
-                      value={item.instructions}
-                      onChange={(e) => updateItem(index, "instructions", e.target.value)}
-                    />
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Price</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.price}
+                        onChange={(e) =>
+                          updateItem(index, "price", parseFloat(e.target.value) || 0)
+                        }
+                        className={`h-9 ${formErrors[`item_${index}_price`] ? "border-destructive" : ""}`}
+                        disabled={!!item.item_id}
+                      />
+                      {formErrors[`item_${index}_price`] && (
+                        <p className="text-xs text-destructive">
+                          {formErrors[`item_${index}_price`]}
+                        </p>
+                      )}
+                    </div>
+                    <div className="col-span-2 space-y-1.5">
+                      <Label className="text-xs font-medium">Instructions</Label>
+                      <Input
+                        placeholder="Special requests..."
+                        value={item.instructions}
+                        onChange={(e) => updateItem(index, "instructions", e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
+              ))}
+              {formData.items.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No items added yet</p>
+                  <p className="text-xs mt-1">
+                    Select items from the menu above or add custom items
+                  </p>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
 
         <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 rounded-lg border border-emerald-200/50 dark:border-emerald-800/50">
           <span className="font-medium text-emerald-700 dark:text-emerald-300">Total Amount:</span>
@@ -1013,7 +1099,13 @@ const Orders = () => {
       {/* Customer Info */}
       <div className="space-y-4">
         <Label className="text-base font-semibold">Customer Information</Label>
-        <div className="grid grid-cols-2 gap-4">
+        {isEditMode && (
+          <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+            Customer information cannot be modified after order creation. View the order details to
+            see customer information.
+          </p>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="customer_name">Name</Label>
             <Input
@@ -1021,24 +1113,33 @@ const Orders = () => {
               placeholder="John Smith"
               value={formData.customer_name}
               onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+              disabled={isEditMode}
+              className={isEditMode ? "bg-muted cursor-not-allowed" : ""}
             />
           </div>
           <div className="space-y-2">
             <Label htmlFor="customer_phone">
-              Phone{" "}
-              <span className="text-destructive" aria-hidden="true">
-                *
-              </span>
+              Phone
+              {!isEditMode && (
+                <>
+                  {" "}
+                  <span className="text-destructive" aria-hidden="true">
+                    *
+                  </span>
+                  <span className="sr-only"> (required)</span>
+                </>
+              )}
             </Label>
-            <Input
+            <PhoneInput
               id="customer_phone"
-              placeholder="+1234567890"
+              placeholder="1234567890"
               value={formData.customer_phone}
-              onChange={(e) => {
-                setFormData({ ...formData, customer_phone: e.target.value });
+              onChange={(value) => {
+                setFormData({ ...formData, customer_phone: value });
                 if (formErrors.customer_phone) setFormErrors({ ...formErrors, customer_phone: "" });
               }}
-              className={formErrors.customer_phone ? "border-destructive" : ""}
+              error={!!formErrors.customer_phone}
+              disabled={isEditMode}
             />
             {formErrors.customer_phone && (
               <p className="text-sm text-destructive">{formErrors.customer_phone}</p>
@@ -1056,7 +1157,8 @@ const Orders = () => {
               setFormData({ ...formData, customer_email: e.target.value });
               if (formErrors.customer_email) setFormErrors({ ...formErrors, customer_email: "" });
             }}
-            className={formErrors.customer_email ? "border-destructive" : ""}
+            className={`${formErrors.customer_email ? "border-destructive" : ""} ${isEditMode ? "bg-muted cursor-not-allowed" : ""}`}
+            disabled={isEditMode}
           />
           {formErrors.customer_email && (
             <p className="text-sm text-destructive">{formErrors.customer_email}</p>
@@ -1067,7 +1169,7 @@ const Orders = () => {
       {/* Order Options */}
       <div className="space-y-4">
         <Label className="text-base font-semibold">Order Options</Label>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div className="space-y-0.5">
               <Label htmlFor="delivery" className="flex items-center gap-2">
@@ -1141,18 +1243,22 @@ const Orders = () => {
           title="Orders"
           description="Manage orders across all restaurants"
         />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-3 sm:p-4 lg:p-6">
           <Card>
-            <CardHeader className="space-y-4">
+            <CardHeader className="space-y-4 p-4 sm:p-6">
               {/* Header Row */}
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <ShoppingBag className="h-6 w-6 text-primary" />
-                  <CardTitle>Orders</CardTitle>
-                  {total > 0 && <Badge variant="secondary">{total} total</Badge>}
+                  <ShoppingBag className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                  <CardTitle className="text-lg sm:text-xl">Orders</CardTitle>
+                  {total > 0 && (
+                    <Badge variant="secondary" className="text-xs sm:text-sm">
+                      {total} total
+                    </Badge>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   {/* Restaurant selector */}
                   {isAdmin && (
                     <Select
@@ -1178,9 +1284,10 @@ const Orders = () => {
                     onClick={openCreateDialog}
                     disabled={!selectedRestaurantId}
                     aria-label="Create Order"
+                    className="w-full sm:w-auto"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    <span className="sm:inline">New Order</span>
+                    <span>New Order</span>
                   </Button>
 
                   {/* Refresh */}
@@ -1189,24 +1296,44 @@ const Orders = () => {
                     size="icon"
                     onClick={fetchOrders}
                     disabled={isLoadingOrders || !selectedRestaurantId}
+                    className="w-full sm:w-10 sm:h-10"
                   >
                     <RefreshCw className={`h-4 w-4 ${isLoadingOrders ? "animate-spin" : ""}`} />
+                    <span className="ml-2 sm:hidden">Refresh</span>
                   </Button>
                 </div>
               </div>
 
-              {/* Status Tabs */}
-              <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-                <TabsList className="flex-wrap">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="pending">Pending</TabsTrigger>
-                  <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
-                  <TabsTrigger value="preparing">Preparing</TabsTrigger>
-                  <TabsTrigger value="ready">Ready</TabsTrigger>
-                  <TabsTrigger value="completed">Completed</TabsTrigger>
-                  <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              {/* Status Tabs - Desktop / Dropdown - Mobile */}
+              <div className="sm:hidden">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                    <SelectItem value="preparing">Preparing</SelectItem>
+                    <SelectItem value="ready">Ready</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="hidden sm:block">
+                <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+                  <TabsList className="flex-wrap w-full justify-start">
+                    <TabsTrigger value="all">All</TabsTrigger>
+                    <TabsTrigger value="pending">Pending</TabsTrigger>
+                    <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
+                    <TabsTrigger value="preparing">Preparing</TabsTrigger>
+                    <TabsTrigger value="ready">Ready</TabsTrigger>
+                    <TabsTrigger value="completed">Completed</TabsTrigger>
+                    <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
 
               {/* Filter Row */}
               <div className="flex flex-wrap items-center gap-2">
@@ -1215,19 +1342,23 @@ const Orders = () => {
                   variant={showFilters ? "secondary" : "outline"}
                   size="sm"
                   onClick={() => setShowFilters(!showFilters)}
+                  className="flex-1 sm:flex-initial"
                 >
                   <Filter className="h-4 w-4 mr-1" />
                   Filters
                 </Button>
 
                 {/* Include Deleted Toggle */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1 sm:flex-initial">
                   <Switch
                     id="include_deleted"
                     checked={includeDeleted}
                     onCheckedChange={setIncludeDeleted}
                   />
-                  <Label htmlFor="include_deleted" className="text-sm cursor-pointer">
+                  <Label
+                    htmlFor="include_deleted"
+                    className="text-sm cursor-pointer whitespace-nowrap"
+                  >
                     Show Deleted
                   </Label>
                 </div>
@@ -1238,7 +1369,7 @@ const Orders = () => {
                     variant="ghost"
                     size="sm"
                     onClick={handleClearFilters}
-                    className="text-muted-foreground hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground flex-1 sm:flex-initial"
                     aria-label="Clear all filters"
                   >
                     <X className="h-4 w-4 mr-1" />
@@ -1272,7 +1403,7 @@ const Orders = () => {
               )}
             </CardHeader>
 
-            <CardContent>
+            <CardContent className="p-4 sm:p-6">
               {error && (
                 <div className="flex items-center gap-3 p-4 mb-4 text-sm bg-destructive/10 border border-destructive/20 rounded-lg">
                   <XCircle className="h-5 w-5 text-destructive flex-shrink-0" />
@@ -1299,7 +1430,8 @@ const Orders = () => {
                 </div>
               ) : (
                 <>
-                  <div className="overflow-x-auto border rounded-lg">
+                  {/* Desktop Table View */}
+                  <div className="hidden md:block overflow-x-auto border rounded-lg">
                     <TooltipProvider>
                       <Table>
                         <TableHeader>
@@ -1310,7 +1442,9 @@ const Orders = () => {
                               Items
                             </TableHead>
                             <TableHead className="font-semibold text-right">Total</TableHead>
-                            <TableHead className="font-semibold text-center">Status</TableHead>
+                            <TableHead className="font-semibold text-center min-w-[110px] whitespace-nowrap">
+                              Status
+                            </TableHead>
                             <TableHead className="font-semibold hidden lg:table-cell">
                               Created
                             </TableHead>
@@ -1368,39 +1502,45 @@ const Orders = () => {
                                     {formatCurrency(order.total_amount)}
                                   </span>
                                 </TableCell>
-                                <TableCell className="text-center">
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        className="h-auto p-0 hover:bg-transparent"
-                                        disabled={isDeleted}
-                                      >
-                                        <span
-                                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer capitalize ${getStatusStyles(order.status)}`}
+                                <TableCell className="text-center min-w-[110px] whitespace-nowrap">
+                                  <div className="flex justify-center">
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          className="h-auto p-0 hover:bg-transparent"
+                                          disabled={isDeleted}
                                         >
-                                          {getStatusIcon(order.status)}
-                                          {order.status}
-                                        </span>
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="center">
-                                      <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-                                      <DropdownMenuSeparator />
-                                      {STATUS_OPTIONS.filter((s) => s !== order.status).map(
-                                        (status) => (
-                                          <DropdownMenuItem
-                                            key={status}
-                                            onClick={() => handleStatusUpdate(order.id, status)}
-                                            className="capitalize"
+                                          <span
+                                            className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium border cursor-pointer capitalize whitespace-nowrap ${getStatusStyles(order.status)}`}
                                           >
-                                            {getStatusIcon(status)}
-                                            <span className="ml-2">{status}</span>
-                                          </DropdownMenuItem>
-                                        )
-                                      )}
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                                            <span className="flex-shrink-0">
+                                              {getStatusIcon(order.status)}
+                                            </span>
+                                            <span className="whitespace-nowrap">
+                                              {order.status}
+                                            </span>
+                                          </span>
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="center">
+                                        <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        {STATUS_OPTIONS.filter((s) => s !== order.status).map(
+                                          (status) => (
+                                            <DropdownMenuItem
+                                              key={status}
+                                              onClick={() => handleStatusUpdate(order.id, status)}
+                                              className="capitalize"
+                                            >
+                                              {getStatusIcon(status)}
+                                              <span className="ml-2">{status}</span>
+                                            </DropdownMenuItem>
+                                          )
+                                        )}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
                                 </TableCell>
                                 <TableCell className="hidden lg:table-cell">
                                   <div className="flex flex-col gap-0.5">
@@ -1471,6 +1611,155 @@ const Orders = () => {
                     </TooltipProvider>
                   </div>
 
+                  {/* Mobile Card View */}
+                  <div className="md:hidden space-y-3">
+                    {orders.map((order) => {
+                      const { date, time } = formatDateTime(order.created_at);
+                      const isDeleted = !!order.deleted_at;
+                      return (
+                        <Card
+                          key={order.id}
+                          className={`p-4 ${isDeleted ? "opacity-60 bg-red-50/30 dark:bg-red-950/10" : ""}`}
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-mono text-sm font-semibold">#{order.id}</span>
+                                {isDeleted && (
+                                  <Badge variant="destructive" className="text-xs">
+                                    <Trash2 className="h-3 w-3 mr-1" />
+                                    Deleted
+                                  </Badge>
+                                )}
+                              </div>
+                              {order.customer_name ? (
+                                <p className="font-medium flex items-center gap-1 mb-1">
+                                  <User className="h-3 w-3 text-muted-foreground" />
+                                  {order.customer_name}
+                                </p>
+                              ) : (
+                                <p className="text-muted-foreground italic text-sm mb-1">No name</p>
+                              )}
+                              {order.customer_phone && (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1 mb-2">
+                                  <Phone className="h-3 w-3" />
+                                  {order.customer_phone}
+                                </p>
+                              )}
+                              <div className="flex flex-wrap items-center gap-2 mt-2">
+                                <Badge variant="outline" className="gap-1 text-xs">
+                                  <Package className="h-3 w-3" />
+                                  {order.order_details.length} items
+                                </Badge>
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-sm">
+                                  {formatCurrency(order.total_amount)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between pt-3 border-t">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  className="h-auto p-0 hover:bg-transparent"
+                                  disabled={isDeleted}
+                                >
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border cursor-pointer capitalize whitespace-nowrap ${getStatusStyles(order.status)}`}
+                                  >
+                                    <span className="flex-shrink-0">
+                                      {getStatusIcon(order.status)}
+                                    </span>
+                                    <span className="whitespace-nowrap">{order.status}</span>
+                                  </span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {STATUS_OPTIONS.filter((s) => s !== order.status).map((status) => (
+                                  <DropdownMenuItem
+                                    key={status}
+                                    onClick={() => handleStatusUpdate(order.id, status)}
+                                    className="capitalize"
+                                  >
+                                    {getStatusIcon(status)}
+                                    <span className="ml-2">{status}</span>
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 sm:h-8 sm:w-8"
+                                onClick={() => openDetailsDialog(order)}
+                              >
+                                <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 sm:h-8 sm:w-8"
+                                  >
+                                    <MoreHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {!isDeleted && (
+                                    <>
+                                      <DropdownMenuItem
+                                        onClick={() => openEditDialog(order)}
+                                        disabled={order.status === "cancelled"}
+                                      >
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        Edit Order
+                                      </DropdownMenuItem>
+                                      {order.status !== "cancelled" &&
+                                        order.status !== "completed" && (
+                                          <DropdownMenuItem
+                                            onClick={() => openCancelDialog(order)}
+                                            className="text-amber-600"
+                                          >
+                                            <XCircle className="h-4 w-4 mr-2" />
+                                            Cancel Order
+                                          </DropdownMenuItem>
+                                        )}
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => openDeleteDialog(order)}
+                                        className="text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete Order
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  {isDeleted && (
+                                    <DropdownMenuItem
+                                      onClick={() => openRestoreDialog(order)}
+                                      className="text-green-600"
+                                    >
+                                      <RotateCcw className="h-4 w-4 mr-2" />
+                                      Restore Order
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                            {date} {time}
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+
                   {/* Pagination */}
                   {totalPages > 1 && (
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t">
@@ -1478,16 +1767,18 @@ const Orders = () => {
                         Showing {orders.length > 0 ? offset + 1 : 0} to{" "}
                         {Math.min(offset + orders.length, total)} of {total} orders
                       </p>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 w-full sm:w-auto">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setOffset((o) => Math.max(0, o - limit))}
                           disabled={offset === 0 || isLoadingOrders}
                           aria-label="Previous page"
+                          className="flex-1 sm:flex-initial"
                         >
                           <ChevronLeft className="h-4 w-4" />
                           <span className="hidden sm:inline ml-1">Previous</span>
+                          <span className="sm:hidden">Prev</span>
                         </Button>
                         <div className="flex items-center gap-1 px-2">
                           <span className="text-sm text-muted-foreground">
@@ -1500,8 +1791,10 @@ const Orders = () => {
                           onClick={() => setOffset((o) => o + limit)}
                           disabled={offset + limit >= total || isLoadingOrders}
                           aria-label="Next page"
+                          className="flex-1 sm:flex-initial"
                         >
                           <span className="hidden sm:inline mr-1">Next</span>
+                          <span className="sm:hidden">Next</span>
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
@@ -1554,17 +1847,21 @@ const Orders = () => {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create Order</DialogTitle>
             <DialogDescription>Create a new order for this restaurant</DialogDescription>
           </DialogHeader>
           {renderForm()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsCreateDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={isSubmitting}>
+            <Button onClick={handleCreate} disabled={isSubmitting} className="w-full sm:w-auto">
               {isSubmitting ? "Creating..." : "Create Order"}
             </Button>
           </DialogFooter>
@@ -1573,17 +1870,21 @@ const Orders = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Order</DialogTitle>
             <DialogDescription>Update order #{selectedOrderForEdit?.id}</DialogDescription>
           </DialogHeader>
           {renderForm(true)}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
               Cancel
             </Button>
-            <Button onClick={handleUpdate} disabled={isSubmitting}>
+            <Button onClick={handleUpdate} disabled={isSubmitting} className="w-full sm:w-auto">
               {isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
@@ -1592,9 +1893,9 @@ const Orders = () => {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <ShoppingBag className="h-5 w-5" />
               Order Details
             </DialogTitle>
@@ -1629,7 +1930,7 @@ const Orders = () => {
               {/* Customer Info */}
               <div className="border rounded-lg p-4 bg-muted/30">
                 <Label className="text-sm font-medium mb-3 block">Customer Information</Label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Name</p>
                     <p className="font-medium flex items-center gap-1">
@@ -1645,7 +1946,7 @@ const Orders = () => {
                     </p>
                   </div>
                   {selectedOrder.customer_email && (
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <p className="text-xs text-muted-foreground">Email</p>
                       <p className="font-medium flex items-center gap-1">
                         <Mail className="h-4 w-4 text-muted-foreground" />
@@ -1698,7 +1999,7 @@ const Orders = () => {
                 Object.keys(selectedOrder.customization).length > 0 && (
                   <div className="border rounded-lg p-4 bg-muted/30">
                     <Label className="text-sm font-medium mb-3 block">Order Options</Label>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                       {selectedOrder.customization.delivery !== undefined && (
                         <div className="flex items-center gap-2">
                           <Truck className="h-4 w-4 text-muted-foreground" />
@@ -1718,7 +2019,7 @@ const Orders = () => {
                         </div>
                       )}
                       {selectedOrder.customization.notes && (
-                        <div className="col-span-2">
+                        <div className="col-span-1 sm:col-span-2">
                           <p className="text-xs text-muted-foreground mb-1">Notes</p>
                           <p className="font-medium">{selectedOrder.customization.notes}</p>
                         </div>
@@ -1728,7 +2029,7 @@ const Orders = () => {
                 )}
 
               {/* Timestamps */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <Label className="text-muted-foreground text-xs">Created</Label>
                   <p>
@@ -1744,11 +2045,63 @@ const Orders = () => {
                   </p>
                 </div>
               </div>
+
+              {/* Order History */}
+              {selectedOrder.history && selectedOrder.history.length > 0 && (
+                <div className="border rounded-lg">
+                  <div className="px-4 py-3 border-b bg-muted/30 flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <Label className="font-medium">
+                      Order History ({selectedOrder.history.length})
+                    </Label>
+                  </div>
+                  <div className="p-4 space-y-3 max-h-[300px] overflow-y-auto">
+                    {selectedOrder.history.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex items-start gap-3 py-2 border-b last:border-0"
+                      >
+                        <div className="flex-shrink-0 mt-1">
+                          {getHistoryActionIcon(entry.action)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm">{entry.change_summary}</p>
+                          {entry.action === "status_changed" &&
+                            entry.previous_value &&
+                            entry.new_value && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${getStatusStyles(entry.previous_value.status as DashboardOrderStatus)}`}
+                                >
+                                  {String(entry.previous_value.status)}
+                                </span>
+                                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${getStatusStyles(entry.new_value.status as DashboardOrderStatus)}`}
+                                >
+                                  {String(entry.new_value.status)}
+                                </span>
+                              </div>
+                            )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatDateTime(entry.created_at).date}{" "}
+                            {formatDateTime(entry.created_at).time}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : null}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailsDialogOpen(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsDetailsDialogOpen(false)}
+              className="w-full sm:w-auto"
+            >
               Close
             </Button>
             {selectedOrder && !selectedOrder.deleted_at && selectedOrder.status !== "cancelled" && (
@@ -1757,6 +2110,7 @@ const Orders = () => {
                   setIsDetailsDialogOpen(false);
                   openEditDialog(selectedOrder);
                 }}
+                className="w-full sm:w-auto"
               >
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit Order

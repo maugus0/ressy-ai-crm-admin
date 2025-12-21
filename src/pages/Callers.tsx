@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -70,16 +71,19 @@ import type {
 // ============================================================================
 
 const formatDateTime = (dateTime: string) => {
+  // Format in Vancouver timezone
   const date = new Date(dateTime);
   return {
     date: date.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
+      timeZone: "America/Vancouver",
     }),
     time: date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
+      timeZone: "America/Vancouver",
     }),
   };
 };
@@ -319,13 +323,14 @@ const Callers = () => {
       errors.name = "Name must be less than 100 characters";
     }
 
-    // Phone validation
+    // Phone validation (with country code)
     if (!formData.phone_number.trim()) {
       errors.phone_number = "Phone number is required";
     } else {
-      const digitsOnly = formData.phone_number.replace(/\D/g, "");
-      if (digitsOnly.length < 10 || digitsOnly.length > 15) {
-        errors.phone_number = "Please enter a valid phone number (10-15 digits)";
+      // Remove country code prefix for digit counting
+      const phoneWithoutCode = formData.phone_number.replace(/^\+\d{1,3}/, "").replace(/\D/g, "");
+      if (phoneWithoutCode.length < 7 || phoneWithoutCode.length > 15) {
+        errors.phone_number = "Please enter a valid phone number (7-15 digits)";
       }
     }
 
@@ -430,18 +435,18 @@ const Callers = () => {
         {formErrors.name && <p className="text-sm text-destructive">{formErrors.name}</p>}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="phone_number">Phone Number *</Label>
-          <Input
+          <PhoneInput
             id="phone_number"
-            placeholder="+1234567890"
+            placeholder="1234567890"
             value={formData.phone_number}
-            onChange={(e) => {
-              setFormData({ ...formData, phone_number: e.target.value });
+            onChange={(value) => {
+              setFormData({ ...formData, phone_number: value });
               if (formErrors.phone_number) setFormErrors({ ...formErrors, phone_number: "" });
             }}
-            className={formErrors.phone_number ? "border-destructive" : ""}
+            error={!!formErrors.phone_number}
           />
           {formErrors.phone_number && (
             <p className="text-sm text-destructive">{formErrors.phone_number}</p>
@@ -525,18 +530,22 @@ const Callers = () => {
           title="Callers"
           description="Manage customer information and view interaction history"
         />
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 lg:p-6">
           <Card>
             <CardHeader className="space-y-4">
               {/* Header Row */}
-              <div className="flex flex-col lg:flex-row lg:items-center gap-4 justify-between">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <Users className="h-6 w-6 text-primary" />
                   <CardTitle>Customers</CardTitle>
-                  {total > 0 && <Badge variant="secondary">{total} total</Badge>}
+                  {total > 0 && (
+                    <Badge variant="secondary" className="hidden sm:inline-flex">
+                      {total} total
+                    </Badge>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
                   {/* Restaurant selector */}
                   {isAdmin && (
                     <Select
@@ -562,9 +571,11 @@ const Callers = () => {
                     onClick={openCreateDialog}
                     disabled={!selectedRestaurantId}
                     aria-label="Add Customer"
+                    className="w-full sm:w-auto"
                   >
                     <Plus className="h-4 w-4 mr-2" />
-                    <span className="sm:inline">Add Customer</span>
+                    <span className="hidden sm:inline">Add Customer</span>
+                    <span className="sm:hidden">Add</span>
                   </Button>
 
                   {/* Refresh */}
@@ -573,6 +584,7 @@ const Callers = () => {
                     size="icon"
                     onClick={fetchCallers}
                     disabled={isLoadingCallers || !selectedRestaurantId}
+                    className="w-full sm:w-10 sm:h-10"
                   >
                     <RefreshCw className={`h-4 w-4 ${isLoadingCallers ? "animate-spin" : ""}`} />
                   </Button>
@@ -756,10 +768,10 @@ const Callers = () => {
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-8 w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
+                                          className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-blue-50 dark:hover:bg-blue-950"
                                           onClick={() => openDetailsDialog(caller)}
                                         >
-                                          <Eye className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                          <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600 dark:text-blue-400" />
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent>View Details</TooltipContent>
@@ -770,10 +782,10 @@ const Callers = () => {
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-8 w-8 hover:bg-muted"
+                                          className="h-7 w-7 sm:h-8 sm:w-8 hover:bg-muted"
                                           onClick={() => openEditDialog(caller)}
                                         >
-                                          <Pencil className="h-4 w-4" />
+                                          <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                         </Button>
                                       </TooltipTrigger>
                                       <TooltipContent>Edit Customer</TooltipContent>
@@ -795,16 +807,18 @@ const Callers = () => {
                         Showing {callers.length > 0 ? offset + 1 : 0} to{" "}
                         {Math.min(offset + callers.length, total)} of {total} customers
                       </p>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 w-full sm:w-auto">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setOffset((o) => Math.max(0, o - limit))}
                           disabled={offset === 0 || isLoadingCallers}
                           aria-label="Previous page"
+                          className="flex-1 sm:flex-initial"
                         >
                           <ChevronLeft className="h-4 w-4" />
                           <span className="hidden sm:inline ml-1">Previous</span>
+                          <span className="sm:hidden">Prev</span>
                         </Button>
                         <div className="flex items-center gap-1 px-2">
                           <span className="text-sm text-muted-foreground">
@@ -817,8 +831,10 @@ const Callers = () => {
                           onClick={() => setOffset((o) => o + limit)}
                           disabled={!hasMore || isLoadingCallers}
                           aria-label="Next page"
+                          className="flex-1 sm:flex-initial"
                         >
                           <span className="hidden sm:inline mr-1">Next</span>
+                          <span className="sm:hidden">Next</span>
                           <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
@@ -871,7 +887,7 @@ const Callers = () => {
 
       {/* Create Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Customer</DialogTitle>
             <DialogDescription>
@@ -892,7 +908,7 @@ const Callers = () => {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Customer</DialogTitle>
             <DialogDescription>
@@ -913,7 +929,7 @@ const Callers = () => {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />

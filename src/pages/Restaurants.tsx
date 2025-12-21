@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -261,7 +262,7 @@ const Restaurants = () => {
       errors.phone_number = "Phone must be in E.164 format (e.g., +15551234567)";
     }
 
-    // Optional phone validation
+    // Optional Twilio phone validation
     if (formData.twilio_phone_number && !PHONE_REGEX.test(formData.twilio_phone_number)) {
       errors.twilio_phone_number = "Twilio number must be in E.164 format";
     }
@@ -474,7 +475,7 @@ const Restaurants = () => {
         <main className="flex-1 p-4 lg:p-6">
           <Card className="shadow-sm">
             <CardHeader className="pb-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-lg bg-primary/10">
                     <Building2 className="h-5 w-5 text-primary" />
@@ -482,14 +483,14 @@ const Restaurants = () => {
                   <div>
                     <CardTitle className="text-lg">All Restaurants</CardTitle>
                     {pagination && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground hidden sm:block">
                         {pagination.total} restaurant{pagination.total !== 1 ? "s" : ""} total
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="relative">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="relative flex-1 sm:flex-initial">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search restaurants..."
@@ -498,10 +499,13 @@ const Restaurants = () => {
                         setSearchQuery(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="pl-9 w-[220px]"
+                      className="pl-9 w-full sm:w-[220px]"
                     />
                   </div>
-                  <Button onClick={() => setIsCreateDialogOpen(true)} className="shadow-sm">
+                  <Button
+                    onClick={() => setIsCreateDialogOpen(true)}
+                    className="shadow-sm w-full sm:w-auto"
+                  >
                     <Plus className="h-4 w-4 mr-2" />
                     Add Restaurant
                   </Button>
@@ -527,7 +531,7 @@ const Restaurants = () => {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/50 hover:bg-muted/50">
-                          <TableHead className="w-[50px] font-semibold">
+                          <TableHead className="w-[50px] font-semibold hidden sm:table-cell">
                             <button
                               onClick={() => handleSort("id")}
                               className="flex items-center hover:text-primary transition-colors"
@@ -545,9 +549,15 @@ const Restaurants = () => {
                               {getSortIcon("name")}
                             </button>
                           </TableHead>
-                          <TableHead className="font-semibold">Contact</TableHead>
-                          <TableHead className="font-semibold text-center">Hours</TableHead>
-                          <TableHead className="font-semibold text-center">Settings</TableHead>
+                          <TableHead className="font-semibold hidden md:table-cell">
+                            Contact
+                          </TableHead>
+                          <TableHead className="font-semibold text-center hidden lg:table-cell">
+                            Hours
+                          </TableHead>
+                          <TableHead className="font-semibold text-center hidden xl:table-cell">
+                            Settings
+                          </TableHead>
                           <TableHead className="font-semibold text-center w-[140px]">
                             Actions
                           </TableHead>
@@ -556,7 +566,7 @@ const Restaurants = () => {
                       <TableBody>
                         {sortedRestaurants.map((restaurant) => (
                           <TableRow key={restaurant.id} className="group">
-                            <TableCell className="font-mono text-muted-foreground">
+                            <TableCell className="font-mono text-muted-foreground hidden sm:table-cell">
                               #{restaurant.id}
                             </TableCell>
                             <TableCell>
@@ -570,7 +580,7 @@ const Restaurants = () => {
                                 </div>
                               </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="hidden md:table-cell">
                               <div className="space-y-1">
                                 <div className="flex items-center gap-1.5 text-sm">
                                   <Phone className="h-3 w-3 text-muted-foreground" />
@@ -584,7 +594,7 @@ const Restaurants = () => {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center hidden lg:table-cell">
                               {restaurant.opening_time && restaurant.closing_time ? (
                                 <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50 text-green-700 text-xs font-medium">
                                   <Clock className="h-3 w-3" />
@@ -595,7 +605,7 @@ const Restaurants = () => {
                                 <span className="text-xs text-muted-foreground">Not set</span>
                               )}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="hidden xl:table-cell">
                               <div className="flex items-center justify-center gap-2">
                                 <TooltipProvider>
                                   <Tooltip>
@@ -663,10 +673,10 @@ const Restaurants = () => {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-8 w-8"
+                                        className="h-7 w-7 sm:h-8 sm:w-8"
                                         onClick={() => openDetailsDialog(restaurant)}
                                       >
-                                        <Eye className="h-4 w-4 text-blue-600" />
+                                        <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>View Details</TooltipContent>
@@ -679,10 +689,10 @@ const Restaurants = () => {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-8 w-8"
+                                        className="h-7 w-7 sm:h-8 sm:w-8"
                                         onClick={() => openStatsDialog(restaurant)}
                                       >
-                                        <BarChart3 className="h-4 w-4 text-purple-600" />
+                                        <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-600" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>View Stats</TooltipContent>
@@ -695,10 +705,10 @@ const Restaurants = () => {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-8 w-8"
+                                        className="h-7 w-7 sm:h-8 sm:w-8"
                                         onClick={() => openEditDialog(restaurant)}
                                       >
-                                        <Pencil className="h-4 w-4" />
+                                        <Pencil className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Edit</TooltipContent>
@@ -711,10 +721,10 @@ const Restaurants = () => {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-8 w-8"
+                                        className="h-7 w-7 sm:h-8 sm:w-8"
                                         onClick={() => openDeleteDialog(restaurant)}
                                       >
-                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                        <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
                                       </Button>
                                     </TooltipTrigger>
                                     <TooltipContent>Delete</TooltipContent>
@@ -730,27 +740,31 @@ const Restaurants = () => {
 
                   {/* Pagination */}
                   {pagination && pagination.pages > 1 && (
-                    <div className="flex items-center justify-between p-4 border-t">
-                      <p className="text-sm text-muted-foreground">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t">
+                      <p className="text-sm text-muted-foreground text-center sm:text-left">
                         Page {pagination.page} of {pagination.pages}
                       </p>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 w-full sm:w-auto">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                           disabled={currentPage === 1}
+                          className="flex-1 sm:flex-initial"
                         >
                           <ChevronLeft className="h-4 w-4 mr-1" />
-                          Previous
+                          <span className="hidden sm:inline">Previous</span>
+                          <span className="sm:hidden">Prev</span>
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
                           disabled={currentPage === pagination.pages}
+                          className="flex-1 sm:flex-initial"
                         >
-                          Next
+                          <span className="hidden sm:inline">Next</span>
+                          <span className="sm:hidden">Next</span>
                           <ChevronRight className="h-4 w-4 ml-1" />
                         </Button>
                       </div>
@@ -786,7 +800,7 @@ const Restaurants = () => {
           }
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {isEditDialogOpen ? (
@@ -870,16 +884,16 @@ const Restaurants = () => {
                       <Label htmlFor="phone_number">
                         Phone Number <span className="text-destructive">*</span>
                       </Label>
-                      <Input
+                      <PhoneInput
                         id="phone_number"
                         value={formData.phone_number}
-                        onChange={(e) => {
-                          setFormData({ ...formData, phone_number: e.target.value });
+                        onChange={(value) => {
+                          setFormData({ ...formData, phone_number: value });
                           if (formErrors.phone_number)
                             setFormErrors((prev) => ({ ...prev, phone_number: undefined }));
                         }}
-                        placeholder="+15551234567"
-                        className={formErrors.phone_number ? "border-destructive" : ""}
+                        placeholder="1234567890"
+                        error={!!formErrors.phone_number}
                       />
                       {formErrors.phone_number && (
                         <p className="text-xs text-destructive">{formErrors.phone_number}</p>
@@ -887,16 +901,16 @@ const Restaurants = () => {
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="twilio_phone_number">Twilio Phone Number</Label>
-                      <Input
+                      <PhoneInput
                         id="twilio_phone_number"
                         value={formData.twilio_phone_number}
-                        onChange={(e) => {
-                          setFormData({ ...formData, twilio_phone_number: e.target.value });
+                        onChange={(value) => {
+                          setFormData({ ...formData, twilio_phone_number: value });
                           if (formErrors.twilio_phone_number)
                             setFormErrors((prev) => ({ ...prev, twilio_phone_number: undefined }));
                         }}
-                        placeholder="+15557654321"
-                        className={formErrors.twilio_phone_number ? "border-destructive" : ""}
+                        placeholder="1234567890"
+                        error={!!formErrors.twilio_phone_number}
                       />
                       {formErrors.twilio_phone_number && (
                         <p className="text-xs text-destructive">{formErrors.twilio_phone_number}</p>
@@ -1107,7 +1121,7 @@ const Restaurants = () => {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-blue-600" />
@@ -1232,8 +1246,18 @@ const Restaurants = () => {
 
               {/* Timestamps */}
               <div className="flex justify-between text-xs text-muted-foreground pt-2 border-t">
-                <span>Created: {new Date(restaurantDetails.created_at).toLocaleString()}</span>
-                <span>Updated: {new Date(restaurantDetails.updated_at).toLocaleString()}</span>
+                <span>
+                  Created:{" "}
+                  {new Date(restaurantDetails.created_at).toLocaleString("en-US", {
+                    timeZone: "America/Vancouver",
+                  })}
+                </span>
+                <span>
+                  Updated:{" "}
+                  {new Date(restaurantDetails.updated_at).toLocaleString("en-US", {
+                    timeZone: "America/Vancouver",
+                  })}
+                </span>
               </div>
             </div>
           ) : null}
@@ -1242,7 +1266,7 @@ const Restaurants = () => {
 
       {/* Stats Dialog */}
       <Dialog open={isStatsDialogOpen} onOpenChange={setIsStatsDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md w-[calc(100%-2rem)] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-purple-600" />

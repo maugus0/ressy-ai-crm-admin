@@ -28,6 +28,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   user: AuthUser | null;
+  /** Increments whenever token is refreshed - SSE can watch this to reconnect */
+  tokenVersion: number;
   login: (credentials: LoginCredentials) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
@@ -46,6 +48,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authenticated, setAuthenticated] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [tokenVersion, setTokenVersion] = useState(0);
   const refreshIntervalRef = useRef<number | null>(null);
 
   /**
@@ -92,6 +95,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (result.user) {
         setUser(result.user);
       }
+
+      // Increment token version so SSE can reconnect with new token
+      setTokenVersion((v) => v + 1);
+      console.log("Auth: Token refreshed, SSE will reconnect");
+
       return true;
     }
 
@@ -176,6 +184,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: authenticated,
         isLoading,
         user,
+        tokenVersion,
         login,
         logout,
       }}
