@@ -595,6 +595,30 @@ export interface DashboardOrderRestoreResponse {
   message: string;
 }
 
+// Order History Types
+export type OrderHistoryAction =
+  | "created"
+  | "status_changed"
+  | "items_updated"
+  | "amount_updated"
+  | "customer_updated"
+  | "customization_updated"
+  | "deleted"
+  | "restored";
+
+export interface OrderHistoryEntry {
+  id: number;
+  action: OrderHistoryAction;
+  previous_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  change_summary: string;
+  created_at: string;
+}
+
+export interface DashboardOrderWithHistory extends DashboardOrder {
+  history: OrderHistoryEntry[];
+}
+
 // ============================================================================
 // Reservation
 // ============================================================================
@@ -684,6 +708,29 @@ export interface ReservationParams {
   end_date?: string; // ISO format
   limit?: number; // default: 100, max: 1000
   offset?: number; // default: 0
+}
+
+// Reservation History Types
+export type ReservationHistoryAction =
+  | "created"
+  | "status_changed"
+  | "party_size_changed"
+  | "date_time_changed"
+  | "guest_info_updated"
+  | "notes_updated"
+  | "cancelled";
+
+export interface ReservationHistoryEntry {
+  id: number;
+  action: ReservationHistoryAction;
+  previous_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown> | null;
+  change_summary: string;
+  created_at: string;
+}
+
+export interface ReservationWithHistory extends Reservation {
+  history: ReservationHistoryEntry[];
 }
 
 // ============================================================================

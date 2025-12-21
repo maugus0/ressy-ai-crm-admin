@@ -12,6 +12,7 @@ import { api } from "@/lib/api/client";
 import { ENDPOINTS } from "@/lib/api/endpoints";
 import type {
   Reservation,
+  ReservationWithHistory,
   ReservationListResponse,
   ReservationCreateRequest,
   ReservationCreateResponse,
@@ -60,10 +61,10 @@ export const getReservations = async (
 };
 
 /**
- * Get a single reservation by ID
+ * Get a single reservation by ID including history
  */
-export const getReservation = async (reservationId: number): Promise<Reservation> => {
-  const response = await api.get<Reservation>(ENDPOINTS.RESERVATIONS.GET(reservationId));
+export const getReservation = async (reservationId: number): Promise<ReservationWithHistory> => {
+  const response = await api.get<ReservationWithHistory>(ENDPOINTS.RESERVATIONS.GET(reservationId));
 
   if (response.error || !response.data) {
     throw new Error(getErrorMessage(response.error, "Failed to fetch reservation"));

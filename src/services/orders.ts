@@ -8,6 +8,7 @@ import { api } from "@/lib/api/client";
 import { ENDPOINTS } from "@/lib/api/endpoints";
 import type {
   DashboardOrder,
+  DashboardOrderWithHistory,
   DashboardOrderListResponse,
   DashboardOrderParams,
   DashboardOrderCreateRequest,
@@ -77,10 +78,12 @@ export const getOrders = async (
 // ============================================================================
 
 /**
- * Get detailed information about a specific order
+ * Get detailed information about a specific order including history
  */
-export const getOrderDetails = async (orderId: number): Promise<DashboardOrder> => {
-  const response = await api.get<DashboardOrder>(ENDPOINTS.DASHBOARD_ORDERS.GET(orderId));
+export const getOrderDetails = async (orderId: number): Promise<DashboardOrderWithHistory> => {
+  const response = await api.get<DashboardOrderWithHistory>(
+    ENDPOINTS.DASHBOARD_ORDERS.GET(orderId)
+  );
 
   if (response.error || !response.data) {
     throw new Error(getErrorMessage(response.error, "Failed to fetch order details"));

@@ -61,6 +61,10 @@ import {
   Filter,
   X,
   RefreshCw,
+  History,
+  ArrowRight,
+  User,
+  StickyNote,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -77,6 +81,7 @@ import {
 import type {
   Restaurant,
   Reservation,
+  ReservationWithHistory,
   ReservationCreateRequest,
   ReservationUpdateRequest,
 } from "@/types/api.types";
@@ -165,7 +170,9 @@ const Reservations = () => {
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [isFinalizeDialogOpen, setIsFinalizeDialogOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
-  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<ReservationWithHistory | null>(
+    null
+  );
   const [formData, setFormData] = useState<ReservationFormData>(defaultFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -622,6 +629,27 @@ const Reservations = () => {
 
   const formatStatusLabel = (status: Reservation["status"]) => {
     return status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+
+  const getHistoryActionIcon = (action: string) => {
+    switch (action) {
+      case "created":
+        return <Plus className="h-4 w-4 text-green-500" />;
+      case "status_changed":
+        return <RefreshCw className="h-4 w-4 text-blue-500" />;
+      case "party_size_changed":
+        return <Users className="h-4 w-4 text-purple-500" />;
+      case "date_time_changed":
+        return <Calendar className="h-4 w-4 text-amber-500" />;
+      case "guest_info_updated":
+        return <User className="h-4 w-4 text-cyan-500" />;
+      case "notes_updated":
+        return <StickyNote className="h-4 w-4 text-orange-500" />;
+      case "cancelled":
+        return <XCircle className="h-4 w-4 text-destructive" />;
+      default:
+        return <History className="h-4 w-4 text-muted-foreground" />;
+    }
   };
 
   const formatDateTime = (dateTime: string) => {
@@ -1323,7 +1351,7 @@ const Reservations = () => {
 
       {/* Details Dialog */}
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full">
+        <DialogContent className="max-w-2xl w-[calc(100%-2rem)] sm:w-full max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Reservation Details</DialogTitle>
             <DialogDescription>{selectedReservation?.confirmation_number}</DialogDescription>
@@ -1398,16 +1426,76 @@ const Reservations = () => {
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="text-sm">
-                    {new Date(selectedReservation.created_at).toLocaleString()}
+                    {formatDateTime(selectedReservation.created_at).date}{" "}
+                    {formatDateTime(selectedReservation.created_at).time}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Updated</Label>
                   <p className="text-sm">
-                    {new Date(selectedReservation.updated_at).toLocaleString()}
+                    {formatDateTime(selectedReservation.updated_at).date}{" "}
+                    {formatDateTime(selectedReservation.updated_at).time}
                   </p>
                 </div>
               </div>
+
+              {/* Reservation History */}
+              {selectedReservation.history && selectedReservation.history.length > 0 && (
+                <div className="border rounded-lg mt-4">
+                  <div className="px-4 py-3 border-b bg-muted/30 flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <Label className="font-medium">
+                      Reservation History ({selectedReservation.history.length})
+                    </Label>
+                  </div>
+                  <div className="p-4 space-y-3 max-h-[250px] overflow-y-auto">
+                    {selectedReservation.history.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex items-start gap-3 py-2 border-b last:border-0"
+                      >
+                        <div className="flex-shrink-0 mt-1">
+                          {getHistoryActionIcon(entry.action)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm">{entry.change_summary}</p>
+                          {entry.action === "status_changed" &&
+                            entry.previous_value &&
+                            entry.new_value && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge
+                                  variant={getStatusColor(
+                                    entry.previous_value.status as Reservation["status"]
+                                  )}
+                                  className="capitalize text-xs"
+                                >
+                                  {formatStatusLabel(
+                                    entry.previous_value.status as Reservation["status"]
+                                  )}
+                                </Badge>
+                                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                <Badge
+                                  variant={getStatusColor(
+                                    entry.new_value.status as Reservation["status"]
+                                  )}
+                                  className="capitalize text-xs"
+                                >
+                                  {formatStatusLabel(
+                                    entry.new_value.status as Reservation["status"]
+                                  )}
+                                </Badge>
+                              </div>
+                            )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatDateTime(entry.created_at).date}{" "}
+                            {formatDateTime(entry.created_at).time}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>

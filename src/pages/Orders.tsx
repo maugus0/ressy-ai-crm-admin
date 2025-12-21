@@ -79,6 +79,8 @@ import {
   Building2,
   AlertTriangle,
   StickyNote,
+  History,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -98,6 +100,7 @@ import { getMenuItems, getMenuCategories } from "@/services/menu";
 import type {
   Restaurant,
   DashboardOrder,
+  DashboardOrderWithHistory,
   DashboardOrderStatus,
   DashboardOrderCreateRequest,
   DashboardOrderUpdateRequest,
@@ -171,6 +174,29 @@ const getStatusIcon = (status: DashboardOrderStatus) => {
       return <XCircle className="h-3 w-3" />;
     default:
       return null;
+  }
+};
+
+const getHistoryActionIcon = (action: string) => {
+  switch (action) {
+    case "created":
+      return <Plus className="h-4 w-4 text-green-500" />;
+    case "status_changed":
+      return <RefreshCw className="h-4 w-4 text-blue-500" />;
+    case "items_updated":
+      return <Pencil className="h-4 w-4 text-amber-500" />;
+    case "amount_updated":
+      return <Pencil className="h-4 w-4 text-amber-500" />;
+    case "customer_updated":
+      return <User className="h-4 w-4 text-purple-500" />;
+    case "customization_updated":
+      return <StickyNote className="h-4 w-4 text-cyan-500" />;
+    case "deleted":
+      return <Trash2 className="h-4 w-4 text-destructive" />;
+    case "restored":
+      return <RotateCcw className="h-4 w-4 text-green-500" />;
+    default:
+      return <History className="h-4 w-4 text-muted-foreground" />;
   }
 };
 
@@ -270,7 +296,7 @@ const Orders = () => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRestoreDialogOpen, setIsRestoreDialogOpen] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<DashboardOrder | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<DashboardOrderWithHistory | null>(null);
   const [selectedOrderForEdit, setSelectedOrderForEdit] = useState<DashboardOrder | null>(null);
   const [formData, setFormData] = useState<OrderFormData>(defaultFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -2019,6 +2045,54 @@ const Orders = () => {
                   </p>
                 </div>
               </div>
+
+              {/* Order History */}
+              {selectedOrder.history && selectedOrder.history.length > 0 && (
+                <div className="border rounded-lg">
+                  <div className="px-4 py-3 border-b bg-muted/30 flex items-center gap-2">
+                    <History className="h-4 w-4 text-muted-foreground" />
+                    <Label className="font-medium">
+                      Order History ({selectedOrder.history.length})
+                    </Label>
+                  </div>
+                  <div className="p-4 space-y-3 max-h-[300px] overflow-y-auto">
+                    {selectedOrder.history.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="flex items-start gap-3 py-2 border-b last:border-0"
+                      >
+                        <div className="flex-shrink-0 mt-1">
+                          {getHistoryActionIcon(entry.action)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm">{entry.change_summary}</p>
+                          {entry.action === "status_changed" &&
+                            entry.previous_value &&
+                            entry.new_value && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${getStatusStyles(entry.previous_value.status as DashboardOrderStatus)}`}
+                                >
+                                  {String(entry.previous_value.status)}
+                                </span>
+                                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${getStatusStyles(entry.new_value.status as DashboardOrderStatus)}`}
+                                >
+                                  {String(entry.new_value.status)}
+                                </span>
+                              </div>
+                            )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatDateTime(entry.created_at).date}{" "}
+                            {formatDateTime(entry.created_at).time}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : null}
 
