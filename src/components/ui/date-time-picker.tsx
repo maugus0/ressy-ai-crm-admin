@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarIcon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { isoToVancouverDateTime, getTimeFromDateTime } from "@/lib/utils/timezone";
+import { getTimeFromDateTime } from "@/lib/utils/timezone";
 
 interface DateTimePickerProps {
   value: string; // datetime-local format: YYYY-MM-DDTHH:mm

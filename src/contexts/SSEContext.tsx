@@ -16,6 +16,13 @@ import { connectToSSE, disconnectFromSSE } from "@/services/sse";
 import { useAuth } from "./AuthContext";
 import { toast } from "sonner";
 import type { SSEEvent } from "@/types/api.types";
+import {
+  playNotificationSound,
+  initializeAudio,
+  areSoundsEnabled,
+  setSoundsEnabled,
+  type NotificationEventType,
+} from "@/lib/utils/notification-sounds";
 
 // ============================================================================
 // Types
@@ -30,6 +37,10 @@ interface SSEContextType {
   isConnected: boolean;
   /** Number of unread notifications */
   unreadCount: number;
+  /** Whether notification sounds are enabled */
+  soundsEnabled: boolean;
+  /** Toggle notification sounds on/off */
+  toggleSounds: () => void;
   /** Clear all events */
   clearEvents: () => void;
   /** Mark all as read (reset unread count) */
@@ -60,11 +71,31 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const [events, setEvents] = useState<SSEEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [soundsEnabled, setSoundsEnabledState] = useState(areSoundsEnabled());
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
 
+  // Initialize audio context on mount (for user interaction)
+  useEffect(() => {
+    // Initialize on first click/keypress to comply with browser autoplay policies
+    const handleUserInteraction = () => {
+      initializeAudio();
+      // Remove listeners after first interaction
+      document.removeEventListener("click", handleUserInteraction);
+      document.removeEventListener("keydown", handleUserInteraction);
+    };
+
+    document.addEventListener("click", handleUserInteraction);
+    document.addEventListener("keydown", handleUserInteraction);
+
+    return () => {
+      document.removeEventListener("click", handleUserInteraction);
+      document.removeEventListener("keydown", handleUserInteraction);
+    };
+  }, []);
+
   /**
-   * Show toast notification based on event type
+   * Show toast notification based on event type and play appropriate sound
    */
   const showNotification = useCallback((event: SSEEvent) => {
     const { event_type, subtype, restaurant_id, data } = event;
@@ -74,9 +105,13 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       return restaurantName;
     };
 
+    // Determine sound type based on event
+    let soundType: NotificationEventType = "generic";
+
     switch (event_type) {
       case "escalation":
         {
+          soundType = "escalation";
           const escalationMessages: Record<string, string> = {
             user_requested: "Customer requested human assistance",
             internal_server_error: "System error during call",
@@ -91,6 +126,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
 
       case "order":
         {
+          soundType = "order";
           const orderMessages: Record<string, { icon: string; title: string }> = {
             new_order: { icon: "🛍️", title: "New Order" },
             order_updated: { icon: "📝", title: "Order Updated" },
@@ -107,6 +143,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
 
       case "reservation":
         {
+          soundType = "reservation";
           const reservationMessages: Record<string, { icon: string; title: string }> = {
             new_reservation: { icon: "📅", title: "New Reservation" },
             reservation_updated: { icon: "📝", title: "Reservation Updated" },
@@ -124,6 +161,9 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       default:
         break;
     }
+
+    // Play notification sound
+    playNotificationSound(soundType);
   }, []);
 
   /**
@@ -232,6 +272,15 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   /**
+   * Toggle notification sounds
+   */
+  const toggleSoundsHandler = useCallback(() => {
+    const newState = !soundsEnabled;
+    setSoundsEnabled(newState);
+    setSoundsEnabledState(newState);
+  }, [soundsEnabled]);
+
+  /**
    * Get escalation events only
    */
   const escalations = events.filter((e) => e.event_type === "escalation");
@@ -243,6 +292,8 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         escalations,
         isConnected,
         unreadCount,
+        soundsEnabled,
+        toggleSounds: toggleSoundsHandler,
         clearEvents,
         markAsRead,
         dismissEvent,

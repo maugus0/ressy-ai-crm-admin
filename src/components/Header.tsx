@@ -9,6 +9,8 @@ import {
   X,
   Wifi,
   WifiOff,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -80,7 +82,16 @@ const getEventDescription = (event: SSEEvent) => {
 export function Header({ onMenuClick, title = "Dashboard", description }: HeaderProps) {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
-  const { events, unreadCount, isConnected, markAsRead, dismissEvent, clearEvents } = useSSE();
+  const {
+    events,
+    unreadCount,
+    isConnected,
+    soundsEnabled,
+    toggleSounds,
+    markAsRead,
+    dismissEvent,
+    clearEvents,
+  } = useSSE();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -160,11 +171,28 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                     </Badge>
                   )}
                 </div>
-                {events.length > 0 && (
-                  <Button variant="ghost" size="sm" className="text-xs h-7" onClick={clearEvents}>
-                    Clear all
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={toggleSounds}
+                    title={
+                      soundsEnabled ? "Mute notification sounds" : "Enable notification sounds"
+                    }
+                  >
+                    {soundsEnabled ? (
+                      <Volume2 className="h-4 w-4" />
+                    ) : (
+                      <VolumeX className="h-4 w-4 text-muted-foreground" />
+                    )}
                   </Button>
-                )}
+                  {events.length > 0 && (
+                    <Button variant="ghost" size="sm" className="text-xs h-7" onClick={clearEvents}>
+                      Clear all
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Events List */}

@@ -8,7 +8,7 @@ RUN npm ci
 
 # Copy the rest of the source and build the Vite app
 COPY . .
-RUN GITHUB_PAGES=true npm run build:gh-pages
+RUN npm run build:production
 
 # Run the compiled site behind Nginx
 FROM nginx:1.27-alpine AS runtime
