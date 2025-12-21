@@ -7,7 +7,7 @@
     "dev": "CHOKIDAR_USEPOLLING=true vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "build:gh-pages": "vite build --base=/ressy-ai-crm-admin/",
+    "build:production": "vite build --base=/",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
@@ -15,8 +15,7 @@
     "test": "vitest",
     "test:ci": "vitest run --coverage",
     "test:watch": "vitest --watch",
-    "deploy": "npm run build:gh-pages && gh-pages -d dist",
-    "deploy:custom": "vite build --base=/${REPO_NAME:-ressy-ai-crm-admin}/ && gh-pages -d dist"
+    "deploy": "npm run build:production && gh-pages -d dist"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

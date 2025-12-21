@@ -208,7 +208,7 @@ jobs:
           path: trivy-results.json
 
   deploy-pages:
-    name: Deploy GitHub Pages (gh-pages CLI)
+    name: Deploy GitHub Pages (admin.ressy.ai)
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: [docker-build]
@@ -216,7 +216,7 @@ jobs:
       contents: write
     environment:
       name: github-pages
-      url: https://${{ github.repository_owner }}.github.io/ressy-ai-crm-admin/
+      url: https://admin.ressy.ai
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -233,14 +233,16 @@ jobs:
         run: npm ci
 
       - name: Build app
-        run: npm run build:gh-pages
+        run: npm run build:production
         env:
-          GITHUB_PAGES: true
-          # API configuration - set these in GitHub repository secrets or environment variables
-          # For production, use your production API URL
-          # For development/testing, you can use localhost if backend is accessible
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL || 'http://localhost:5001' }}
+          # Production API URL for admin.ressy.ai
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL || 'https://api.ressy.ai' }}
           VITE_API_VERSION: ${{ secrets.VITE_API_VERSION || vars.VITE_API_VERSION || 'v1' }}
+
+      - name: Copy CNAME and 404.html to dist
+        run: |
+          cp public/CNAME dist/CNAME
+          cp dist/index.html dist/404.html
 
       - name: Record current gh-pages HEAD (for rollback)
         shell: bash
@@ -263,11 +265,11 @@ jobs:
             -r https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git \
             -u "github-actions <github-actions@github.com>"
 
-      - name: Health check GitHub Pages
+      - name: Health check admin.ressy.ai
         shell: bash
         run: |
           set -euo pipefail
-          URL="https://${{ github.repository_owner }}.github.io/ressy-ai-crm-admin/"
+          URL="https://admin.ressy.ai/"
           ORIGIN=$(echo "$URL" | sed -E 's#^(https?://[^/]+)/.*#\1#')
           echo "Checking $URL ..."
           for i in {1..24}; do
@@ -315,7 +317,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          export URL="https://${{ github.repository_owner }}.github.io/ressy-ai-crm-admin/"
+          export URL="https://admin.ressy.ai/"
           cat > smoke.cjs << 'JS'
           const { chromium } = require('playwright');
           (async () => {
@@ -376,7 +378,7 @@ jobs:
       - name: OWASP ZAP Baseline on Production
         run: |
           docker run --rm -v $(pwd):/zap/wrk -t ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py -t "https://${{ github.repository_owner }}.github.io/ressy-ai-crm-admin/" \
+            zap-baseline.py -t "https://admin.ressy.ai/" \
             -J zap-production.json -w zap-production.md -r zap-production.html -a \
             > zap-baseline.log 2>&1 || true
 
