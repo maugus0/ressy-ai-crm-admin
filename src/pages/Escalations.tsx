@@ -135,7 +135,7 @@ const Escalations = () => {
           title="Escalations"
           description="Critical alerts requiring attention"
         />
-        <main className="flex-1 p-4 lg:p-6">
+        <main className="flex-1 p-3 sm:p-4 lg:p-6">
           <Card>
             <CardHeader className="space-y-4">
               {/* Header Row */}
@@ -183,24 +183,28 @@ const Escalations = () => {
 
               {/* Stats Cards */}
               {escalations.length > 0 && (
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="p-3 rounded-lg border bg-muted/30">
-                    <p className="text-xs text-muted-foreground">Total Alerts</p>
-                    <p className="text-2xl font-bold text-destructive">{counts.all}</p>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                  <div className="p-2.5 sm:p-3 rounded-lg border bg-muted/30">
+                    <p className="text-xs text-muted-foreground mb-1">Total Alerts</p>
+                    <p className="text-xl sm:text-2xl font-bold text-destructive">{counts.all}</p>
                   </div>
-                  <div className="p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/20">
-                    <p className="text-xs text-muted-foreground">Human Requested</p>
-                    <p className="text-2xl font-bold text-amber-600">{counts.user_requested}</p>
+                  <div className="p-2.5 sm:p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/20">
+                    <p className="text-xs text-muted-foreground mb-1">Human Requested</p>
+                    <p className="text-xl sm:text-2xl font-bold text-amber-600">
+                      {counts.user_requested}
+                    </p>
                   </div>
-                  <div className="p-3 rounded-lg border bg-red-50 dark:bg-red-950/20">
-                    <p className="text-xs text-muted-foreground">System Errors</p>
-                    <p className="text-2xl font-bold text-red-600">
+                  <div className="p-2.5 sm:p-3 rounded-lg border bg-red-50 dark:bg-red-950/20">
+                    <p className="text-xs text-muted-foreground mb-1">System Errors</p>
+                    <p className="text-xl sm:text-2xl font-bold text-red-600">
                       {counts.internal_server_error}
                     </p>
                   </div>
-                  <div className="p-3 rounded-lg border bg-orange-50 dark:bg-orange-950/20">
-                    <p className="text-xs text-muted-foreground">Spam Detected</p>
-                    <p className="text-2xl font-bold text-orange-600">{counts.suspected_spam}</p>
+                  <div className="p-2.5 sm:p-3 rounded-lg border bg-orange-50 dark:bg-orange-950/20">
+                    <p className="text-xs text-muted-foreground mb-1">Spam Detected</p>
+                    <p className="text-xl sm:text-2xl font-bold text-orange-600">
+                      {counts.suspected_spam}
+                    </p>
                   </div>
                 </div>
               )}
@@ -329,7 +333,7 @@ const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardPro
           )}
 
           {/* Actions */}
-          <div className="flex items-center gap-2 mt-4">
+          <div className="flex flex-wrap items-center gap-2 mt-4">
             <Badge
               variant={
                 escalation.subtype === "user_requested"
@@ -341,15 +345,16 @@ const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardPro
             >
               {escalation.subtype.replace(/_/g, " ")}
             </Badge>
-            <span className="text-xs text-muted-foreground">{relativeTime}</span>
+            <span className="text-xs text-muted-foreground hidden sm:inline">{relativeTime}</span>
             {callId && (
               <Button
-                variant="link"
+                variant="outline"
                 size="sm"
-                className="ml-auto text-xs h-auto p-0"
+                className="ml-auto text-xs"
                 onClick={() => onViewCall?.(callId)}
               >
-                View Call Details
+                <span className="sm:hidden">View Call</span>
+                <span className="hidden sm:inline">View Call Details</span>
                 <ChevronRight className="h-3 w-3 ml-1" />
               </Button>
             )}

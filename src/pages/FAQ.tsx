@@ -669,24 +669,24 @@ const FAQ = () => {
 
                 <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
                   {/* Search Mode Toggle */}
-                  <div className="flex rounded-lg border overflow-hidden">
+                  <div className="flex rounded-lg border overflow-hidden w-full sm:w-auto">
                     <Button
                       variant={searchMode === "restaurant" ? "default" : "ghost"}
                       size="sm"
-                      className="rounded-none px-2 sm:px-3"
+                      className="flex-1 sm:flex-initial rounded-none px-3 sm:px-3 h-9 sm:h-8"
                       onClick={() => handleSearchModeChange("restaurant")}
                     >
-                      <Building2 className="h-4 w-4 sm:mr-1" />
-                      <span className="hidden sm:inline">Restaurant</span>
+                      <Building2 className="h-4 w-4 mr-2 sm:mr-1.5" />
+                      <span className="text-sm">Restaurant</span>
                     </Button>
                     <Button
                       variant={searchMode === "global" ? "default" : "ghost"}
                       size="sm"
-                      className="rounded-none px-2 sm:px-3"
+                      className="flex-1 sm:flex-initial rounded-none px-3 sm:px-3 h-9 sm:h-8"
                       onClick={() => handleSearchModeChange("global")}
                     >
-                      <Globe className="h-4 w-4 sm:mr-1" />
-                      <span className="hidden sm:inline">Global</span>
+                      <Globe className="h-4 w-4 mr-2 sm:mr-1.5" />
+                      <span className="text-sm">Global</span>
                     </Button>
                   </div>
 

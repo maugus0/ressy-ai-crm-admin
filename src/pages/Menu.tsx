@@ -113,7 +113,7 @@ const defaultFormData: MenuFormData = {
   category: "",
   sub_category: "",
   item_desc: "",
-  avg_prep_time: "",
+  avg_prep_time: "15", // Default prep time of 15 minutes
   is_available: true,
   is_special: false,
 };
@@ -327,15 +327,16 @@ const Menu = () => {
       errors.sub_category = "Sub-category must be less than 100 characters";
     }
 
-    // Prep time validation (optional)
-    if (formData.avg_prep_time) {
-      const prepTime = parseInt(formData.avg_prep_time);
+    // Prep time validation (MANDATORY)
+    const prepTimeStr = formData.avg_prep_time.trim();
+    if (!prepTimeStr) {
+      errors.avg_prep_time = "Prep time is required";
+    } else {
+      const prepTime = parseInt(prepTimeStr);
       if (isNaN(prepTime)) {
         errors.avg_prep_time = "Please enter a valid number";
-      } else if (prepTime < 0) {
-        errors.avg_prep_time = "Prep time cannot be negative";
-      } else if (prepTime === 0) {
-        errors.avg_prep_time = "Prep time must be greater than 0";
+      } else if (prepTime < 1) {
+        errors.avg_prep_time = "Prep time must be at least 1 minute";
       } else if (prepTime > 999) {
         errors.avg_prep_time = "Prep time is too high (max 999 minutes)";
       }
@@ -399,7 +400,7 @@ const Menu = () => {
         category: formData.category.trim(),
         ...(formData.sub_category.trim() && { sub_category: formData.sub_category.trim() }),
         ...(formData.item_desc.trim() && { item_desc: formData.item_desc.trim() }),
-        ...(formData.avg_prep_time && { avg_prep_time: parseInt(formData.avg_prep_time) }),
+        avg_prep_time: parseInt(formData.avg_prep_time) || 15, // Mandatory with default
         is_available: formData.is_available,
         is_special: formData.is_special,
       };
@@ -428,7 +429,7 @@ const Menu = () => {
         category: formData.category.trim(),
         ...(formData.sub_category.trim() && { sub_category: formData.sub_category.trim() }),
         ...(formData.item_desc.trim() && { item_desc: formData.item_desc.trim() }),
-        ...(formData.avg_prep_time && { avg_prep_time: parseInt(formData.avg_prep_time) }),
+        avg_prep_time: parseInt(formData.avg_prep_time) || 15, // Mandatory with default
         is_available: formData.is_available,
         is_special: formData.is_special,
       });
@@ -694,19 +695,20 @@ const Menu = () => {
               {formErrors.price && <p className="text-sm text-destructive">{formErrors.price}</p>}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="avg_prep_time">Prep Time (min)</Label>
+              <Label htmlFor="avg_prep_time">Prep Time (min) *</Label>
               <Input
                 id="avg_prep_time"
                 type="number"
-                min="0"
+                min="1"
                 max="999"
-                placeholder="20"
+                placeholder="15"
                 value={formData.avg_prep_time}
                 onChange={(e) => {
                   setFormData({ ...formData, avg_prep_time: e.target.value });
                   if (formErrors.avg_prep_time) setFormErrors({ ...formErrors, avg_prep_time: "" });
                 }}
                 className={formErrors.avg_prep_time ? "border-destructive" : ""}
+                required
               />
               {formErrors.avg_prep_time && (
                 <p className="text-sm text-destructive">{formErrors.avg_prep_time}</p>
