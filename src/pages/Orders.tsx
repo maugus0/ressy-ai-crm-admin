@@ -654,8 +654,8 @@ const Orders = () => {
           const price = parseFloat(priceStr);
           if (isNaN(price)) {
             errors[`item_${index}_price`] = "Please enter a valid price";
-          } else if (price < 0) {
-            errors[`item_${index}_price`] = "Price cannot be negative";
+          } else if (price <= 0) {
+            errors[`item_${index}_price`] = "Price must be greater than 0";
           } else if (price > 99999.99) {
             errors[`item_${index}_price`] = "Price is too high (max $99,999.99)";
           }
@@ -1066,9 +1066,14 @@ const Orders = () => {
                         placeholder="0.00"
                         value={item.price}
                         onChange={(e) => {
-                          // Allow only valid decimal input
+                          // Allow only valid decimal input and prevent invalid leading zeros
                           const value = e.target.value;
-                          if (value === "" || /^\d*\.?\d{0,2}$/.test(value)) {
+                          if (value === "") {
+                            updateItem(index, "price", value);
+                          } else if (value === ".") {
+                            // Gracefully handle a lone decimal by converting to "0."
+                            updateItem(index, "price", "0.");
+                          } else if (/^(?!0\d)\d*\.?\d{0,2}$/.test(value)) {
                             updateItem(index, "price", value);
                           }
                         }}

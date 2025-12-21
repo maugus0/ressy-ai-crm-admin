@@ -10,6 +10,7 @@ import {
   useState,
   useCallback,
   useRef,
+  useMemo,
   ReactNode,
 } from "react";
 import { connectToSSE, disconnectFromSSE, getSSEStats } from "@/services/sse";
@@ -290,15 +291,16 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     setSoundsEnabledState(newState);
   }, [soundsEnabled]);
 
+  // Memoize admin check to stabilize refreshStats callback
+  const isAdmin = useMemo(() => {
+    return user?.role === "admin" || user?.permissions?.includes("*");
+  }, [user?.role, user?.permissions]);
+
   /**
    * Fetch SSE connection stats (admin only)
    */
   const refreshStats = useCallback(async () => {
-    if (!isAuthenticated || !user) return;
-
-    // Only admins can view stats
-    const isAdmin = user.role === "admin" || user.permissions?.includes("*");
-    if (!isAdmin) return;
+    if (!isAuthenticated || !user || !isAdmin) return;
 
     try {
       setIsLoadingStats(true);
@@ -309,13 +311,13 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoadingStats(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, isAdmin]);
 
   /**
    * Fetch stats periodically when connected
    */
   useEffect(() => {
-    if (isConnected && isAuthenticated && user) {
+    if (isConnected && isAuthenticated && isAdmin) {
       // Fetch immediately
       refreshStats();
 
@@ -331,7 +333,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         statsIntervalRef.current = null;
       }
     };
-  }, [isConnected, isAuthenticated, user, refreshStats]);
+  }, [isConnected, isAuthenticated, isAdmin, refreshStats]);
 
   /**
    * Get escalation events only

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Menu,
   LogOut,
@@ -104,6 +104,7 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const restaurantsFetchedRef = useRef(false);
 
   // Check if user is admin
   const isAdmin = user?.role === "admin" || user?.permissions?.includes("*");
@@ -120,17 +121,18 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
 
   // Fetch restaurants for name lookup
   const fetchRestaurants = useCallback(async () => {
-    if (restaurants.length > 0) return; // Already fetched
+    if (restaurantsFetchedRef.current) return; // Already fetched
     try {
       setIsLoadingRestaurants(true);
       const data = await getRestaurants({ limit: 100 }); // Fetch all restaurants
       setRestaurants(data.items);
+      restaurantsFetchedRef.current = true;
     } catch (error) {
       console.error("Failed to fetch restaurants:", error);
     } finally {
       setIsLoadingRestaurants(false);
     }
-  }, [restaurants.length]);
+  }, []);
 
   // Get restaurant name by ID
   const getRestaurantName = useCallback(

@@ -1,32 +1,36 @@
 # RessyAI CRM Admin Dashboard
 
-This project is the administration interface for RessyAI's CRM portals. It provides tools and panels for managing clients, billing rules, onboarding, settings, and tiers within the CRM ecosystem.
+Administration interface for managing restaurants, orders, reservations, menu items, FAQs, escalations, and users in the RessyAI CRM ecosystem.
 
 ## Features
 
-- Client management and overview
-- Billing rules configuration
-- Onboarding workflow
-- Settings management
-- Tiered access and badges
-- Modern UI components (React + Tailwind CSS)
-- JWT authentication with automatic token refresh
+- **Restaurant Management** - Create, edit, and manage restaurant profiles
+- **Order Management** - View and manage customer orders with real-time updates
+- **Reservation Management** - Handle restaurant reservations and bookings
+- **Menu Management** - Manage menu items, categories, and bulk updates via CSV
+- **FAQ Management** - Create and manage frequently asked questions per restaurant
+- **Escalation Management** - Track and manage customer escalations and calls
+- **User Management** - Admin and user account management
+- **Real-time Notifications** - Server-Sent Events (SSE) for live updates with sound alerts
+- **Mobile Responsive** - Fully responsive design for all screen sizes
+- **JWT Authentication** - Secure authentication with automatic token refresh
 
 ## Tech Stack
 
-- React 18
-- TypeScript
-- Vite
-- Tailwind CSS
-- React Router
-- React Query
+- **React 18** with TypeScript
+- **Vite** for build tooling
+- **Tailwind CSS** for styling
+- **React Router** for navigation
+- **Shadcn UI** components
+- **Server-Sent Events (SSE)** for real-time updates
+- **Web Audio API** for notification sounds
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v18 or newer recommended)
-- npm (v9 or newer recommended)
+- Node.js (v18 or newer)
+- npm (v9 or newer)
 
 ### Installation
 
@@ -52,7 +56,7 @@ This project is the administration interface for RessyAI's CRM portals. It provi
    VITE_API_VERSION=v1
    ```
 
-### Running the Development Server
+### Development
 
 ```bash
 npm run dev
@@ -60,7 +64,7 @@ npm run dev
 
 The app will be available at `http://localhost:8080`.
 
-### Building for Production
+### Build
 
 ```bash
 npm run build
@@ -70,101 +74,54 @@ npm run build
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `VITE_API_BASE_URL` | Backend API base URL | `http://localhost:5001` (fallback only) |
+| `VITE_API_BASE_URL` | Backend API base URL | `http://localhost:5001` (fallback) |
 | `VITE_API_VERSION` | API version prefix | `v1` |
 
-### Local Development
+### Production Deployment
 
-Create `.env.local` file (this file is gitignored):
-```env
-VITE_API_BASE_URL=http://localhost:5001
-VITE_API_VERSION=v1
-```
+For GitHub Pages deployment, set environment variables in GitHub Actions:
+- Go to Repository → Settings → Secrets and variables → Actions
+- Add `VITE_API_BASE_URL` and `VITE_API_VERSION` as repository variables
 
-### Production (GitHub Pages)
-
-**Important:** Environment variables must be set in GitHub Actions for production builds.
-
-1. **Go to your GitHub repository** → Settings → Secrets and variables → Actions
-
-2. **Add Repository Variables** (recommended) or Secrets:
-   - Variable name: `VITE_API_BASE_URL`
-   - Value: Your production API URL (e.g., `https://api.ressy.ai`)
-   - Variable name: `VITE_API_VERSION`
-   - Value: `v1`
-
-3. **Alternative: Use Environment Secrets**
-   - Go to Settings → Environments → `github-pages`
-   - Add secrets: `VITE_API_BASE_URL` and `VITE_API_VERSION`
-
-The GitHub Actions workflow will automatically use these variables during the build process. If not set, it will fallback to `http://localhost:5001` (which will only work locally).
-
-**Note:** The `localhost:5001` fallback in the code is **only for local development**. For GitHub Pages deployments, you **must** set the production API URL as a GitHub Actions variable.
+The CI/CD workflow will automatically build and deploy to GitHub Pages.
 
 ## Project Structure
 
 ```
 src/
-├── config/
-│   └── env.ts                # Environment configuration
-├── lib/
-│   ├── api/
-│   │   ├── client.ts         # API client with auth handling
-│   │   └── endpoints.ts      # Centralized endpoint definitions
-│   └── utils.ts              # Utility functions
-├── types/
-│   └── auth.types.ts         # API type definitions
-├── services/
-│   └── auth.ts               # Authentication service
-├── contexts/
-│   └── AuthContext.tsx       # Auth context with token refresh
-├── components/
-│   ├── ui/                   # Base UI components (shadcn/ui)
-│   └── ...                   # Feature components
-├── pages/                    # Application pages
-└── hooks/                    # Custom React hooks
+├── components/          # React components
+│   ├── ui/             # Shadcn UI components
+│   ├── Header.tsx      # App header with notifications
+│   └── Sidebar.tsx     # Navigation sidebar
+├── contexts/           # React contexts
+│   ├── AuthContext.tsx # Authentication state
+│   └── SSEContext.tsx  # Real-time event handling
+├── pages/              # Application pages
+│   ├── Restaurants.tsx
+│   ├── Orders.tsx
+│   ├── Reservations.tsx
+│   ├── Menu.tsx
+│   ├── FAQ.tsx
+│   ├── Escalations.tsx
+│   └── Users.tsx
+├── services/           # API service layer
+├── lib/                # Utilities and API client
+└── types/              # TypeScript type definitions
 ```
 
 ## Authentication
 
-The application integrates with the backend authentication API:
+- Admin login via `/api/v1/auth/admin/login`
+- Automatic token refresh every 10 minutes
+- Tokens stored in localStorage
+- Auto-logout on token expiration
 
-| Endpoint | Description |
-|----------|-------------|
-| `POST /api/v1/auth/admin/login` | Admin login |
-| `POST /api/v1/auth/refresh` | Refresh access token |
-| `POST /api/v1/auth/logout` | Logout |
+## Real-time Features
 
-### Token Management
-
-- Access tokens are stored in localStorage
-- Tokens are automatically refreshed every 10 minutes
-- If a token expires or refresh fails, the user is logged out
-
-## Deployment to GitHub Pages
-
-This project is configured for automatic deployment to GitHub Pages using GitHub Actions.
-
-### Setup Instructions
-
-1. **Enable GitHub Pages in your repository:**
-   - Go to your repository settings
-   - Navigate to "Pages" in the left sidebar
-   - Under "Source", select "GitHub Actions"
-
-2. **Push to main/master branch:**
-   - The GitHub Actions workflow will automatically build and deploy your site
-   - The workflow runs on push to `main` or `master` branches
-
-3. **Access your deployed site:**
-   - Your site will be available at: `https://<username>.github.io/<repository-name>/`
-
-### Manual Deployment
-
-```bash
-npm run deploy
-```
+- **SSE Connection** - Live updates for orders, reservations, and escalations
+- **Notification Sounds** - Custom audio alerts for different event types
+- **Connection Status** - Monitor active SSE connections (admin only)
 
 ## License
 
-This project is proprietary to RessyAI.
+Proprietary - RessyAI
