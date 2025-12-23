@@ -22,8 +22,8 @@ const getApiBaseUrl = () => {
       "❌ VITE_API_BASE_URL is not set! " +
         "Please set it in GitHub Actions environment variables or secrets for production builds."
     );
-    // Still return localhost as fallback, but log error
-    return "http://localhost:5001";
+    // Fallback to production API server
+    return "http://3.96.174.195:5001";
   }
 
   return envUrl;
