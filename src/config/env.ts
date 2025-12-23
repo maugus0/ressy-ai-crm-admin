@@ -23,7 +23,7 @@ const getApiBaseUrl = () => {
         "Please set it in GitHub Actions environment variables or secrets for production builds."
     );
     // Fallback to production API server
-    return "http://3.96.174.195:5001";
+    return "https://voice.ressy.ai";
   }
 
   return envUrl;
