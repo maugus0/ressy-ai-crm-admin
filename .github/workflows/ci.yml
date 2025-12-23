@@ -139,7 +139,7 @@ jobs:
         run: npm run build
         env:
           # Use environment variables if set, otherwise fallback to production API server
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL || 'http://3.96.174.195:5001' }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL || 'https://voice.ressy.ai' }}
           VITE_API_VERSION: ${{ vars.VITE_API_VERSION || secrets.VITE_API_VERSION || 'v1' }}
 
       - name: Upload build artifact
@@ -237,7 +237,7 @@ jobs:
         env:
           # Production API URL for admin.ressy.ai
           # Default to production API server if not set in secrets/variables
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL || 'http://3.96.174.195:5001' }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL || 'https://voice.ressy.ai' }}
           VITE_API_VERSION: ${{ secrets.VITE_API_VERSION || vars.VITE_API_VERSION || 'v1' }}
 
       - name: Copy CNAME and 404.html to dist
