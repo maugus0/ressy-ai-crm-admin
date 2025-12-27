@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -13,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 const Login = () => {
@@ -22,8 +23,15 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [showBotCheck, setShowBotCheck] = useState(false);
+  const [botCheckConfirmed, setBotCheckConfirmed] = useState(false);
+  const attemptsResetTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const navigate = useNavigate();
   const { login, isAuthenticated, isLoading } = useAuth();
+
+  const BOT_CHECK_THRESHOLD = 3; // Show bot check after 3 failed attempts
+  const ATTEMPTS_RESET_TIME = 30000; // Reset attempts after 30 seconds
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -32,22 +40,79 @@ const Login = () => {
     }
   }, [isAuthenticated, isLoading, navigate]);
 
+  // Reset attempts after a period of inactivity
+  useEffect(() => {
+    if (loginAttempts > 0) {
+      // Clear existing timeout
+      if (attemptsResetTimeoutRef.current) {
+        clearTimeout(attemptsResetTimeoutRef.current);
+      }
+
+      // Set new timeout to reset attempts
+      attemptsResetTimeoutRef.current = setTimeout(() => {
+        setLoginAttempts(0);
+        setShowBotCheck(false);
+        setBotCheckConfirmed(false);
+      }, ATTEMPTS_RESET_TIME);
+
+      return () => {
+        if (attemptsResetTimeoutRef.current) {
+          clearTimeout(attemptsResetTimeoutRef.current);
+        }
+      };
+    }
+  }, [loginAttempts]);
+
+  // Show bot check when threshold is reached (only reset on first threshold hit)
+  useEffect(() => {
+    if (loginAttempts === BOT_CHECK_THRESHOLD) {
+      setShowBotCheck(true);
+      setBotCheckConfirmed(false);
+    }
+  }, [loginAttempts]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if bot check is required and confirmed
+    if (showBotCheck && !botCheckConfirmed) {
+      setError("Please confirm you are not a bot");
+      toast.error("Please confirm you are not a bot");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
     try {
-      if (!email || !password) throw new Error("Email and password are required");
+      if (!email || !password) {
+        setError("Email and password are required");
+        toast.error("Email and password are required");
+        return;
+      }
 
       const result = await login({ email, password });
+
       if (result.success) {
         toast.success("Logged in successfully");
+        // Reset attempts and bot check on success
+        setLoginAttempts(0);
+        setShowBotCheck(false);
+        setBotCheckConfirmed(false);
+        if (attemptsResetTimeoutRef.current) {
+          clearTimeout(attemptsResetTimeoutRef.current);
+        }
         navigate("/");
       } else {
-        throw new Error(result.error || "Invalid credentials");
+        // Increment login attempts only on failed login attempt (actual API call failed)
+        setLoginAttempts((prev) => prev + 1);
+        const msg = result.error || "Invalid credentials";
+        setError(msg);
+        toast.error(msg);
       }
     } catch (err: unknown) {
+      // Increment login attempts on exception during API call
+      setLoginAttempts((prev) => prev + 1);
       const msg = err instanceof Error ? err.message : "Login failed";
       setError(msg);
       toast.error(msg);
@@ -136,28 +201,38 @@ const Login = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="remember"
-                    className="rounded border-border text-primary focus:ring-primary"
-                  />
-                  <Label htmlFor="remember" className="text-sm">
-                    Remember me
-                  </Label>
+              <p className="text-sm text-muted-foreground text-center">
+                Having trouble logging in? Contact developers for assistance.
+              </p>
+
+              {/* Bot Check */}
+              {showBotCheck && (
+                <div className="p-4 bg-muted/50 rounded-lg border border-muted">
+                  <div className="flex items-center space-x-3">
+                    <Shield className="h-5 w-5 text-primary flex-shrink-0" />
+                    <Label htmlFor="bot-check" className="text-sm font-medium cursor-pointer">
+                      Bot Check
+                    </Label>
+                    <Checkbox
+                      id="bot-check"
+                      checked={botCheckConfirmed}
+                      onCheckedChange={(checked) => {
+                        setBotCheckConfirmed(checked === true);
+                        if (checked) {
+                          setError(null);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
-                <Button variant="link" className="text-sm p-0 h-auto" type="button">
-                  Forgot password?
-                </Button>
-              </div>
+              )}
             </CardContent>
 
             <CardFooter className="flex flex-col space-y-4">
               <Button
                 type="submit"
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                disabled={isSubmitting}
+                disabled={isSubmitting || (showBotCheck && !botCheckConfirmed)}
               >
                 {isSubmitting ? "Signing in..." : "Sign in"}
               </Button>

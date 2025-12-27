@@ -128,9 +128,27 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
             internal_server_error: "System error during call",
             suspected_spam: "Call flagged as potential spam",
           };
-          toast.error(`⚠️ Escalation Alert`, {
-            description: `${getRestaurantInfo()}: ${escalationMessages[subtype] || "Unknown escalation"}`,
-            duration: 10000, // 10 seconds for important alerts
+
+          // Extract reason and urgency from event data
+          const reason = data?.reason as string;
+          const urgency = data?.urgency as string;
+          const baseMessage = escalationMessages[subtype] || "Unknown escalation";
+
+          // Build description with reason prominently displayed
+          let description = `${getRestaurantInfo()}: ${baseMessage}`;
+          if (reason) {
+            description = `${getRestaurantInfo()}: ${baseMessage}\n\n${reason}`;
+          }
+
+          // Add urgency to title if available
+          let title = "⚠️ Escalation Alert";
+          if (urgency) {
+            title = `⚠️ Escalation Alert (${urgency.toUpperCase()})`;
+          }
+
+          toast.error(title, {
+            description,
+            duration: 12000, // 12 seconds for important alerts with reason
           });
         }
         break;

@@ -447,11 +447,6 @@ export interface CallAnalytics {
   time_of_day_distribution: Array<{ hour_bucket: number; count: number }>;
   top_restaurants: Array<{ restaurant_id: string; count: number }>;
   calls_by_day_of_week: Array<{ day_of_week: number; count: number }>;
-  conversion_rates: {
-    orders: number;
-    reservations: number;
-    rate: number;
-  };
 }
 
 export interface CallParams {
