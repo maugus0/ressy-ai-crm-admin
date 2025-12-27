@@ -63,9 +63,9 @@ const Login = () => {
     }
   }, [loginAttempts]);
 
-  // Show bot check when threshold is reached
+  // Show bot check when threshold is reached (only reset on first threshold hit)
   useEffect(() => {
-    if (loginAttempts >= BOT_CHECK_THRESHOLD) {
+    if (loginAttempts === BOT_CHECK_THRESHOLD) {
       setShowBotCheck(true);
       setBotCheckConfirmed(false);
     }
@@ -73,9 +73,6 @@ const Login = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Increment login attempts
-    setLoginAttempts((prev) => prev + 1);
 
     // Check if bot check is required and confirmed
     if (showBotCheck && !botCheckConfirmed) {
@@ -88,9 +85,14 @@ const Login = () => {
     setError(null);
 
     try {
-      if (!email || !password) throw new Error("Email and password are required");
+      if (!email || !password) {
+        setError("Email and password are required");
+        toast.error("Email and password are required");
+        return;
+      }
 
       const result = await login({ email, password });
+      
       if (result.success) {
         toast.success("Logged in successfully");
         // Reset attempts and bot check on success
@@ -102,9 +104,15 @@ const Login = () => {
         }
         navigate("/");
       } else {
-        throw new Error(result.error || "Invalid credentials");
+        // Increment login attempts only on failed login attempt (actual API call failed)
+        setLoginAttempts((prev) => prev + 1);
+        const msg = result.error || "Invalid credentials";
+        setError(msg);
+        toast.error(msg);
       }
     } catch (err: unknown) {
+      // Increment login attempts on exception during API call
+      setLoginAttempts((prev) => prev + 1);
       const msg = err instanceof Error ? err.message : "Login failed";
       setError(msg);
       toast.error(msg);

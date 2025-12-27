@@ -468,11 +468,6 @@ const Calls = () => {
         time_of_day_distribution: [],
         top_restaurants: [],
         calls_by_day_of_week: [],
-        conversion_rates: {
-          orders: 0,
-          reservations: 0,
-          rate: 0,
-        },
       };
     }
 
@@ -533,11 +528,6 @@ const Calls = () => {
       time_of_day_distribution: timeOfDayDistribution,
       top_restaurants: topRestaurants,
       calls_by_day_of_week: callsByDayOfWeek,
-      conversion_rates: {
-        orders: 0,
-        reservations: 0,
-        rate: 0,
-      },
     };
   }, [analyticsCalls]);
 
@@ -579,7 +569,7 @@ const Calls = () => {
             <Card className="bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 border-blue-200/50 dark:border-blue-800/50">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  Total Calls
+                  Recent Calls
                 </CardTitle>
                 <div className="p-2 rounded-full bg-blue-500/10">
                   <Phone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -593,6 +583,9 @@ const Calls = () => {
                     {analytics?.total_calls ?? 0}
                   </div>
                 )}
+                <p className="text-xs text-blue-600/80 dark:text-blue-400/80 mt-1">
+                  Based on current filters (max 200)
+                </p>
               </CardContent>
             </Card>
 

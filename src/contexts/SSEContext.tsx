@@ -137,7 +137,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
           // Build description with reason prominently displayed
           let description = `${getRestaurantInfo()}: ${baseMessage}`;
           if (reason) {
-            description = `${getRestaurantInfo()}\n\n${reason}`;
+            description = `${getRestaurantInfo()}: ${baseMessage}\n\n${reason}`;
           }
 
           // Add urgency to title if available

@@ -351,7 +351,7 @@ const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardPro
             )}
             {callId && (
               <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                <span className="truncate font-mono text-xs">Call: {callId.slice(0, 12)}...</span>
+                <span className="truncate font-mono text-xs">Call: {callId}</span>
               </div>
             )}
             <div className="flex items-center gap-2 text-xs sm:text-sm">
@@ -403,7 +403,7 @@ const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardPro
                           />
                         </div>
                         <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
-                          {(spamScore * 100).toFixed(0)}%
+                          {Math.min(spamScore * 100, 100).toFixed(0)}%
                         </span>
                       </div>
                     </div>
@@ -414,15 +414,21 @@ const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardPro
                         Indicators
                       </p>
                       <div className="flex flex-wrap gap-1.5">
-                        {indicators.map((indicator, idx) => (
-                          <Badge
-                            key={idx}
-                            variant="outline"
-                            className="text-xs border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-300"
-                          >
-                            {indicator.replace(/_/g, " ")}
-                          </Badge>
-                        ))}
+                        {indicators.map((indicator, idx) => {
+                          // Convert snake_case to Title Case
+                          const formattedIndicator = indicator
+                            .replace(/_/g, " ")
+                            .replace(/\b\w/g, (char) => char.toUpperCase());
+                          return (
+                            <Badge
+                              key={idx}
+                              variant="outline"
+                              className="text-xs border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-300"
+                            >
+                              {formattedIndicator}
+                            </Badge>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
