@@ -92,7 +92,7 @@ const Login = () => {
       }
 
       const result = await login({ email, password });
-      
+
       if (result.success) {
         toast.success("Logged in successfully");
         // Reset attempts and bot check on success
