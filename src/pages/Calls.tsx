@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
@@ -69,13 +69,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
 import { getRestaurants } from "@/services/restaurants";
-import {
-  getCalls,
-  getCallDetails,
-  getCallAnalytics,
-  deleteCall,
-  deleteTranscript,
-} from "@/services/calls";
+import { getVancouverTimeComponents, VANCOUVER_TIMEZONE } from "@/lib/utils/timezone";
+import { getCalls, getCallDetails, deleteCall, deleteTranscript } from "@/services/calls";
 import type {
   Restaurant,
   CallListItem,
@@ -90,8 +85,10 @@ import type {
 
 const formatDuration = (seconds: number): string => {
   if (seconds === 0) return "0:00";
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
+  // Truncate to whole seconds to avoid decimal places
+  const wholeSeconds = Math.floor(seconds);
+  const mins = Math.floor(wholeSeconds / 60);
+  const secs = wholeSeconds % 60;
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 };
 
@@ -103,12 +100,12 @@ const formatDateTime = (dateTime: string) => {
       month: "short",
       day: "numeric",
       year: "numeric",
-      timeZone: "America/Vancouver",
+      timeZone: VANCOUVER_TIMEZONE,
     }),
     time: date.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: "America/Vancouver",
+      timeZone: VANCOUVER_TIMEZONE,
     }),
   };
 };
@@ -180,8 +177,8 @@ const Calls = () => {
   const [isLoadingCalls, setIsLoadingCalls] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Analytics state
-  const [analytics, setAnalytics] = useState<CallAnalytics | null>(null);
+  // Analytics state - computed from calls data
+  const [analyticsCalls, setAnalyticsCalls] = useState<CallListItem[]>([]);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
 
   // Filter state
@@ -272,49 +269,36 @@ const Calls = () => {
     durationMax,
   ]);
 
-  const fetchAnalytics = useCallback(async () => {
-    // Analytics requires date range
-    if (!startDate || !endDate) {
-      // Set default date range to last 30 days if not provided
-      const now = new Date();
-      const thirtyDaysAgo = new Date(now);
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const defaultStart = thirtyDaysAgo.toISOString().split("T")[0];
-      const defaultEnd = now.toISOString().split("T")[0];
-
-      try {
-        setIsLoadingAnalytics(true);
-        const data = await getCallAnalytics({
-          restaurant_id: selectedRestaurantId || undefined,
-          date_from: defaultStart,
-          date_to: defaultEnd,
-        });
-        setAnalytics(data);
-      } catch (err) {
-        console.error("Failed to load analytics:", err);
-        setAnalytics(null);
-      } finally {
-        setIsLoadingAnalytics(false);
-      }
-      return;
-    }
-
+  // Fetch all calls for analytics computation (with max limit of 200)
+  const fetchAnalyticsCalls = useCallback(async () => {
     try {
       setIsLoadingAnalytics(true);
-      const data = await getCallAnalytics({
-        restaurant_id: selectedRestaurantId || undefined,
-        date_from: startDate,
-        date_to: endDate,
-      });
-      setAnalytics(data);
+
+      const params: CallParams = {
+        page: 1,
+        limit: 200, // API max limit is 200
+        sort_by: "started_at",
+        sort_order: "desc",
+      };
+
+      // Only apply filters that are explicitly set by the user
+      // If no date filters are set, don't apply them - get all calls matching other filters
+      if (selectedRestaurantId) params.restaurant_id = selectedRestaurantId;
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (startDate) params.date_from = startDate;
+      if (endDate) params.date_to = endDate;
+      if (durationMin) params.duration_min = parseInt(durationMin);
+      if (durationMax) params.duration_max = parseInt(durationMax);
+
+      const data = await getCalls(params);
+      setAnalyticsCalls(data.items);
     } catch (err) {
-      console.error("Failed to load analytics:", err);
-      setAnalytics(null);
+      console.error("Failed to load analytics calls:", err);
+      setAnalyticsCalls([]);
     } finally {
       setIsLoadingAnalytics(false);
     }
-  }, [selectedRestaurantId, startDate, endDate]);
+  }, [selectedRestaurantId, statusFilter, startDate, endDate, durationMin, durationMax]);
 
   // ============================================================================
   // Effects
@@ -347,8 +331,8 @@ const Calls = () => {
   }, [fetchCalls]);
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
+    fetchAnalyticsCalls();
+  }, [fetchAnalyticsCalls]);
 
   // Track last processed event to avoid duplicate refreshes
   const lastProcessedEscalationEventRef = useRef<string | null>(null);
@@ -369,9 +353,9 @@ const Calls = () => {
       lastProcessedEscalationEventRef.current = escalationEvents[0].id;
       // Refresh calls and analytics when escalation occurs
       fetchCalls();
-      fetchAnalytics();
+      fetchAnalyticsCalls();
     }
-  }, [events, selectedRestaurantId, fetchCalls, fetchAnalytics]);
+  }, [events, selectedRestaurantId, fetchCalls, fetchAnalyticsCalls]);
 
   // Handle call_id URL parameter (from escalation links)
   useEffect(() => {
@@ -430,7 +414,7 @@ const Calls = () => {
       setIsDeleteCallDialogOpen(false);
       setSelectedCallId(null);
       fetchCalls();
-      fetchAnalytics();
+      fetchAnalyticsCalls();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete call");
     } finally {
@@ -473,6 +457,98 @@ const Calls = () => {
   // ============================================================================
   // Computed Values
   // ============================================================================
+
+  // Compute analytics from calls data
+  const computeAnalytics = useCallback((): CallAnalytics | null => {
+    if (analyticsCalls.length === 0) {
+      return {
+        total_calls: 0,
+        average_call_duration: 0,
+        status_breakdown: {},
+        time_of_day_distribution: [],
+        top_restaurants: [],
+        calls_by_day_of_week: [],
+        conversion_rates: {
+          orders: 0,
+          reservations: 0,
+          rate: 0,
+        },
+      };
+    }
+
+    // Total calls
+    const totalCalls = analyticsCalls.length;
+
+    // Average duration
+    const totalDuration = analyticsCalls.reduce((sum, call) => sum + call.duration_seconds, 0);
+    const avgDuration = totalCalls > 0 ? totalDuration / totalCalls : 0;
+
+    // Status breakdown
+    const statusBreakdown: Record<string, number> = {};
+    analyticsCalls.forEach((call) => {
+      statusBreakdown[call.status] = (statusBreakdown[call.status] || 0) + 1;
+    });
+
+    // Time of day distribution (using Vancouver timezone)
+    const timeOfDayMap: Record<number, number> = {};
+    analyticsCalls.forEach((call) => {
+      const date = new Date(call.started_at);
+      const { hour } = getVancouverTimeComponents(date);
+      timeOfDayMap[hour] = (timeOfDayMap[hour] || 0) + 1;
+    });
+    const timeOfDayDistribution = Object.entries(timeOfDayMap)
+      .map(([hour_bucket, count]) => ({
+        hour_bucket: parseInt(hour_bucket),
+        count,
+      }))
+      .sort((a, b) => a.hour_bucket - b.hour_bucket);
+
+    // Top restaurants
+    const restaurantMap: Record<string, number> = {};
+    analyticsCalls.forEach((call) => {
+      const restaurantId = call.restaurant_id;
+      restaurantMap[restaurantId] = (restaurantMap[restaurantId] || 0) + 1;
+    });
+    const topRestaurants = Object.entries(restaurantMap)
+      .map(([restaurant_id, count]) => ({ restaurant_id, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Calls by day of week (using Vancouver timezone)
+    const dayOfWeekMap: Record<number, number> = {};
+    analyticsCalls.forEach((call) => {
+      const date = new Date(call.started_at);
+      const { dayOfWeek } = getVancouverTimeComponents(date);
+      dayOfWeekMap[dayOfWeek] = (dayOfWeekMap[dayOfWeek] || 0) + 1;
+    });
+    const callsByDayOfWeek = Object.entries(dayOfWeekMap).map(([day_of_week, count]) => ({
+      day_of_week: parseInt(day_of_week),
+      count,
+    }));
+
+    return {
+      total_calls: totalCalls,
+      average_call_duration: avgDuration,
+      status_breakdown: statusBreakdown,
+      time_of_day_distribution: timeOfDayDistribution,
+      top_restaurants: topRestaurants,
+      calls_by_day_of_week: callsByDayOfWeek,
+      conversion_rates: {
+        orders: 0,
+        reservations: 0,
+        rate: 0,
+      },
+    };
+  }, [analyticsCalls]);
+
+  const analytics = computeAnalytics();
+
+  // Calculate unique callers from analytics calls
+  const uniqueCallers = useMemo(() => {
+    if (analyticsCalls.length === 0) return 0;
+    const uniquePhones = new Set(analyticsCalls.map((call) => call.caller_phone));
+    return uniquePhones.size;
+  }, [analyticsCalls]);
 
   const totalPages = Math.ceil(total / limit);
   const hasActiveFilters =
@@ -543,10 +619,10 @@ const Calls = () => {
             <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 border-emerald-200/50 dark:border-emerald-800/50">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                  Conversion Rate
+                  Unique Callers
                 </CardTitle>
                 <div className="p-2 rounded-full bg-emerald-500/10">
-                  <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <User className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
               </CardHeader>
               <CardContent>
@@ -554,12 +630,11 @@ const Calls = () => {
                   <Skeleton className="h-8 w-20" />
                 ) : (
                   <div className="text-3xl font-bold text-emerald-900 dark:text-emerald-100">
-                    {((analytics?.conversion_rates?.rate ?? 0) * 100).toFixed(1)}%
+                    {uniqueCallers}
                   </div>
                 )}
                 <p className="text-xs text-emerald-600/80 dark:text-emerald-400/80 mt-1">
-                  {analytics?.conversion_rates?.orders ?? 0} orders,{" "}
-                  {analytics?.conversion_rates?.reservations ?? 0} reservations
+                  Based on current filters
                 </p>
               </CardContent>
             </Card>
@@ -762,12 +837,16 @@ const Calls = () => {
                     size="icon"
                     onClick={() => {
                       fetchCalls();
-                      fetchAnalytics();
+                      fetchAnalyticsCalls();
                     }}
-                    disabled={isLoadingCalls}
+                    disabled={isLoadingCalls || isLoadingAnalytics}
                     className="w-full sm:w-10 sm:h-10"
                   >
-                    <RefreshCw className={`h-4 w-4 ${isLoadingCalls ? "animate-spin" : ""}`} />
+                    <RefreshCw
+                      className={`h-4 w-4 ${
+                        isLoadingCalls || isLoadingAnalytics ? "animate-spin" : ""
+                      }`}
+                    />
                   </Button>
                 </div>
               </div>
@@ -1341,7 +1420,7 @@ const Calls = () => {
                               {new Date(entry.timestamp).toLocaleTimeString("en-US", {
                                 hour: "2-digit",
                                 minute: "2-digit",
-                                timeZone: "America/Vancouver",
+                                timeZone: VANCOUVER_TIMEZONE,
                               })}
                             </p>
                           </div>

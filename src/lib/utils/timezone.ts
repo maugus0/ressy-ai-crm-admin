@@ -4,7 +4,7 @@
  * Vancouver timezone: PST (UTC-8) or PDT (UTC-7) depending on DST
  */
 
-const VANCOUVER_TIMEZONE = "America/Vancouver";
+export const VANCOUVER_TIMEZONE = "America/Vancouver";
 
 /**
  * Convert a date string (from datetime-local input) to ISO string in Vancouver timezone
@@ -234,4 +234,36 @@ export const getTimeFromDateTime = (dateTimeLocal: string): string => {
   if (!dateTimeLocal) return "";
   const parts = dateTimeLocal.split("T");
   return parts[1] || "";
+};
+
+/**
+ * Get Vancouver time components (hour and day of week) from a date
+ * Returns hour (0-23) and dayOfWeek (1=Monday, 7=Sunday) in ISO format
+ */
+export const getVancouverTimeComponents = (date: Date): { hour: number; dayOfWeek: number } => {
+  // Use Intl.DateTimeFormat to get components in Vancouver timezone
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: VANCOUVER_TIMEZONE,
+    hour: "numeric",
+    hour12: false,
+    weekday: "long",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const hour = parseInt(parts.find((p) => p.type === "hour")?.value || "0");
+  const weekday = parts.find((p) => p.type === "weekday")?.value || "";
+
+  // Convert weekday name to ISO day of week (1=Monday, 7=Sunday)
+  const weekdayMap: Record<string, number> = {
+    Monday: 1,
+    Tuesday: 2,
+    Wednesday: 3,
+    Thursday: 4,
+    Friday: 5,
+    Saturday: 6,
+    Sunday: 7,
+  };
+  const dayOfWeek = weekdayMap[weekday] || 1;
+
+  return { hour, dayOfWeek };
 };

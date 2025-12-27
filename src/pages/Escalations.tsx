@@ -25,6 +25,7 @@ import {
   AlertCircle,
   Bug,
   ShieldAlert,
+  Info,
 } from "lucide-react";
 import { useSSE } from "@/contexts/SSEContext";
 import type { SSEEvent, SSEEventSubtype } from "@/types/api.types";
@@ -266,18 +267,33 @@ const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardPro
   const { date, time } = formatDateTime(escalation.timestamp);
   const relativeTime = formatRelativeTime(escalation.timestamp);
 
-  // Extract data from event
+  // Extract all data from event
   const restaurantName =
     (escalation.data?.restaurant_name as string) || `Restaurant #${escalation.restaurant_id}`;
   const callerPhone = escalation.data?.caller_phone as string;
   const callId = escalation.data?.call_id as string;
-  const summary = escalation.data?.summary as string;
+  const reason = escalation.data?.reason as string;
+  const urgency = escalation.data?.urgency as string;
+  const errorMessage = escalation.data?.error_message as string;
+  const errorCode = escalation.data?.error_code as string;
+  const spamScore = escalation.data?.spam_score as number;
+  const indicators = escalation.data?.indicators as string[];
+
+  // Get urgency badge color
+  const getUrgencyColor = (urgency?: string) => {
+    if (!urgency) return "bg-gray-500";
+    const u = urgency.toLowerCase();
+    if (u === "urgent" || u === "critical") return "bg-red-600";
+    if (u === "high") return "bg-orange-500";
+    if (u === "medium") return "bg-yellow-500";
+    return "bg-blue-500";
+  };
 
   return (
-    <div className="border rounded-lg p-4 hover:bg-muted/30 transition-colors group">
-      <div className="flex items-start gap-4">
+    <div className="border rounded-lg p-3 sm:p-4 hover:bg-muted/30 transition-colors group">
+      <div className="flex items-start gap-3 sm:gap-4">
         {/* Icon */}
-        <div className={`p-2.5 rounded-full ${info.color} text-white flex-shrink-0`}>
+        <div className={`p-2 sm:p-2.5 rounded-full ${info.color} text-white flex-shrink-0`}>
           {info.icon}
         </div>
 
@@ -285,55 +301,138 @@ const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardPro
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-base">{info.title}</h3>
-              <p className="text-sm text-muted-foreground mt-0.5">{info.description}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-semibold text-sm sm:text-base">{info.title}</h3>
+                {urgency && (
+                  <Badge className={`${getUrgencyColor(urgency)} text-white text-xs px-2 py-0.5`}>
+                    {urgency.toUpperCase()}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">{info.description}</p>
             </div>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 flex-shrink-0 opacity-50 group-hover:opacity-100"
+              className="h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0 opacity-50 group-hover:opacity-100"
               onClick={onDismiss}
               title="Dismiss"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Button>
           </div>
 
+          {/* Reason - Prominently displayed */}
+          {reason && (
+            <div className="mt-3 p-2.5 sm:p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <Info className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-amber-900 dark:text-amber-100 mb-1">
+                    Reason
+                  </p>
+                  <p className="text-sm text-amber-800 dark:text-amber-200">{reason}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Details Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
-            <div className="flex items-center gap-2 text-sm">
-              <Building2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 mt-3 sm:mt-4">
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
               <span className="truncate">{restaurantName}</span>
             </div>
             {callerPhone && (
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <span>{callerPhone}</span>
+              <div className="flex items-center gap-2 text-xs sm:text-sm">
+                <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                <span className="truncate">{callerPhone}</span>
               </div>
             )}
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            {callId && (
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                <span className="truncate font-mono text-xs">Call: {callId.slice(0, 12)}...</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 text-xs sm:text-sm">
+              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
               <span className="hidden sm:inline">
                 {date} at {time}
               </span>
               <span className="sm:hidden">{relativeTime}</span>
             </div>
-            {callId && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="truncate font-mono text-xs">Call: {callId.slice(0, 8)}...</span>
-              </div>
-            )}
           </div>
 
-          {/* Summary */}
-          {summary && (
-            <div className="mt-3 p-3 bg-muted/50 rounded-md">
-              <p className="text-sm text-muted-foreground line-clamp-2">{summary}</p>
+          {/* Error Details (if available) */}
+          {(errorMessage || errorCode) && (
+            <div className="mt-3 p-2.5 sm:p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <Bug className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0 space-y-1">
+                  {errorCode && (
+                    <p className="text-xs font-mono text-red-700 dark:text-red-300">
+                      Code: {errorCode}
+                    </p>
+                  )}
+                  {errorMessage && (
+                    <p className="text-xs sm:text-sm text-red-800 dark:text-red-200">
+                      {errorMessage}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Spam Details (if available) */}
+          {(spamScore !== undefined || (indicators && indicators.length > 0)) && (
+            <div className="mt-3 p-2.5 sm:p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-md">
+              <div className="flex items-start gap-2">
+                <ShieldAlert className="h-4 w-4 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  {spamScore !== undefined && (
+                    <div>
+                      <p className="text-xs font-medium text-orange-900 dark:text-orange-100 mb-0.5">
+                        Spam Score
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-orange-200 dark:bg-orange-900 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-orange-600 dark:bg-orange-500 rounded-full"
+                            style={{ width: `${Math.min(spamScore * 100, 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-medium text-orange-700 dark:text-orange-300">
+                          {(spamScore * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {indicators && indicators.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-orange-900 dark:text-orange-100 mb-1">
+                        Indicators
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {indicators.map((indicator, idx) => (
+                          <Badge
+                            key={idx}
+                            variant="outline"
+                            className="text-xs border-orange-300 dark:border-orange-700 text-orange-700 dark:text-orange-300"
+                          >
+                            {indicator.replace(/_/g, " ")}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
           {/* Actions */}
-          <div className="flex flex-wrap items-center gap-2 mt-4">
+          <div className="flex flex-wrap items-center gap-2 mt-3 sm:mt-4">
             <Badge
               variant={
                 escalation.subtype === "user_requested"
@@ -342,6 +441,7 @@ const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardPro
                     ? "destructive"
                     : "secondary"
               }
+              className="text-xs"
             >
               {escalation.subtype.replace(/_/g, " ")}
             </Badge>
@@ -350,7 +450,7 @@ const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardPro
               <Button
                 variant="outline"
                 size="sm"
-                className="ml-auto text-xs"
+                className="ml-auto text-xs h-7 sm:h-8"
                 onClick={() => onViewCall?.(callId)}
               >
                 <span className="sm:hidden">View Call</span>

@@ -380,10 +380,19 @@ const Reservations = () => {
 
   const openEditDialog = (reservation: Reservation) => {
     setSelectedReservation(reservation);
-    // Convert ISO date to datetime-local format in Vancouver timezone
-    const dateTimeLocal = reservation.date_time
-      ? isoToVancouverDateTime(reservation.date_time)
-      : "";
+    // API returns date_time in Vancouver time already (e.g., "2025-12-28T19:00:00")
+    // Convert to datetime-local format (YYYY-MM-DDTHH:mm) by extracting parts directly
+    let dateTimeLocal = "";
+    if (reservation.date_time) {
+      // The API string is already in Vancouver time, extract date/time parts directly
+      // Format: "2025-12-28T19:00:00" -> "2025-12-28T19:00"
+      const [datePart, timePart] = reservation.date_time.split("T");
+      if (datePart && timePart) {
+        // Extract just HH:mm from HH:mm:ss
+        const [hour, minute] = timePart.split(":");
+        dateTimeLocal = `${datePart}T${hour}:${minute}`;
+      }
+    }
     setFormData({
       date_time: dateTimeLocal,
       party_size: String(reservation.party_size),
@@ -653,17 +662,43 @@ const Reservations = () => {
   };
 
   const formatDateTime = (dateTime: string) => {
-    // Format in Vancouver timezone
-    const formatted = formatVancouverDateTime(dateTime, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-    // Parse the formatted string to extract date and time
-    // Format is typically "MMM DD, YYYY, HH:MM AM/PM"
-    const parts = formatted.split(", ");
+    // API returns date_time in Vancouver time already (e.g., "2025-12-28T19:00:00")
+    // Format it directly without timezone conversion since it's already in Vancouver time
+    const [datePart, timePart] = dateTime.split("T");
+    if (!datePart || !timePart) {
+      return { date: "", time: "" };
+    }
+
+    // Parse the date parts
+    const [year, month, day] = datePart.split("-").map(Number);
+    const [hour, minute] = timePart.split(":").map(Number);
+
+    // Format date: "Dec 28, 2025"
+    const monthNames = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    const dateStr = `${monthNames[month - 1]} ${day}, ${year}`;
+
+    // Format time: "7:00 PM" (12-hour format)
+    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const minuteStr = minute.toString().padStart(2, "0");
+    const timeStr = `${hour12}:${minuteStr} ${ampm}`;
+
     return {
-      date: parts.slice(0, -1).join(", "), // Everything except last part (time)
-      time: parts[parts.length - 1] || "", // Last part (time)
+      date: dateStr,
+      time: timeStr,
     };
   };
 
