@@ -391,8 +391,8 @@ const Reservations = () => {
     setFormData({
       date_time: dateTimeLocal,
       party_size: String(reservation.party_size),
-      name: reservation.name,
-      phone_number: reservation.phone_number,
+      name: reservation.name || "",
+      phone_number: reservation.phone_number || "",
       email_address: reservation.email || "",
       special_request: reservation.special_request || "",
       notes: reservation.notes || "",
@@ -1203,12 +1203,12 @@ const Reservations = () => {
                                 <TableCell>
                                   <div className="min-w-[140px] sm:min-w-[200px]">
                                     <p className="font-medium text-sm sm:text-base">
-                                      {reservation.name}
+                                      {reservation.name || "N/A"}
                                     </p>
                                     <div className="flex flex-col gap-0.5 mt-1">
                                       <p className="text-xs text-muted-foreground flex items-center gap-1">
                                         <Phone className="h-3 w-3" />
-                                        {reservation.phone_number}
+                                        {reservation.phone_number || "N/A"}
                                       </p>
                                       {reservation.email && (
                                         <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -1243,7 +1243,7 @@ const Reservations = () => {
                                   </div>
                                 </TableCell>
                                 <TableCell className="font-mono text-xs hidden sm:table-cell">
-                                  {reservation.confirmation_number}
+                                  {reservation.confirmation_number || "N/A"}
                                 </TableCell>
                                 <TableCell className="text-center">
                                   <Badge
