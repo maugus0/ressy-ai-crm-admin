@@ -146,8 +146,8 @@ const Login = () => {
               />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
-          <p className="text-muted-foreground">Sign in to your CRM dashboard</p>
+          <h1 className="text-2xl font-bold text-foreground">Ressy Admin Dashboard</h1>
+          <p className="text-muted-foreground">Sign in to manage restaurants, users and more.</p>
         </div>
 
         <Card className="border-border shadow-lg">
