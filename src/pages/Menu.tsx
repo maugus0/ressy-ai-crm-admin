@@ -360,7 +360,7 @@ const Menu = () => {
   const openEditDialog = (item: MenuItem) => {
     setSelectedMenuItem(item);
     setFormData({
-      item_name: item.item_name,
+      item_name: item.item_name || "",
       price: item.price,
       category: item.category,
       sub_category: item.sub_category || "",
@@ -464,7 +464,9 @@ const Menu = () => {
   const handleToggleAvailability = async (item: MenuItem) => {
     try {
       await toggleMenuItemAvailability(item.id, { is_available: !item.is_available });
-      toast.success(`${item.item_name} is now ${!item.is_available ? "available" : "unavailable"}`);
+      toast.success(
+        `${item.item_name || "Menu item"} is now ${!item.is_available ? "available" : "unavailable"}`
+      );
       fetchMenuItems();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update availability");
@@ -475,7 +477,7 @@ const Menu = () => {
     try {
       await toggleMenuItemSpecial(item.id, { is_special: !item.is_special });
       toast.success(
-        `${item.item_name} is ${!item.is_special ? "now a special" : "no longer a special"}`
+        `${item.item_name || "Menu item"} is ${!item.is_special ? "now a special" : "no longer a special"}`
       );
       fetchMenuItems();
     } catch (err) {
@@ -1156,7 +1158,9 @@ const Menu = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="min-w-[200px]">
-                                  <p className="font-medium text-base">{item.item_name}</p>
+                                  <p className="font-medium text-base">
+                                    {item.item_name || "Unnamed Item"}
+                                  </p>
                                   {item.item_desc && (
                                     <p className="text-sm text-muted-foreground truncate max-w-[280px]">
                                       {item.item_desc}
@@ -1315,7 +1319,9 @@ const Menu = () => {
                                 }
                                 className="flex-shrink-0"
                               />
-                              <h3 className="font-semibold text-base truncate">{item.item_name}</h3>
+                              <h3 className="font-semibold text-base truncate">
+                                {item.item_name || "Unnamed Item"}
+                              </h3>
                             </div>
                             {item.item_desc && (
                               <p className="text-sm text-muted-foreground line-clamp-2 mb-2">

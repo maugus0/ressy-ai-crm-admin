@@ -101,7 +101,7 @@ export interface MenuItem {
   restaurant_name: string;
   category: string;
   sub_category: string | null;
-  item_name: string;
+  item_name: string | null;
   item_desc: string | null;
   price: string;
   avg_prep_time: number;
@@ -624,7 +624,7 @@ export interface Reservation {
   table_availability_request_id: number | null;
   slot_booking_id: number | null;
   user_id: number | null;
-  confirmation_number: string;
+  confirmation_number: string | null;
   last_cancel_time: string | null;
   manage_reservation_url: string | null;
   status: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
@@ -635,9 +635,9 @@ export interface Reservation {
   updated_at: string;
   date_time: string;
   restaurant_id: number;
-  name: string;
+  name: string | null;
   email: string | null;
-  phone_number: string;
+  phone_number: string | null;
 }
 
 export interface ReservationListResponse {
