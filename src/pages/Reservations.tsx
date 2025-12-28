@@ -611,6 +611,67 @@ const Reservations = () => {
   };
 
   // ============================================================================
+  // Helper Components
+  // ============================================================================
+
+  const ReservationHistorySection = ({
+    reservation,
+  }: {
+    reservation: Reservation | ReservationWithHistory | null;
+  }) => {
+    if (!reservation || !("history" in reservation)) {
+      return null;
+    }
+
+    const reservationWithHistory = reservation as ReservationWithHistory;
+
+    if (!reservationWithHistory.history || reservationWithHistory.history.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="border rounded-lg mt-4">
+        <div className="px-4 py-3 border-b bg-muted/30 flex items-center gap-2">
+          <History className="h-4 w-4 text-muted-foreground" />
+          <Label className="font-medium">
+            Reservation History ({reservationWithHistory.history.length})
+          </Label>
+        </div>
+        <div className="p-4 space-y-3 max-h-[250px] overflow-y-auto">
+          {reservationWithHistory.history.map((entry) => (
+            <div key={entry.id} className="flex items-start gap-3 py-2 border-b last:border-0">
+              <div className="flex-shrink-0 mt-1">{getHistoryActionIcon(entry.action)}</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm">{entry.change_summary}</p>
+                {entry.action === "status_changed" && entry.previous_value && entry.new_value && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge
+                      variant={getStatusColor(entry.previous_value.status as Reservation["status"])}
+                      className="capitalize text-xs"
+                    >
+                      {formatStatusLabel(entry.previous_value.status as Reservation["status"])}
+                    </Badge>
+                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                    <Badge
+                      variant={getStatusColor(entry.new_value.status as Reservation["status"])}
+                      className="capitalize text-xs"
+                    >
+                      {formatStatusLabel(entry.new_value.status as Reservation["status"])}
+                    </Badge>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatDateTime(entry.created_at).date} {formatDateTime(entry.created_at).time}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // ============================================================================
   // Helper Functions
   // ============================================================================
 
@@ -1470,75 +1531,7 @@ const Reservations = () => {
               </div>
 
               {/* Reservation History */}
-              {(() => {
-                const reservationWithHistory =
-                  "history" in selectedReservation
-                    ? (selectedReservation as ReservationWithHistory)
-                    : null;
-                if (
-                  !reservationWithHistory ||
-                  !reservationWithHistory.history ||
-                  reservationWithHistory.history.length === 0
-                ) {
-                  return null;
-                }
-                return (
-                  <div className="border rounded-lg mt-4">
-                    <div className="px-4 py-3 border-b bg-muted/30 flex items-center gap-2">
-                      <History className="h-4 w-4 text-muted-foreground" />
-                      <Label className="font-medium">
-                        Reservation History ({reservationWithHistory.history.length})
-                      </Label>
-                    </div>
-                    <div className="p-4 space-y-3 max-h-[250px] overflow-y-auto">
-                      {reservationWithHistory.history.map((entry) => (
-                        <div
-                          key={entry.id}
-                          className="flex items-start gap-3 py-2 border-b last:border-0"
-                        >
-                          <div className="flex-shrink-0 mt-1">
-                            {getHistoryActionIcon(entry.action)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm">{entry.change_summary}</p>
-                            {entry.action === "status_changed" &&
-                              entry.previous_value &&
-                              entry.new_value && (
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge
-                                    variant={getStatusColor(
-                                      entry.previous_value.status as Reservation["status"]
-                                    )}
-                                    className="capitalize text-xs"
-                                  >
-                                    {formatStatusLabel(
-                                      entry.previous_value.status as Reservation["status"]
-                                    )}
-                                  </Badge>
-                                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                                  <Badge
-                                    variant={getStatusColor(
-                                      entry.new_value.status as Reservation["status"]
-                                    )}
-                                    className="capitalize text-xs"
-                                  >
-                                    {formatStatusLabel(
-                                      entry.new_value.status as Reservation["status"]
-                                    )}
-                                  </Badge>
-                                </div>
-                              )}
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {formatDateTime(entry.created_at).date}{" "}
-                              {formatDateTime(entry.created_at).time}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
+              <ReservationHistorySection reservation={selectedReservation} />
             </div>
           )}
           <DialogFooter>
