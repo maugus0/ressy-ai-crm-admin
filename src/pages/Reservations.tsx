@@ -245,10 +245,10 @@ const Reservations = () => {
         const query = debouncedSearchQuery.toLowerCase().trim();
         filteredReservations = filteredReservations.filter((reservation) => {
           return (
-            reservation.name.toLowerCase().includes(query) ||
-            reservation.phone_number.includes(query) ||
+            reservation.name?.toLowerCase().includes(query) ||
+            reservation.phone_number?.includes(query) ||
             reservation.email?.toLowerCase().includes(query) ||
-            reservation.confirmation_number.toLowerCase().includes(query)
+            reservation.confirmation_number?.toLowerCase().includes(query)
           );
         });
         // Update total to reflect filtered results

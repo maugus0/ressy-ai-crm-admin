@@ -614,7 +614,7 @@ const Orders = () => {
       selectedMenuCategory === "all" || item.category === selectedMenuCategory;
     const matchesSearch =
       !menuSearchQuery ||
-      item.item_name.toLowerCase().includes(menuSearchQuery.toLowerCase()) ||
+      item.item_name?.toLowerCase().includes(menuSearchQuery.toLowerCase()) ||
       item.item_desc?.toLowerCase().includes(menuSearchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
