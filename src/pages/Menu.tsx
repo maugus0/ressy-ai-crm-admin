@@ -84,6 +84,7 @@ import {
   validateCSVFileSize,
   MAX_CSV_FILE_SIZE,
 } from "@/lib/utils/csv";
+import { formatLocalDate } from "@/lib/utils/timezone";
 import type {
   Restaurant,
   MenuItem,
@@ -639,7 +640,7 @@ const Menu = () => {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    return formatLocalDate(dateStr, {
       month: "short",
       day: "numeric",
       year: "numeric",

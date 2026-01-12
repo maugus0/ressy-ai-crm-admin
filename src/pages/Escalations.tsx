@@ -28,6 +28,7 @@ import {
   Info,
 } from "lucide-react";
 import { useSSE } from "@/contexts/SSEContext";
+import { formatLocalDateTimeParts, parseApiDate } from "@/lib/utils/timezone";
 import type { SSEEvent, SSEEventSubtype } from "@/types/api.types";
 
 // ============================================================================
@@ -41,25 +42,13 @@ type EscalationFilter = "all" | SSEEventSubtype;
 // ============================================================================
 
 const formatDateTime = (timestamp: string) => {
-  const date = new Date(timestamp);
-  return {
-    date: date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      timeZone: "America/Vancouver",
-    }),
-    time: date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "America/Vancouver",
-    }),
-  };
+  return formatLocalDateTimeParts(timestamp);
 };
 
 const formatRelativeTime = (timestamp: string) => {
   const now = new Date();
-  const eventTime = new Date(timestamp);
+  const eventTime = parseApiDate(timestamp);
+  if (!eventTime) return "";
   const diffMs = now.getTime() - eventTime.getTime();
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);

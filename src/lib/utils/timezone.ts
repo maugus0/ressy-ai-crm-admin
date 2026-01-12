@@ -5,6 +5,108 @@
  */
 
 export const VANCOUVER_TIMEZONE = "America/Vancouver";
+export const DEFAULT_TIMEZONE = VANCOUVER_TIMEZONE;
+
+/**
+ * Normalize API timestamps.
+ * If no timezone info is present, treat as UTC by appending "Z".
+ */
+export const normalizeApiTimestamp = (value: string): string => {
+  let normalized = value.trim();
+  if (!normalized) return "";
+
+  if (normalized.includes(" ") && !normalized.includes("T")) {
+    normalized = normalized.replace(" ", "T");
+  }
+
+  const hasTimeZone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(normalized);
+  if (!hasTimeZone) {
+    normalized += "Z";
+  }
+
+  return normalized;
+};
+
+export const parseApiDate = (value: string): Date | null => {
+  const normalized = normalizeApiTimestamp(value);
+  if (!normalized) return null;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+export const formatLocalDateTimeParts = (
+  value: string,
+  options?: {
+    date?: Intl.DateTimeFormatOptions;
+    time?: Intl.DateTimeFormatOptions;
+  }
+): { date: string; time: string } => {
+  const date = parseApiDate(value);
+  if (!date) return { date: "", time: "" };
+
+  return {
+    date: date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      ...options?.date,
+    }),
+    time: date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      ...options?.time,
+    }),
+  };
+};
+
+export const formatLocalDateTime = (
+  value: string,
+  options?: Intl.DateTimeFormatOptions
+): string => {
+  const date = parseApiDate(value);
+  if (!date) return "";
+  return date.toLocaleString("en-US", options);
+};
+
+export const formatLocalDate = (value: string, options?: Intl.DateTimeFormatOptions): string => {
+  const date = parseApiDate(value);
+  if (!date) return "";
+  return date.toLocaleDateString("en-US", options);
+};
+
+export const datetimeLocalToUtcIso = (value: string): string => {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+};
+
+export const formatLocalDateTimeInput = (value: string): string => {
+  const date = parseApiDate(value);
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+};
+
+export const getSupportedTimeZones = (): string[] => {
+  if (typeof Intl === "undefined") {
+    return [DEFAULT_TIMEZONE];
+  }
+
+  try {
+    const values = Intl.supportedValuesOf?.("timeZone");
+    if (values && values.length > 0) {
+      return values;
+    }
+  } catch {
+    // Ignore and fall back to default.
+  }
+
+  return [DEFAULT_TIMEZONE];
+};
 
 /**
  * Convert a date string (from datetime-local input) to ISO-like string in Vancouver timezone

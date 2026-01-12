@@ -58,6 +58,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { getRestaurants } from "@/services/restaurants";
 import { getCallers, getCallerDetails, createCaller, updateCaller } from "@/services/callers";
+import { formatLocalDateTimeParts } from "@/lib/utils/timezone";
 import type {
   Restaurant,
   DashboardUser,
@@ -71,21 +72,7 @@ import type {
 // ============================================================================
 
 const formatDateTime = (dateTime: string) => {
-  // Format in Vancouver timezone
-  const date = new Date(dateTime);
-  return {
-    date: date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      timeZone: "America/Vancouver",
-    }),
-    time: date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "America/Vancouver",
-    }),
-  };
+  return formatLocalDateTimeParts(dateTime);
 };
 
 const isSpam = (value: number | boolean): boolean => {
