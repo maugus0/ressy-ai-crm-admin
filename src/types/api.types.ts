@@ -34,6 +34,9 @@ export interface Restaurant {
   address: string;
   phone_number: string;
   twilio_phone_number: string;
+  forward_escalations: boolean | null;
+  escalation_phone_number: string | null;
+  timezone: string | null;
   twilio_details: Record<string, unknown>;
   deepgram_details: Record<string, unknown>;
   open_table_details: Record<string, unknown>;
@@ -51,6 +54,9 @@ export interface RestaurantCreateRequest {
   address: string;
   phone_number: string;
   twilio_phone_number?: string;
+  forward_escalations?: boolean;
+  escalation_phone_number?: string;
+  timezone?: string;
   forward_minutes?: number;
   backward_minutes?: number;
   is_credit_card_required_for_reservation?: boolean;
@@ -66,6 +72,9 @@ export interface RestaurantUpdateRequest {
   address?: string;
   phone_number?: string;
   twilio_phone_number?: string;
+  forward_escalations?: boolean;
+  escalation_phone_number?: string;
+  timezone?: string;
   forward_minutes?: number;
   backward_minutes?: number;
   is_credit_card_required_for_reservation?: boolean;

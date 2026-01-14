@@ -87,6 +87,7 @@ import {
   validateCSVFileSize,
   MAX_CSV_FILE_SIZE,
 } from "@/lib/utils/csv";
+import { formatLocalDateTime } from "@/lib/utils/timezone";
 
 // Role definitions (matching database roles table)
 // role_id 1 = admin
@@ -710,9 +711,7 @@ const Users = () => {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Never";
-    return new Date(dateString).toLocaleString("en-US", {
-      timeZone: "America/Vancouver",
-    });
+    return formatLocalDateTime(dateString);
   };
 
   const getRoleBadgeVariant = (role: string) => {

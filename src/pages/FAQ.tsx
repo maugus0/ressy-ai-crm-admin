@@ -69,6 +69,7 @@ import {
 import { toast } from "sonner";
 import { getRestaurants } from "@/services/restaurants";
 import { parseCSVLine, validateCSVFileSize, MAX_CSV_FILE_SIZE } from "@/lib/utils/csv";
+import { formatLocalDate } from "@/lib/utils/timezone";
 import {
   getFAQs,
   getFAQ,
@@ -573,7 +574,7 @@ const FAQ = () => {
   // ============================================================================
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("en-US", {
+    return formatLocalDate(dateStr, {
       month: "short",
       day: "numeric",
       year: "numeric",

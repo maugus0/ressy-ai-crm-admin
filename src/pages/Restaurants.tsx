@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,13 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -82,6 +89,7 @@ import type {
 import { toast } from "sonner";
 import { formatTimeForApi, formatTimeForInput } from "@/lib/utils/time";
 import { validateJsonObject, safeParseJsonObject } from "@/lib/utils/json";
+import { DEFAULT_TIMEZONE, formatLocalDateTime, getSupportedTimeZones } from "@/lib/utils/timezone";
 
 // Form data structure - uses JSON strings for integration details
 // Objects are only created during submission
@@ -90,11 +98,14 @@ interface RestaurantFormData {
   address: string;
   phone_number: string;
   twilio_phone_number: string;
+  forward_escalations: boolean;
+  escalation_phone_number: string;
   forward_minutes: number;
   backward_minutes: number;
   is_credit_card_required_for_reservation: boolean;
   opening_time: string;
   closing_time: string;
+  timezone: string;
   twilio_details_json: string;
   deepgram_details_json: string;
   open_table_details_json: string;
@@ -106,6 +117,7 @@ interface FormErrors {
   address?: string;
   phone_number?: string;
   twilio_phone_number?: string;
+  escalation_phone_number?: string;
   forward_minutes?: string;
   backward_minutes?: string;
   twilio_details?: string;
@@ -118,11 +130,14 @@ const defaultFormData: RestaurantFormData = {
   address: "",
   phone_number: "",
   twilio_phone_number: "",
+  forward_escalations: false,
+  escalation_phone_number: "",
   forward_minutes: 60,
   backward_minutes: 30,
   is_credit_card_required_for_reservation: false,
   opening_time: "",
   closing_time: "",
+  timezone: DEFAULT_TIMEZONE,
   twilio_details_json: "{}",
   deepgram_details_json: "{}",
   open_table_details_json: "{}",
@@ -159,6 +174,7 @@ const Restaurants = () => {
   const [formData, setFormData] = useState<RestaurantFormData>(defaultFormData);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [activeTab, setActiveTab] = useState("basic");
+  const timeZoneOptions = useMemo(() => [...getSupportedTimeZones()].sort(), []);
 
   const fetchRestaurants = useCallback(async () => {
     try {
@@ -267,6 +283,14 @@ const Restaurants = () => {
       errors.twilio_phone_number = "Twilio number must be in E.164 format";
     }
 
+    if (formData.forward_escalations) {
+      if (!formData.escalation_phone_number.trim()) {
+        errors.escalation_phone_number = "Escalation phone number is required";
+      } else if (!PHONE_REGEX.test(formData.escalation_phone_number)) {
+        errors.escalation_phone_number = "Escalation phone must be in E.164 format";
+      }
+    }
+
     // Number validations
     if (formData.forward_minutes < 0 || formData.forward_minutes > 1440) {
       errors.forward_minutes = "Must be between 0 and 1440 minutes";
@@ -304,7 +328,8 @@ const Restaurants = () => {
         validation.errors.name ||
         validation.errors.address ||
         validation.errors.phone_number ||
-        validation.errors.twilio_phone_number
+        validation.errors.twilio_phone_number ||
+        validation.errors.escalation_phone_number
       ) {
         setActiveTab("basic");
       } else if (validation.errors.forward_minutes || validation.errors.backward_minutes) {
@@ -324,11 +349,16 @@ const Restaurants = () => {
       address: formData.address.trim(),
       phone_number: formData.phone_number.trim(),
       twilio_phone_number: formData.twilio_phone_number.trim() || undefined,
+      forward_escalations: formData.forward_escalations,
+      escalation_phone_number: formData.forward_escalations
+        ? formData.escalation_phone_number.trim() || undefined
+        : undefined,
       forward_minutes: formData.forward_minutes,
       backward_minutes: formData.backward_minutes,
       is_credit_card_required_for_reservation: formData.is_credit_card_required_for_reservation,
       opening_time: formData.opening_time ? formatTimeForApi(formData.opening_time) : undefined,
       closing_time: formData.closing_time ? formatTimeForApi(formData.closing_time) : undefined,
+      timezone: formData.timezone || DEFAULT_TIMEZONE,
       twilio_details: safeParseJsonObject(formData.twilio_details_json),
       deepgram_details: safeParseJsonObject(formData.deepgram_details_json),
       open_table_details: safeParseJsonObject(formData.open_table_details_json),
@@ -404,11 +434,14 @@ const Restaurants = () => {
       address: restaurant.address,
       phone_number: restaurant.phone_number,
       twilio_phone_number: restaurant.twilio_phone_number || "",
+      forward_escalations: restaurant.forward_escalations ?? false,
+      escalation_phone_number: restaurant.escalation_phone_number || "",
       forward_minutes: restaurant.forward_minutes,
       backward_minutes: restaurant.backward_minutes,
       is_credit_card_required_for_reservation: restaurant.is_credit_card_required_for_reservation,
       opening_time: formatTimeForInput(restaurant.opening_time),
       closing_time: formatTimeForInput(restaurant.closing_time),
+      timezone: restaurant.timezone || DEFAULT_TIMEZONE,
       twilio_details_json: JSON.stringify(restaurant.twilio_details || {}, null, 2),
       deepgram_details_json: JSON.stringify(restaurant.deepgram_details || {}, null, 2),
       open_table_details_json: JSON.stringify(restaurant.open_table_details || {}, null, 2),
@@ -917,6 +950,57 @@ const Restaurants = () => {
                       )}
                     </div>
                   </div>
+
+                  <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="forward_escalations" className="text-sm font-medium">
+                        Forward Escalations
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Route escalated calls directly to the restaurant
+                      </p>
+                    </div>
+                    <Switch
+                      id="forward_escalations"
+                      checked={formData.forward_escalations}
+                      onCheckedChange={(checked) => {
+                        setFormData({ ...formData, forward_escalations: checked });
+                        if (!checked && formErrors.escalation_phone_number) {
+                          setFormErrors((prev) => ({
+                            ...prev,
+                            escalation_phone_number: undefined,
+                          }));
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {formData.forward_escalations && (
+                    <div className="grid gap-2">
+                      <Label htmlFor="escalation_phone_number">
+                        Escalation Phone Number <span className="text-destructive">*</span>
+                      </Label>
+                      <PhoneInput
+                        id="escalation_phone_number"
+                        value={formData.escalation_phone_number}
+                        onChange={(value) => {
+                          setFormData({ ...formData, escalation_phone_number: value });
+                          if (formErrors.escalation_phone_number)
+                            setFormErrors((prev) => ({
+                              ...prev,
+                              escalation_phone_number: undefined,
+                            }));
+                        }}
+                        placeholder="1234567890"
+                        error={!!formErrors.escalation_phone_number}
+                      />
+                      {formErrors.escalation_phone_number && (
+                        <p className="text-xs text-destructive">
+                          {formErrors.escalation_phone_number}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
@@ -941,6 +1025,28 @@ const Restaurants = () => {
                         onChange={(e) => setFormData({ ...formData, closing_time: e.target.value })}
                       />
                     </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="timezone">Timezone</Label>
+                    <Select
+                      value={formData.timezone}
+                      onValueChange={(value) => setFormData({ ...formData, timezone: value })}
+                    >
+                      <SelectTrigger id="timezone">
+                        <SelectValue placeholder="Select timezone" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-64">
+                        {timeZoneOptions.map((zone) => (
+                          <SelectItem key={zone} value={zone}>
+                            {zone}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Used to interpret operating hours and escalation routing times
+                    </p>
                   </div>
 
                   <Separator />
@@ -1192,12 +1298,28 @@ const Restaurants = () => {
                     <span className="ml-2">{restaurantDetails.closing_time || "Not set"}</span>
                   </div>
                   <div>
+                    <span className="text-muted-foreground">Timezone:</span>
+                    <span className="ml-2">{restaurantDetails.timezone || DEFAULT_TIMEZONE}</span>
+                  </div>
+                  <div>
                     <span className="text-muted-foreground">Forward:</span>
                     <span className="ml-2">{restaurantDetails.forward_minutes} minutes</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Backward:</span>
                     <span className="ml-2">{restaurantDetails.backward_minutes} minutes</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Escalations:</span>
+                    <span className="ml-2">
+                      {restaurantDetails.forward_escalations ? "Forwarded" : "Not forwarded"}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Escalation Phone:</span>
+                    <span className="ml-2">
+                      {restaurantDetails.escalation_phone_number || "Not set"}
+                    </span>
                   </div>
                   <div className="col-span-2">
                     <span className="text-muted-foreground">Credit Card:</span>
@@ -1246,18 +1368,8 @@ const Restaurants = () => {
 
               {/* Timestamps */}
               <div className="flex justify-between text-xs text-muted-foreground pt-2 border-t">
-                <span>
-                  Created:{" "}
-                  {new Date(restaurantDetails.created_at).toLocaleString("en-US", {
-                    timeZone: "America/Vancouver",
-                  })}
-                </span>
-                <span>
-                  Updated:{" "}
-                  {new Date(restaurantDetails.updated_at).toLocaleString("en-US", {
-                    timeZone: "America/Vancouver",
-                  })}
-                </span>
+                <span>Created: {formatLocalDateTime(restaurantDetails.created_at)}</span>
+                <span>Updated: {formatLocalDateTime(restaurantDetails.updated_at)}</span>
               </div>
             </div>
           ) : null}

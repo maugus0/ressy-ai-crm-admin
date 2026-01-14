@@ -87,9 +87,9 @@ import type {
   ReservationParams,
 } from "@/types/api.types";
 import {
-  vancouverDateTimeToISO,
-  isoToVancouverDateTime,
-  formatVancouverDateTime,
+  datetimeLocalToUtcIso,
+  formatLocalDateTimeInput,
+  formatLocalDateTimeParts,
   isWithinOpeningHours,
   getTimeFromDateTime,
 } from "@/lib/utils/timezone";
@@ -225,15 +225,14 @@ const Reservations = () => {
         params.status = statusFilter as ReservationParams["status"];
       }
       if (startDate) {
-        // Ensure start date is set to the start of the day in Vancouver timezone
-        // Convert date string (YYYY-MM-DD) to datetime-local format, then to ISO
+        // Ensure start date is set to the start of the day in local timezone
         const startDateTimeLocal = `${startDate}T00:00`;
-        params.start_date = vancouverDateTimeToISO(startDateTimeLocal);
+        params.start_date = datetimeLocalToUtcIso(startDateTimeLocal);
       }
       if (endDate) {
-        // Ensure end date includes end of day in Vancouver timezone
+        // Ensure end date includes end of day in local timezone
         const endDateTimeLocal = `${endDate}T23:59`;
-        params.end_date = vancouverDateTimeToISO(endDateTimeLocal);
+        params.end_date = datetimeLocalToUtcIso(endDateTimeLocal);
       }
 
       const data = await getReservations(selectedRestaurantId, params);
@@ -375,18 +374,9 @@ const Reservations = () => {
 
   const openEditDialog = (reservation: Reservation) => {
     setSelectedReservation(reservation);
-    // API returns date_time in Vancouver time already (e.g., "2025-12-28T19:00:00")
-    // Convert to datetime-local format (YYYY-MM-DDTHH:mm) by extracting parts directly
     let dateTimeLocal = "";
     if (reservation.date_time) {
-      // The API string is already in Vancouver time, extract date/time parts directly
-      // Format: "2025-12-28T19:00:00" -> "2025-12-28T19:00"
-      const [datePart, timePart] = reservation.date_time.split("T");
-      if (datePart && timePart) {
-        // Extract just HH:mm from HH:mm:ss
-        const [hour, minute] = timePart.split(":");
-        dateTimeLocal = `${datePart}T${hour}:${minute}`;
-      }
+      dateTimeLocal = formatLocalDateTimeInput(reservation.date_time);
     }
     setFormData({
       date_time: dateTimeLocal,
@@ -525,9 +515,8 @@ const Reservations = () => {
     try {
       setIsSubmitting(true);
       // Build payload with proper conditional inclusion
-      // Convert Vancouver local time to ISO string
       const payload: ReservationCreateRequest = {
-        date_time: vancouverDateTimeToISO(formData.date_time),
+        date_time: datetimeLocalToUtcIso(formData.date_time),
         party_size: parseInt(formData.party_size),
         name: formData.name.trim(),
         phone_number: formData.phone_number.trim(),
@@ -556,9 +545,8 @@ const Reservations = () => {
     try {
       setIsSubmitting(true);
       // Build payload with proper conditional inclusion
-      // Convert Vancouver local time to ISO string
       const payload: ReservationUpdateRequest = {
-        date_time: vancouverDateTimeToISO(formData.date_time),
+        date_time: datetimeLocalToUtcIso(formData.date_time),
         party_size: parseInt(formData.party_size),
         ...(formData.special_request.trim()
           ? { special_request: formData.special_request.trim() }
@@ -718,44 +706,7 @@ const Reservations = () => {
   };
 
   const formatDateTime = (dateTime: string) => {
-    // API returns date_time in Vancouver time already (e.g., "2025-12-28T19:00:00")
-    // Format it directly without timezone conversion since it's already in Vancouver time
-    const [datePart, timePart] = dateTime.split("T");
-    if (!datePart || !timePart) {
-      return { date: "", time: "" };
-    }
-
-    // Parse the date parts
-    const [year, month, day] = datePart.split("-").map(Number);
-    const [hour, minute] = timePart.split(":").map(Number);
-
-    // Format date: "Dec 28, 2025"
-    const monthNames = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    const dateStr = `${monthNames[month - 1]} ${day}, ${year}`;
-
-    // Format time: "7:00 PM" (12-hour format)
-    const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const minuteStr = minute.toString().padStart(2, "0");
-    const timeStr = `${hour12}:${minuteStr} ${ampm}`;
-
-    return {
-      date: dateStr,
-      time: timeStr,
-    };
+    return formatLocalDateTimeParts(dateTime);
   };
 
   // Reservations are already filtered by search query in fetchReservations

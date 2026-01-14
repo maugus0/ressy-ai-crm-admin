@@ -69,7 +69,11 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
 import { getRestaurants } from "@/services/restaurants";
-import { getVancouverTimeComponents, VANCOUVER_TIMEZONE } from "@/lib/utils/timezone";
+import {
+  formatLocalDateTimeParts,
+  getLocalTimeComponents,
+  parseApiDate,
+} from "@/lib/utils/timezone";
 import { getCalls, getCallDetails, deleteCall, deleteTranscript } from "@/services/calls";
 import type {
   Restaurant,
@@ -93,21 +97,7 @@ const formatDuration = (seconds: number): string => {
 };
 
 const formatDateTime = (dateTime: string) => {
-  // Format in Vancouver timezone
-  const date = new Date(dateTime);
-  return {
-    date: date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      timeZone: VANCOUVER_TIMEZONE,
-    }),
-    time: date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: VANCOUVER_TIMEZONE,
-    }),
-  };
+  return formatLocalDateTimeParts(dateTime);
 };
 
 const getStatusColor = (status: string) => {
@@ -484,11 +474,12 @@ const Calls = () => {
       statusBreakdown[call.status] = (statusBreakdown[call.status] || 0) + 1;
     });
 
-    // Time of day distribution (using Vancouver timezone)
+    // Time of day distribution (using local timezone)
     const timeOfDayMap: Record<number, number> = {};
     analyticsCalls.forEach((call) => {
-      const date = new Date(call.started_at);
-      const { hour } = getVancouverTimeComponents(date);
+      const date = parseApiDate(call.started_at);
+      if (!date) return;
+      const { hour } = getLocalTimeComponents(date);
       timeOfDayMap[hour] = (timeOfDayMap[hour] || 0) + 1;
     });
     const timeOfDayDistribution = Object.entries(timeOfDayMap)
@@ -509,11 +500,12 @@ const Calls = () => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    // Calls by day of week (using Vancouver timezone)
+    // Calls by day of week (using local timezone)
     const dayOfWeekMap: Record<number, number> = {};
     analyticsCalls.forEach((call) => {
-      const date = new Date(call.started_at);
-      const { dayOfWeek } = getVancouverTimeComponents(date);
+      const date = parseApiDate(call.started_at);
+      if (!date) return;
+      const { dayOfWeek } = getLocalTimeComponents(date);
       dayOfWeekMap[dayOfWeek] = (dayOfWeekMap[dayOfWeek] || 0) + 1;
     });
     const callsByDayOfWeek = Object.entries(dayOfWeekMap).map(([day_of_week, count]) => ({
@@ -1410,10 +1402,9 @@ const Calls = () => {
                               <p className="whitespace-pre-wrap">{entry.content}</p>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
-                              {new Date(entry.timestamp).toLocaleTimeString("en-US", {
+                              {parseApiDate(entry.timestamp)?.toLocaleTimeString("en-US", {
                                 hour: "2-digit",
                                 minute: "2-digit",
-                                timeZone: VANCOUVER_TIMEZONE,
                               })}
                             </p>
                           </div>

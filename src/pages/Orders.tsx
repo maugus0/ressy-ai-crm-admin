@@ -97,6 +97,7 @@ import {
   restoreOrder,
 } from "@/services/orders";
 import { getMenuItems, getMenuCategories } from "@/services/menu";
+import { formatLocalDateTimeParts } from "@/lib/utils/timezone";
 import type {
   Restaurant,
   DashboardOrder,
@@ -115,21 +116,7 @@ import type {
 // ============================================================================
 
 const formatDateTime = (dateTime: string) => {
-  // Format in Vancouver timezone
-  const date = new Date(dateTime);
-  return {
-    date: date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      timeZone: "America/Vancouver",
-    }),
-    time: date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "America/Vancouver",
-    }),
-  };
+  return formatLocalDateTimeParts(dateTime);
 };
 
 const formatCurrency = (amount: number): string => {

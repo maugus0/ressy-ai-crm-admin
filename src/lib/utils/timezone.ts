@@ -5,6 +5,109 @@
  */
 
 export const VANCOUVER_TIMEZONE = "America/Vancouver";
+export const DEFAULT_TIMEZONE = VANCOUVER_TIMEZONE;
+
+/**
+ * Normalize API timestamps.
+ * Backend now returns UTC timestamps with a trailing "Z"; keep a fallback for older/naive values.
+ */
+export const normalizeApiTimestamp = (value: string): string => {
+  let normalized = value.trim();
+  if (!normalized) return "";
+
+  if (normalized.includes(" ") && !normalized.includes("T")) {
+    normalized = normalized.replace(" ", "T");
+  }
+
+  const hasTimeZone = /([zZ]|[+-]\d{2}:?\d{2})$/.test(normalized);
+  if (!hasTimeZone) {
+    normalized += "Z";
+  }
+
+  return normalized;
+};
+
+// API timestamps are UTC; parse via normalized ISO so local display stays accurate.
+export const parseApiDate = (value: string): Date | null => {
+  const normalized = normalizeApiTimestamp(value);
+  if (!normalized) return null;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+export const formatLocalDateTimeParts = (
+  value: string,
+  options?: {
+    date?: Intl.DateTimeFormatOptions;
+    time?: Intl.DateTimeFormatOptions;
+  }
+): { date: string; time: string } => {
+  const date = parseApiDate(value);
+  if (!date) return { date: "", time: "" };
+
+  return {
+    date: date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      ...options?.date,
+    }),
+    time: date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      ...options?.time,
+    }),
+  };
+};
+
+export const formatLocalDateTime = (
+  value: string,
+  options?: Intl.DateTimeFormatOptions
+): string => {
+  const date = parseApiDate(value);
+  if (!date) return "";
+  return date.toLocaleString("en-US", options);
+};
+
+export const formatLocalDate = (value: string, options?: Intl.DateTimeFormatOptions): string => {
+  const date = parseApiDate(value);
+  if (!date) return "";
+  return date.toLocaleDateString("en-US", options);
+};
+
+export const datetimeLocalToUtcIso = (value: string): string => {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+};
+
+export const formatLocalDateTimeInput = (value: string): string => {
+  const date = parseApiDate(value);
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hour}:${minute}`;
+};
+
+export const getSupportedTimeZones = (): string[] => {
+  if (typeof Intl === "undefined") {
+    return [DEFAULT_TIMEZONE];
+  }
+
+  try {
+    const values = Intl.supportedValuesOf?.("timeZone");
+    if (values && values.length > 0) {
+      return values;
+    }
+  } catch {
+    // Ignore and fall back to default.
+  }
+
+  return [DEFAULT_TIMEZONE];
+};
 
 /**
  * Convert a date string (from datetime-local input) to ISO-like string in Vancouver timezone
@@ -219,5 +322,16 @@ export const getVancouverTimeComponents = (date: Date): { hour: number; dayOfWee
   };
   const dayOfWeek = weekdayMap[weekday] || 1;
 
+  return { hour, dayOfWeek };
+};
+
+/**
+ * Get local time components (hour and day of week) from a date.
+ * Returns hour (0-23) and dayOfWeek (1=Monday, 7=Sunday) in ISO format.
+ */
+export const getLocalTimeComponents = (date: Date): { hour: number; dayOfWeek: number } => {
+  const hour = date.getHours();
+  const day = date.getDay();
+  const dayOfWeek = ((day + 6) % 7) + 1;
   return { hour, dayOfWeek };
 };
