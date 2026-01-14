@@ -71,7 +71,7 @@ import { useSSE } from "@/contexts/SSEContext";
 import { getRestaurants } from "@/services/restaurants";
 import {
   formatLocalDateTimeParts,
-  getVancouverTimeComponents,
+  getLocalTimeComponents,
   parseApiDate,
 } from "@/lib/utils/timezone";
 import { getCalls, getCallDetails, deleteCall, deleteTranscript } from "@/services/calls";
@@ -474,12 +474,12 @@ const Calls = () => {
       statusBreakdown[call.status] = (statusBreakdown[call.status] || 0) + 1;
     });
 
-    // Time of day distribution (using Vancouver timezone)
+    // Time of day distribution (using local timezone)
     const timeOfDayMap: Record<number, number> = {};
     analyticsCalls.forEach((call) => {
       const date = parseApiDate(call.started_at);
       if (!date) return;
-      const { hour } = getVancouverTimeComponents(date);
+      const { hour } = getLocalTimeComponents(date);
       timeOfDayMap[hour] = (timeOfDayMap[hour] || 0) + 1;
     });
     const timeOfDayDistribution = Object.entries(timeOfDayMap)
@@ -500,12 +500,12 @@ const Calls = () => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    // Calls by day of week (using Vancouver timezone)
+    // Calls by day of week (using local timezone)
     const dayOfWeekMap: Record<number, number> = {};
     analyticsCalls.forEach((call) => {
       const date = parseApiDate(call.started_at);
       if (!date) return;
-      const { dayOfWeek } = getVancouverTimeComponents(date);
+      const { dayOfWeek } = getLocalTimeComponents(date);
       dayOfWeekMap[dayOfWeek] = (dayOfWeekMap[dayOfWeek] || 0) + 1;
     });
     const callsByDayOfWeek = Object.entries(dayOfWeekMap).map(([day_of_week, count]) => ({
