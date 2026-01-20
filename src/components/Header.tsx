@@ -169,6 +169,25 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
     navigate("/escalations");
   };
 
+  // Navigate to the appropriate page based on event type
+  const handleNotificationClick = (event: SSEEvent) => {
+    setIsNotificationsOpen(false);
+    switch (event.event_type) {
+      case "escalation":
+        navigate("/escalations");
+        break;
+      case "order":
+        navigate("/orders");
+        break;
+      case "reservation":
+        navigate("/reservations");
+        break;
+      default:
+        // No navigation for unknown event types
+        break;
+    }
+  };
+
   // Show all events (not just recent 10)
   const hasEscalations = events.some((e) => e.event_type === "escalation");
 
@@ -432,9 +451,10 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                     {events.map((event) => (
                       <div
                         key={event.id}
-                        className={`px-3 sm:px-4 py-3 hover:bg-muted/50 transition-colors ${
+                        className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors cursor-pointer ${
                           event.event_type === "escalation" ? "bg-destructive/5" : ""
                         }`}
+                        onClick={() => handleNotificationClick(event)}
                       >
                         <div className="flex items-start gap-2 sm:gap-3">
                           <div className="mt-0.5 flex-shrink-0">{getEventIcon(event)}</div>

@@ -169,6 +169,9 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
               label: "Dismiss",
               onClick: dismissToast,
             },
+            onDismiss: () => {
+              stopLoopingSound(toastId);
+            },
           });
           toastShown = true;
         }
@@ -195,6 +198,9 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
               cancel: {
                 label: "Dismiss",
                 onClick: dismissToast,
+              },
+              onDismiss: () => {
+                stopLoopingSound(toastId);
               },
             });
             toastShown = true;
@@ -223,6 +229,9 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
               cancel: {
                 label: "Dismiss",
                 onClick: dismissToast,
+              },
+              onDismiss: () => {
+                stopLoopingSound(toastId);
               },
             });
             toastShown = true;
@@ -353,7 +362,16 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
    * Dismiss a specific event
    */
   const dismissEvent = useCallback((eventId: string) => {
-    setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    setEvents((prev) => {
+      // Find the event before removing it to stop its looping sound
+      const event = prev.find((e) => e.id === eventId);
+      if (event) {
+        // Stop the looping sound using the same toastId format as showNotification
+        const toastId = `${event.event_type}-${event.id}`;
+        stopLoopingSound(toastId);
+      }
+      return prev.filter((e) => e.id !== eventId);
+    });
   }, []);
 
   /**
