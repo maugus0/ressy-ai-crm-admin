@@ -225,6 +225,88 @@ export const playNotificationSound = (eventType: NotificationEventType): void =>
   }
 };
 
+// ============================================================================
+// Looping Sound for Persistent Notifications
+// ============================================================================
+
+const activeSoundLoops = new Map<string, number>();
+
+/**
+ * Get the sound player function for an event type
+ */
+const getSoundPlayer = (eventType: NotificationEventType): (() => void) => {
+  switch (eventType) {
+    case "order":
+      return playOrderSound;
+    case "reservation":
+      return playReservationSound;
+    case "escalation":
+      return playEscalationSound;
+    default:
+      return playGenericSound;
+  }
+};
+
+/**
+ * Get the loop interval (ms) for an event type
+ */
+const getSoundInterval = (eventType: NotificationEventType): number => {
+  switch (eventType) {
+    case "escalation":
+      return 3000;
+    case "order":
+      return 2500;
+    case "reservation":
+      return 2500;
+    default:
+      return 2000;
+  }
+};
+
+/**
+ * Start looping a notification sound until stopped
+ * Used for persistent toasts that require user attention
+ */
+export const startLoopingSound = (id: string, eventType: NotificationEventType): void => {
+  if (!areSoundsEnabled()) return;
+  if (activeSoundLoops.has(id)) return;
+
+  const soundPlayer = getSoundPlayer(eventType);
+  const interval = getSoundInterval(eventType);
+
+  // Play immediately
+  soundPlayer();
+
+  // Set up loop
+  const intervalId = window.setInterval(() => {
+    if (areSoundsEnabled()) {
+      soundPlayer();
+    }
+  }, interval);
+
+  activeSoundLoops.set(id, intervalId);
+};
+
+/**
+ * Stop a specific looping sound by ID
+ */
+export const stopLoopingSound = (id: string): void => {
+  const intervalId = activeSoundLoops.get(id);
+  if (intervalId !== undefined) {
+    clearInterval(intervalId);
+    activeSoundLoops.delete(id);
+  }
+};
+
+/**
+ * Stop all active looping sounds
+ * Called on cleanup/unmount
+ */
+export const stopAllLoopingSounds = (): void => {
+  activeSoundLoops.forEach((intervalId) => clearInterval(intervalId));
+  activeSoundLoops.clear();
+};
+
 /**
  * Initialize audio context on first user interaction
  * Call this on any user interaction to enable sounds

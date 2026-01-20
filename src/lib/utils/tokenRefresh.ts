@@ -8,6 +8,22 @@ import { ENDPOINTS } from "@/lib/api/endpoints";
 import { env } from "@/config/env";
 import type { RefreshTokenRequest, RefreshTokenResponse, StoredAuthData } from "@/types/auth.types";
 
+// ============================================================================
+// Token Refresh Event
+// ============================================================================
+
+/** Custom event name for token refresh notifications */
+export const TOKEN_REFRESHED_EVENT = "ressy:token_refreshed";
+
+/**
+ * Dispatch event when token is refreshed
+ * This allows other parts of the app (like SSE) to react to token changes
+ * without polling
+ */
+export const notifyTokenRefreshed = (): void => {
+  window.dispatchEvent(new CustomEvent(TOKEN_REFRESHED_EVENT));
+};
+
 /**
  * Refresh access token using refresh token
  * This function is here to avoid circular dependency between client.ts and auth.ts
@@ -62,6 +78,9 @@ export const refreshTokenDirect = async (): Promise<{
     };
 
     setStoredAuthData(updatedAuthData);
+
+    // Notify listeners that the token has been refreshed
+    notifyTokenRefreshed();
 
     return {
       success: true,

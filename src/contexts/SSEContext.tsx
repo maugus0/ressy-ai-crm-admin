@@ -18,12 +18,15 @@ import { useAuth } from "./AuthContext";
 import { toast } from "sonner";
 import type { SSEEvent, SSEConnectionStats } from "@/types/api.types";
 import {
-  playNotificationSound,
   initializeAudio,
   areSoundsEnabled,
   setSoundsEnabled,
+  startLoopingSound,
+  stopLoopingSound,
+  stopAllLoopingSounds,
   type NotificationEventType,
 } from "@/lib/utils/notification-sounds";
+import { TOKEN_REFRESHED_EVENT } from "@/lib/utils/tokenRefresh";
 
 // ============================================================================
 // Types
@@ -110,14 +113,25 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
    */
   const showNotification = useCallback((event: SSEEvent) => {
     const { event_type, subtype, restaurant_id, data } = event;
+    const toastId = `${event_type}-${event.id || Date.now()}`;
 
     const getRestaurantInfo = () => {
       const restaurantName = (data?.restaurant_name as string) || `Restaurant #${restaurant_id}`;
       return restaurantName;
     };
 
-    // Determine sound type based on event
+    const dismissToast = () => {
+      stopLoopingSound(toastId);
+      toast.dismiss(toastId);
+    };
+
+    const navigateAndDismiss = (path: string) => {
+      dismissToast();
+      window.location.href = path;
+    };
+
     let soundType: NotificationEventType = "generic";
+    let toastShown = false;
 
     switch (event_type) {
       case "escalation":
@@ -129,27 +143,34 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
             suspected_spam: "Call flagged as potential spam",
           };
 
-          // Extract reason and urgency from event data
           const reason = data?.reason as string;
           const urgency = data?.urgency as string;
           const baseMessage = escalationMessages[subtype] || "Unknown escalation";
 
-          // Build description with reason prominently displayed
           let description = `${getRestaurantInfo()}: ${baseMessage}`;
           if (reason) {
             description = `${getRestaurantInfo()}: ${baseMessage}\n\n${reason}`;
           }
 
-          // Add urgency to title if available
           let title = "⚠️ Escalation Alert";
           if (urgency) {
             title = `⚠️ Escalation Alert (${urgency.toUpperCase()})`;
           }
 
           toast.error(title, {
+            id: toastId,
             description,
-            duration: 12000, // 12 seconds for important alerts with reason
+            duration: Infinity,
+            action: {
+              label: "View",
+              onClick: () => navigateAndDismiss("/escalations"),
+            },
+            cancel: {
+              label: "Dismiss",
+              onClick: dismissToast,
+            },
           });
+          toastShown = true;
         }
         break;
 
@@ -164,8 +185,19 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
           const config = orderMessages[subtype];
           if (config) {
             toast.info(`${config.icon} ${config.title}`, {
+              id: toastId,
               description: getRestaurantInfo(),
+              duration: Infinity,
+              action: {
+                label: "View",
+                onClick: () => navigateAndDismiss("/orders"),
+              },
+              cancel: {
+                label: "Dismiss",
+                onClick: dismissToast,
+              },
             });
+            toastShown = true;
           }
         }
         break;
@@ -181,8 +213,19 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
           const config = reservationMessages[subtype];
           if (config) {
             toast.info(`${config.icon} ${config.title}`, {
+              id: toastId,
               description: getRestaurantInfo(),
+              duration: Infinity,
+              action: {
+                label: "View",
+                onClick: () => navigateAndDismiss("/reservations"),
+              },
+              cancel: {
+                label: "Dismiss",
+                onClick: dismissToast,
+              },
             });
+            toastShown = true;
           }
         }
         break;
@@ -191,8 +234,10 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         break;
     }
 
-    // Play notification sound
-    playNotificationSound(soundType);
+    // Only start looping sound if a toast was actually shown
+    if (toastShown) {
+      startLoopingSound(toastId, soundType);
+    }
   }, []);
 
   /**
@@ -251,12 +296,34 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Connect when authenticated, disconnect when not
-   * Also reconnect when token is refreshed (tokenVersion changes)
+   * Also reconnect when token is refreshed (tokenVersion changes or event fired)
    */
   useEffect(() => {
     if (isAuthenticated && user) {
       connect();
+
+      // Listen for token refresh events for reconnection
+      const handleTokenRefresh = () => {
+        console.log("SSE: Token refreshed, reconnecting...");
+        connect();
+      };
+
+      window.addEventListener(TOKEN_REFRESHED_EVENT, handleTokenRefresh);
+
+      return () => {
+        window.removeEventListener(TOKEN_REFRESHED_EVENT, handleTokenRefresh);
+        stopAllLoopingSounds();
+        if (eventSourceRef.current) {
+          disconnectFromSSE(eventSourceRef.current);
+          eventSourceRef.current = null;
+        }
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+        }
+      };
     } else {
+      stopAllLoopingSounds();
       if (eventSourceRef.current) {
         disconnectFromSSE(eventSourceRef.current);
         eventSourceRef.current = null;
@@ -265,17 +332,6 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       setEvents([]);
       setUnreadCount(0);
     }
-
-    return () => {
-      if (eventSourceRef.current) {
-        disconnectFromSSE(eventSourceRef.current);
-        eventSourceRef.current = null;
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-    };
   }, [isAuthenticated, user, tokenVersion, connect]);
 
   /**
