@@ -15,15 +15,29 @@ import {
 } from "react";
 import { connectToSSE, disconnectFromSSE, getSSEStats } from "@/services/sse";
 import { useAuth } from "./AuthContext";
-import { toast } from "sonner";
 import type { SSEEvent, SSEConnectionStats } from "@/types/api.types";
 import {
-  playNotificationSound,
   initializeAudio,
   areSoundsEnabled,
   setSoundsEnabled,
+  startLoopingSound,
+  stopLoopingSound,
+  stopAllLoopingSounds,
   type NotificationEventType,
 } from "@/lib/utils/notification-sounds";
+import { TOKEN_REFRESHED_EVENT } from "@/lib/utils/tokenRefresh";
+
+// ============================================================================
+// Stable Sound ID Generator (module level for consistency)
+// ============================================================================
+
+const getSoundId = (event: SSEEvent): string => {
+  if (event.id) {
+    return `${event.event_type}-${event.id}`;
+  }
+  // Use timestamp as fallback for stable IDs
+  return `${event.event_type}-fallback-${event.timestamp}`;
+};
 
 // ============================================================================
 // Types
@@ -38,6 +52,8 @@ interface SSEContextType {
   isConnected: boolean;
   /** Number of unread notifications */
   unreadCount: number;
+  /** Set of event IDs that have been read */
+  readEventIds: Set<string>;
   /** Whether notification sounds are enabled */
   soundsEnabled: boolean;
   /** SSE connection statistics */
@@ -50,8 +66,12 @@ interface SSEContextType {
   clearEvents: () => void;
   /** Mark all as read (reset unread count) */
   markAsRead: () => void;
+  /** Mark a specific event as read */
+  markEventAsRead: (eventId: string) => void;
   /** Dismiss a specific event */
   dismissEvent: (eventId: string) => void;
+  /** Stop sound for a specific event */
+  stopEventSound: (eventId: string) => void;
   /** Refresh connection stats */
   refreshStats: () => Promise<void>;
 }
@@ -79,6 +99,7 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const [events, setEvents] = useState<SSEEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [readEventIds, setReadEventIds] = useState<Set<string>>(new Set());
   const [soundsEnabled, setSoundsEnabledState] = useState(areSoundsEnabled());
   const [connectionStats, setConnectionStats] = useState<SSEConnectionStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
@@ -106,84 +127,34 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   /**
-   * Show toast notification based on event type and play appropriate sound
+   * Start looping sound for an event (no toast notifications - all go through panel)
    */
-  const showNotification = useCallback((event: SSEEvent) => {
-    const { event_type, subtype, restaurant_id, data } = event;
+  const playEventSound = useCallback((event: SSEEvent) => {
+    const { event_type, subtype } = event;
+    const soundId = getSoundId(event);
 
-    const getRestaurantInfo = () => {
-      const restaurantName = (data?.restaurant_name as string) || `Restaurant #${restaurant_id}`;
-      return restaurantName;
-    };
-
-    // Determine sound type based on event
     let soundType: NotificationEventType = "generic";
+    let shouldPlaySound = false;
 
     switch (event_type) {
       case "escalation":
-        {
-          soundType = "escalation";
-          const escalationMessages: Record<string, string> = {
-            user_requested: "Customer requested human assistance",
-            internal_server_error: "System error during call",
-            suspected_spam: "Call flagged as potential spam",
-          };
-
-          // Extract reason and urgency from event data
-          const reason = data?.reason as string;
-          const urgency = data?.urgency as string;
-          const baseMessage = escalationMessages[subtype] || "Unknown escalation";
-
-          // Build description with reason prominently displayed
-          let description = `${getRestaurantInfo()}: ${baseMessage}`;
-          if (reason) {
-            description = `${getRestaurantInfo()}: ${baseMessage}\n\n${reason}`;
-          }
-
-          // Add urgency to title if available
-          let title = "⚠️ Escalation Alert";
-          if (urgency) {
-            title = `⚠️ Escalation Alert (${urgency.toUpperCase()})`;
-          }
-
-          toast.error(title, {
-            description,
-            duration: 12000, // 12 seconds for important alerts with reason
-          });
-        }
+        soundType = "escalation";
+        shouldPlaySound = true;
         break;
 
       case "order":
-        {
-          soundType = "order";
-          const orderMessages: Record<string, { icon: string; title: string }> = {
-            new_order: { icon: "🛍️", title: "New Order" },
-            order_updated: { icon: "📝", title: "Order Updated" },
-            order_cancelled: { icon: "❌", title: "Order Cancelled" },
-          };
-          const config = orderMessages[subtype];
-          if (config) {
-            toast.info(`${config.icon} ${config.title}`, {
-              description: getRestaurantInfo(),
-            });
-          }
+        soundType = "order";
+        // Only play for recognized order subtypes
+        if (["new_order", "order_updated", "order_cancelled"].includes(subtype)) {
+          shouldPlaySound = true;
         }
         break;
 
       case "reservation":
-        {
-          soundType = "reservation";
-          const reservationMessages: Record<string, { icon: string; title: string }> = {
-            new_reservation: { icon: "📅", title: "New Reservation" },
-            reservation_updated: { icon: "📝", title: "Reservation Updated" },
-            reservation_cancelled: { icon: "❌", title: "Reservation Cancelled" },
-          };
-          const config = reservationMessages[subtype];
-          if (config) {
-            toast.info(`${config.icon} ${config.title}`, {
-              description: getRestaurantInfo(),
-            });
-          }
+        soundType = "reservation";
+        // Only play for recognized reservation subtypes
+        if (["new_reservation", "reservation_updated", "reservation_cancelled"].includes(subtype)) {
+          shouldPlaySound = true;
         }
         break;
 
@@ -191,8 +162,10 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         break;
     }
 
-    // Play notification sound
-    playNotificationSound(soundType);
+    // Start looping sound if applicable
+    if (shouldPlaySound) {
+      startLoopingSound(soundId, soundType);
+    }
   }, []);
 
   /**
@@ -206,10 +179,10 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       // Increment unread count
       setUnreadCount((prev) => prev + 1);
 
-      // Show toast notification
-      showNotification(event);
+      // Play looping sound for the event (no toast - all notifications go through panel)
+      playEventSound(event);
     },
-    [showNotification]
+    [playEventSound]
   );
 
   /**
@@ -251,12 +224,34 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Connect when authenticated, disconnect when not
-   * Also reconnect when token is refreshed (tokenVersion changes)
+   * Also reconnect when token is refreshed (tokenVersion changes or event fired)
    */
   useEffect(() => {
     if (isAuthenticated && user) {
       connect();
+
+      // Listen for token refresh events for reconnection
+      const handleTokenRefresh = () => {
+        console.log("SSE: Token refreshed, reconnecting...");
+        connect();
+      };
+
+      window.addEventListener(TOKEN_REFRESHED_EVENT, handleTokenRefresh);
+
+      return () => {
+        window.removeEventListener(TOKEN_REFRESHED_EVENT, handleTokenRefresh);
+        stopAllLoopingSounds();
+        if (eventSourceRef.current) {
+          disconnectFromSSE(eventSourceRef.current);
+          eventSourceRef.current = null;
+        }
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+        }
+      };
     } else {
+      stopAllLoopingSounds();
       if (eventSourceRef.current) {
         disconnectFromSSE(eventSourceRef.current);
         eventSourceRef.current = null;
@@ -265,25 +260,17 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       setEvents([]);
       setUnreadCount(0);
     }
-
-    return () => {
-      if (eventSourceRef.current) {
-        disconnectFromSSE(eventSourceRef.current);
-        eventSourceRef.current = null;
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-    };
   }, [isAuthenticated, user, tokenVersion, connect]);
 
   /**
    * Clear all events
    */
   const clearEvents = useCallback(() => {
+    // Stop all looping sounds before clearing
+    stopAllLoopingSounds();
     setEvents([]);
     setUnreadCount(0);
+    setReadEventIds(new Set());
   }, []);
 
   /**
@@ -294,10 +281,50 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   /**
+   * Mark a specific event as read
+   */
+  const markEventAsRead = useCallback((eventId: string) => {
+    setReadEventIds((prev) => {
+      const wasAlreadyRead = prev.has(eventId);
+      const newSet = new Set(prev);
+      newSet.add(eventId);
+
+      // Only decrement if this event was not already read
+      if (!wasAlreadyRead) {
+        setUnreadCount((count) => Math.max(0, count - 1));
+      }
+
+      return newSet;
+    });
+  }, []);
+
+  /**
+   * Stop sound for a specific event (but keep it in the panel)
+   */
+  const stopEventSound = useCallback((eventId: string) => {
+    setEvents((prev) => {
+      const event = prev.find((e) => e.id === eventId);
+      if (event) {
+        const soundId = getSoundId(event);
+        stopLoopingSound(soundId);
+      }
+      return prev; // Don't modify the array
+    });
+  }, []);
+
+  /**
    * Dismiss a specific event
    */
   const dismissEvent = useCallback((eventId: string) => {
-    setEvents((prev) => prev.filter((e) => e.id !== eventId));
+    setEvents((prev) => {
+      // Find the event before removing it to stop its looping sound
+      const event = prev.find((e) => e.id === eventId);
+      if (event) {
+        const soundId = getSoundId(event);
+        stopLoopingSound(soundId);
+      }
+      return prev.filter((e) => e.id !== eventId);
+    });
   }, []);
 
   /**
@@ -365,13 +392,16 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         escalations,
         isConnected,
         unreadCount,
+        readEventIds,
         soundsEnabled,
         connectionStats,
         isLoadingStats,
         toggleSounds: toggleSoundsHandler,
         clearEvents,
         markAsRead,
+        markEventAsRead,
         dismissEvent,
+        stopEventSound,
         refreshStats,
       }}
     >

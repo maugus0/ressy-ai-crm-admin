@@ -39,14 +39,17 @@ export const getCallers = async (
 ): Promise<DashboardUserListResponse> => {
   const { search, is_spam, limit = 50, offset = 0 } = params;
 
-  const queryParams = new URLSearchParams();
-  if (search) queryParams.set("search", search);
-  if (is_spam !== undefined) queryParams.set("is_spam", String(is_spam));
-  queryParams.set("limit", String(limit));
-  queryParams.set("offset", String(offset));
-
-  const url = `${ENDPOINTS.DASHBOARD_USERS.LIST(restaurantId)}?${queryParams.toString()}`;
-  const response = await api.get<DashboardUserListResponse>(url);
+  const response = await api.get<DashboardUserListResponse>(
+    ENDPOINTS.DASHBOARD_USERS.LIST(restaurantId),
+    {
+      params: {
+        search,
+        is_spam,
+        limit,
+        offset,
+      },
+    }
+  );
 
   if (response.error || !response.data) {
     throw new Error(getErrorMessage(response.error, "Failed to fetch users"));

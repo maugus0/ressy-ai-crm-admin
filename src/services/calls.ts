@@ -44,21 +44,21 @@ export const getCalls = async (params: CallParams = {}): Promise<CallListRespons
     sort_order = "desc",
   } = params;
 
-  const queryParams = new URLSearchParams();
-  if (restaurant_id) queryParams.set("restaurant_id", restaurant_id);
-  if (date_from) queryParams.set("date_from", date_from);
-  if (date_to) queryParams.set("date_to", date_to);
-  if (status) queryParams.set("status", status);
-  if (duration_min !== undefined) queryParams.set("duration_min", String(duration_min));
-  if (duration_max !== undefined) queryParams.set("duration_max", String(duration_max));
-  if (caller_phone) queryParams.set("caller_phone", caller_phone);
-  queryParams.set("page", String(page));
-  queryParams.set("limit", String(limit));
-  queryParams.set("sort_by", sort_by);
-  queryParams.set("sort_order", sort_order);
-
-  const url = `${ENDPOINTS.CALLS.LIST}?${queryParams.toString()}`;
-  const response = await api.get<CallListResponse>(url);
+  const response = await api.get<CallListResponse>(ENDPOINTS.CALLS.LIST, {
+    params: {
+      restaurant_id,
+      date_from,
+      date_to,
+      status,
+      duration_min,
+      duration_max,
+      caller_phone,
+      page,
+      limit,
+      sort_by,
+      sort_order,
+    },
+  });
 
   if (response.error || !response.data) {
     throw new Error(getErrorMessage(response.error, "Failed to fetch calls"));
@@ -94,13 +94,13 @@ export const getCallDetails = async (callId: string): Promise<CallDetails> => {
 export const getCallAnalytics = async (params: CallAnalyticsParams): Promise<CallAnalytics> => {
   const { restaurant_id, date_from, date_to } = params;
 
-  const queryParams = new URLSearchParams();
-  if (restaurant_id) queryParams.set("restaurant_id", restaurant_id);
-  queryParams.set("date_from", date_from);
-  queryParams.set("date_to", date_to);
-
-  const url = `${ENDPOINTS.CALLS.ANALYTICS}?${queryParams.toString()}`;
-  const response = await api.get<CallAnalytics>(url);
+  const response = await api.get<CallAnalytics>(ENDPOINTS.CALLS.ANALYTICS, {
+    params: {
+      restaurant_id,
+      date_from,
+      date_to,
+    },
+  });
 
   if (response.error || !response.data) {
     throw new Error(getErrorMessage(response.error, "Failed to fetch call analytics"));
@@ -117,15 +117,9 @@ export const getCallAnalytics = async (params: CallAnalyticsParams): Promise<Cal
  * Search calls with query parameters
  */
 export const searchCalls = async (params: CallParams = {}): Promise<CallListResponse> => {
-  const queryParams = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      queryParams.set(key, String(value));
-    }
+  const response = await api.get<CallListResponse>(ENDPOINTS.CALLS.SEARCH, {
+    params: params as Record<string, string | number | boolean | undefined>,
   });
-
-  const url = `${ENDPOINTS.CALLS.SEARCH}?${queryParams.toString()}`;
-  const response = await api.get<CallListResponse>(url);
 
   if (response.error || !response.data) {
     throw new Error(getErrorMessage(response.error, "Failed to search calls"));

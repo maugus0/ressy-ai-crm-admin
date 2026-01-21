@@ -14,6 +14,8 @@ import {
   Users,
   RefreshCw,
   Building2,
+  Circle,
+  CheckCircle2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -91,14 +93,16 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
   const {
     events,
     unreadCount,
+    readEventIds,
     isConnected,
     soundsEnabled,
     connectionStats,
     isLoadingStats,
     toggleSounds,
-    markAsRead,
+    markEventAsRead,
     dismissEvent,
     clearEvents,
+    stopEventSound,
     refreshStats,
   } = useSSE();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -159,14 +163,37 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
 
   const handleNotificationsOpen = (open: boolean) => {
     setIsNotificationsOpen(open);
-    if (open) {
-      markAsRead();
-    }
+    // Note: We don't mark notifications as read when opening the panel
+    // They are only marked as read when individually clicked
   };
 
   const handleViewEscalations = () => {
     setIsNotificationsOpen(false);
     navigate("/escalations");
+  };
+
+  // Navigate to the appropriate page based on event type
+  const handleNotificationClick = (event: SSEEvent) => {
+    setIsNotificationsOpen(false);
+    // Stop the sound for this notification (but keep it in the panel)
+    stopEventSound(event.id);
+    // Mark the event as read
+    markEventAsRead(event.id);
+    // Navigate to the appropriate page based on event type
+    switch (event.event_type) {
+      case "escalation":
+        navigate("/escalations");
+        break;
+      case "order":
+        navigate("/orders");
+        break;
+      case "reservation":
+        navigate("/reservations");
+        break;
+      default:
+        // No navigation for unknown event types
+        break;
+    }
   };
 
   // Show all events (not just recent 10)
@@ -429,42 +456,53 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
               {events.length > 0 ? (
                 <ScrollArea className="h-[calc(100vh-250px)] max-h-[400px] sm:h-[400px]">
                   <div className="divide-y">
-                    {events.map((event) => (
-                      <div
-                        key={event.id}
-                        className={`px-3 sm:px-4 py-3 hover:bg-muted/50 transition-colors ${
-                          event.event_type === "escalation" ? "bg-destructive/5" : ""
-                        }`}
-                      >
-                        <div className="flex items-start gap-2 sm:gap-3">
-                          <div className="mt-0.5 flex-shrink-0">{getEventIcon(event)}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className="text-xs sm:text-sm font-medium truncate break-words">
-                                {getEventTitle(event)}
+                    {events.map((event) => {
+                      const isRead = event.id ? readEventIds.has(event.id) : false;
+                      return (
+                        <div
+                          key={event.id}
+                          className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors cursor-pointer ${
+                            event.event_type === "escalation" ? "bg-destructive/5" : ""
+                          } ${isRead ? "opacity-75" : ""}`}
+                          onClick={() => handleNotificationClick(event)}
+                        >
+                          <div className="flex items-start gap-2 sm:gap-3">
+                            <div className="mt-0.5 flex-shrink-0">{getEventIcon(event)}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <p className="text-xs sm:text-sm font-medium break-words">
+                                    {getEventTitle(event)}
+                                  </p>
+                                  {isRead ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                  ) : (
+                                    <Circle className="h-3.5 w-3.5 text-primary flex-shrink-0 fill-primary" />
+                                  )}
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 flex-shrink-0 opacity-50 hover:opacity-100 mt-0.5"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    dismissEvent(event.id);
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <p className="text-xs text-muted-foreground break-words mt-0.5">
+                                {getEventDescription(event)}
                               </p>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 flex-shrink-0 opacity-50 hover:opacity-100"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  dismissEvent(event.id);
-                                }}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {formatRelativeTime(event.timestamp)}
+                              </p>
                             </div>
-                            <p className="text-xs text-muted-foreground truncate break-words">
-                              {getEventDescription(event)}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {formatRelativeTime(event.timestamp)}
-                            </p>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </ScrollArea>
               ) : (
