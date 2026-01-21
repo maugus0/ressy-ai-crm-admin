@@ -1270,13 +1270,13 @@ const Restaurants = () => {
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="w-full justify-between p-4 h-auto hover:bg-muted/50"
+                        className="group w-full justify-between p-4 h-auto hover:bg-muted/50"
                       >
                         <span className="flex items-center gap-2 font-medium">
                           <PhoneCall className="h-4 w-4 text-blue-500" />
                           Twilio Configuration
                         </span>
-                        <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]>svg]:rotate-180" />
+                        <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="px-4 pb-4">
@@ -1303,13 +1303,13 @@ const Restaurants = () => {
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="w-full justify-between p-4 h-auto hover:bg-muted/50"
+                        className="group w-full justify-between p-4 h-auto hover:bg-muted/50"
                       >
                         <span className="flex items-center gap-2 font-medium">
                           <Settings2 className="h-4 w-4 text-green-500" />
                           Deepgram Configuration
                         </span>
-                        <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]>svg]:rotate-180" />
+                        <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="px-4 pb-4">
@@ -1336,13 +1336,13 @@ const Restaurants = () => {
                     <CollapsibleTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="w-full justify-between p-4 h-auto hover:bg-muted/50"
+                        className="group w-full justify-between p-4 h-auto hover:bg-muted/50"
                       >
                         <span className="flex items-center gap-2 font-medium">
                           <UtensilsCrossed className="h-4 w-4 text-orange-500" />
                           OpenTable Configuration
                         </span>
-                        <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]>svg]:rotate-180" />
+                        <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                       </Button>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="px-4 pb-4">

@@ -45,8 +45,8 @@ export interface Restaurant {
   is_credit_card_required_for_reservation: boolean;
   opening_time: string | null;
   closing_time: string | null;
-  reservation_seating_capacity: number;
-  reservation_advance_days: number;
+  reservation_seating_capacity: number | null;
+  reservation_advance_days: number | null;
   created_at: string;
   updated_at: string;
 }
