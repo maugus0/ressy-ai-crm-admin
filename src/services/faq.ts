@@ -38,13 +38,13 @@ export const getFAQs = async (
 ): Promise<PaginatedResponse<FAQ>> => {
   const { page = 1, limit = 20, search } = params;
 
-  const queryParams = new URLSearchParams();
-  queryParams.set("page", String(page));
-  queryParams.set("limit", String(limit));
-  if (search) queryParams.set("search", search);
-
-  const url = `${ENDPOINTS.FAQ.LIST(restaurantId)}?${queryParams.toString()}`;
-  const response = await api.get<PaginatedResponse<FAQ>>(url);
+  const response = await api.get<PaginatedResponse<FAQ>>(ENDPOINTS.FAQ.LIST(restaurantId), {
+    params: {
+      page,
+      limit,
+      search,
+    },
+  });
 
   if (response.error || !response.data) {
     throw new Error(getErrorMessage(response.error, "Failed to fetch FAQs"));
@@ -72,13 +72,13 @@ export const getFAQ = async (faqId: number): Promise<FAQ> => {
 export const searchFAQs = async (params: FAQSearchParams = {}): Promise<PaginatedResponse<FAQ>> => {
   const { page = 1, limit = 20, q } = params;
 
-  const queryParams = new URLSearchParams();
-  queryParams.set("page", String(page));
-  queryParams.set("limit", String(limit));
-  if (q) queryParams.set("q", q);
-
-  const url = `${ENDPOINTS.FAQ.SEARCH}?${queryParams.toString()}`;
-  const response = await api.get<PaginatedResponse<FAQ>>(url);
+  const response = await api.get<PaginatedResponse<FAQ>>(ENDPOINTS.FAQ.SEARCH, {
+    params: {
+      page,
+      limit,
+      q,
+    },
+  });
 
   if (response.error || !response.data) {
     throw new Error(getErrorMessage(response.error, "Failed to search FAQs"));

@@ -100,7 +100,7 @@ export const playOrderSound = (): void => {
       { frequency: 1046.5, duration: 0.5, delay: 1.7 }, // C6 (octave higher)
     ],
     "sine",
-    0.35
+    0.7
   );
 };
 
@@ -121,7 +121,7 @@ export const playReservationSound = (): void => {
       { frequency: 659.25, duration: 0.5, delay: 1.7 }, // E5 (longer sustain)
     ],
     "triangle",
-    0.35
+    0.7
   );
 };
 
@@ -146,7 +146,7 @@ export const playEscalationSound = (): void => {
       { frequency: 523.25, duration: 0.5, delay: 2.2 }, // C5 (resolution)
     ],
     "square",
-    0.25
+    0.6
   );
 };
 
@@ -154,7 +154,7 @@ export const playEscalationSound = (): void => {
  * Generic notification sound - Simple ping
  */
 export const playGenericSound = (): void => {
-  playTone(587.33, 0.2, "sine", 0.25); // D5
+  playTone(587.33, 0.2, "sine", 0.6); // D5
 };
 
 // ============================================================================
@@ -178,10 +178,15 @@ export const areSoundsEnabled = (): boolean => {
 
 /**
  * Enable or disable notification sounds
+ * When disabled, stops all active sound loops
  */
 export const setSoundsEnabled = (enabled: boolean): void => {
   try {
     localStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
+    // Stop all active sound loops when sounds are disabled
+    if (!enabled) {
+      stopAllLoopingSounds();
+    }
   } catch {
     // Ignore localStorage errors
   }
@@ -279,9 +284,12 @@ export const startLoopingSound = (id: string, eventType: NotificationEventType):
 
   // Set up loop
   const intervalId = window.setInterval(() => {
-    if (areSoundsEnabled()) {
-      soundPlayer();
+    if (!areSoundsEnabled()) {
+      clearInterval(intervalId);
+      activeSoundLoops.delete(id);
+      return;
     }
+    soundPlayer();
   }, interval);
 
   activeSoundLoops.set(id, intervalId);

@@ -55,16 +55,19 @@ export const getOrders = async (
 ): Promise<DashboardOrderListResponse> => {
   const { status, start_date, end_date, include_deleted = false, limit = 100, offset = 0 } = params;
 
-  const queryParams = new URLSearchParams();
-  if (status) queryParams.set("status", status);
-  if (start_date) queryParams.set("start_date", start_date);
-  if (end_date) queryParams.set("end_date", end_date);
-  queryParams.set("include_deleted", String(include_deleted));
-  queryParams.set("limit", String(limit));
-  queryParams.set("offset", String(offset));
-
-  const url = `${ENDPOINTS.DASHBOARD_ORDERS.LIST(restaurantId)}?${queryParams.toString()}`;
-  const response = await api.get<DashboardOrderListResponse>(url);
+  const response = await api.get<DashboardOrderListResponse>(
+    ENDPOINTS.DASHBOARD_ORDERS.LIST(restaurantId),
+    {
+      params: {
+        status,
+        start_date,
+        end_date,
+        include_deleted,
+        limit,
+        offset,
+      },
+    }
+  );
 
   if (response.error || !response.data) {
     throw new Error(getErrorMessage(response.error, "Failed to fetch orders"));
