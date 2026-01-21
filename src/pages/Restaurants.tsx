@@ -54,6 +54,7 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Search,
   Info,
   BarChart3,
@@ -71,6 +72,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  CalendarDays,
+  Loader2,
 } from "lucide-react";
 import {
   getRestaurants,
@@ -86,6 +89,7 @@ import type {
   RestaurantStats,
   PaginationInfo,
 } from "@/types/api.types";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { formatTimeForApi, formatTimeForInput } from "@/lib/utils/time";
 import { validateJsonObject, safeParseJsonObject } from "@/lib/utils/json";
@@ -106,6 +110,8 @@ interface RestaurantFormData {
   opening_time: string;
   closing_time: string;
   timezone: string;
+  reservation_seating_capacity: number;
+  reservation_advance_days: number;
   twilio_details_json: string;
   deepgram_details_json: string;
   open_table_details_json: string;
@@ -120,6 +126,8 @@ interface FormErrors {
   escalation_phone_number?: string;
   forward_minutes?: string;
   backward_minutes?: string;
+  reservation_seating_capacity?: string;
+  reservation_advance_days?: string;
   twilio_details?: string;
   deepgram_details?: string;
   open_table_details?: string;
@@ -138,6 +146,8 @@ const defaultFormData: RestaurantFormData = {
   opening_time: "",
   closing_time: "",
   timezone: DEFAULT_TIMEZONE,
+  reservation_seating_capacity: 50,
+  reservation_advance_days: 30,
   twilio_details_json: "{}",
   deepgram_details_json: "{}",
   open_table_details_json: "{}",
@@ -298,6 +308,12 @@ const Restaurants = () => {
     if (formData.backward_minutes < 0 || formData.backward_minutes > 1440) {
       errors.backward_minutes = "Must be between 0 and 1440 minutes";
     }
+    if (formData.reservation_seating_capacity < 1 || formData.reservation_seating_capacity > 1000) {
+      errors.reservation_seating_capacity = "Must be between 1 and 1000 seats";
+    }
+    if (formData.reservation_advance_days < 1 || formData.reservation_advance_days > 365) {
+      errors.reservation_advance_days = "Must be between 1 and 365 days";
+    }
 
     // JSON validations
     const twilioResult = validateJsonObject(formData.twilio_details_json);
@@ -359,6 +375,8 @@ const Restaurants = () => {
       opening_time: formData.opening_time ? formatTimeForApi(formData.opening_time) : undefined,
       closing_time: formData.closing_time ? formatTimeForApi(formData.closing_time) : undefined,
       timezone: formData.timezone || DEFAULT_TIMEZONE,
+      reservation_seating_capacity: formData.reservation_seating_capacity,
+      reservation_advance_days: formData.reservation_advance_days,
       twilio_details: safeParseJsonObject(formData.twilio_details_json),
       deepgram_details: safeParseJsonObject(formData.deepgram_details_json),
       open_table_details: safeParseJsonObject(formData.open_table_details_json),
@@ -442,6 +460,8 @@ const Restaurants = () => {
       opening_time: formatTimeForInput(restaurant.opening_time),
       closing_time: formatTimeForInput(restaurant.closing_time),
       timezone: restaurant.timezone || DEFAULT_TIMEZONE,
+      reservation_seating_capacity: restaurant.reservation_seating_capacity ?? 50,
+      reservation_advance_days: restaurant.reservation_advance_days ?? 30,
       twilio_details_json: JSON.stringify(restaurant.twilio_details || {}, null, 2),
       deepgram_details_json: JSON.stringify(restaurant.deepgram_details || {}, null, 2),
       open_table_details_json: JSON.stringify(restaurant.open_table_details || {}, null, 2),
@@ -659,6 +679,21 @@ const Restaurants = () => {
                                       {restaurant.is_credit_card_required_for_reservation
                                         ? "required"
                                         : "not required"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <div className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-muted">
+                                        <Users className="h-3 w-3 text-blue-500" />
+                                        <span>{restaurant.reservation_seating_capacity ?? 50}</span>
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Seating capacity:{" "}
+                                      {restaurant.reservation_seating_capacity ?? 50} seats
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -1006,203 +1041,336 @@ const Restaurants = () => {
 
               <TabsContent value="settings" className="mt-0 space-y-4">
                 <div className="grid gap-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="opening_time">Opening Time</Label>
-                      <Input
-                        id="opening_time"
-                        type="time"
-                        value={formData.opening_time}
-                        onChange={(e) => setFormData({ ...formData, opening_time: e.target.value })}
-                      />
+                  {/* Operating Hours Section */}
+                  <div className="p-4 rounded-lg border bg-muted/30">
+                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <Clock className="h-4 w-4" /> Operating Hours
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="opening_time">Opening Time</Label>
+                        <div className="relative">
+                          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="opening_time"
+                            type="time"
+                            value={formData.opening_time}
+                            onChange={(e) =>
+                              setFormData({ ...formData, opening_time: e.target.value })
+                            }
+                            className="pl-10"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="closing_time">Closing Time</Label>
+                        <div className="relative">
+                          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            id="closing_time"
+                            type="time"
+                            value={formData.closing_time}
+                            onChange={(e) =>
+                              setFormData({ ...formData, closing_time: e.target.value })
+                            }
+                            className="pl-10"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="closing_time">Closing Time</Label>
-                      <Input
-                        id="closing_time"
-                        type="time"
-                        value={formData.closing_time}
-                        onChange={(e) => setFormData({ ...formData, closing_time: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="timezone">Timezone</Label>
-                    <Select
-                      value={formData.timezone}
-                      onValueChange={(value) => setFormData({ ...formData, timezone: value })}
-                    >
-                      <SelectTrigger id="timezone">
-                        <SelectValue placeholder="Select timezone" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-64">
-                        {timeZoneOptions.map((zone) => (
-                          <SelectItem key={zone} value={zone}>
-                            {zone}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Used to interpret operating hours and escalation routing times
-                    </p>
-                  </div>
-
-                  <Separator />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="forward_minutes">
-                        Forward Minutes
-                        <span className="text-muted-foreground text-xs ml-2">
-                          (booking window ahead)
-                        </span>
-                      </Label>
-                      <Input
-                        id="forward_minutes"
-                        type="number"
-                        min="0"
-                        max="1440"
-                        value={formData.forward_minutes}
-                        onChange={(e) => {
-                          setFormData({ ...formData, forward_minutes: Number(e.target.value) });
-                          if (formErrors.forward_minutes)
-                            setFormErrors((prev) => ({ ...prev, forward_minutes: undefined }));
-                        }}
-                        className={formErrors.forward_minutes ? "border-destructive" : ""}
-                      />
-                      {formErrors.forward_minutes && (
-                        <p className="text-xs text-destructive">{formErrors.forward_minutes}</p>
-                      )}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="backward_minutes">
-                        Backward Minutes
-                        <span className="text-muted-foreground text-xs ml-2">
-                          (cancellation window)
-                        </span>
-                      </Label>
-                      <Input
-                        id="backward_minutes"
-                        type="number"
-                        min="0"
-                        max="1440"
-                        value={formData.backward_minutes}
-                        onChange={(e) => {
-                          setFormData({ ...formData, backward_minutes: Number(e.target.value) });
-                          if (formErrors.backward_minutes)
-                            setFormErrors((prev) => ({ ...prev, backward_minutes: undefined }));
-                        }}
-                        className={formErrors.backward_minutes ? "border-destructive" : ""}
-                      />
-                      {formErrors.backward_minutes && (
-                        <p className="text-xs text-destructive">{formErrors.backward_minutes}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/30">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="credit_card" className="text-sm font-medium">
-                        Credit Card Required
-                      </Label>
+                    <div className="grid gap-2 mt-4">
+                      <Label htmlFor="timezone">Timezone</Label>
+                      <Select
+                        value={formData.timezone}
+                        onValueChange={(value) => setFormData({ ...formData, timezone: value })}
+                      >
+                        <SelectTrigger id="timezone">
+                          <SelectValue placeholder="Select timezone" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-64">
+                          {timeZoneOptions.map((zone) => (
+                            <SelectItem key={zone} value={zone}>
+                              {zone}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <p className="text-xs text-muted-foreground">
-                        Require credit card for reservations
+                        Used to interpret operating hours and escalation routing times
                       </p>
                     </div>
-                    <Switch
-                      id="credit_card"
-                      checked={formData.is_credit_card_required_for_reservation}
-                      onCheckedChange={(checked) =>
-                        setFormData({
-                          ...formData,
-                          is_credit_card_required_for_reservation: checked,
-                        })
-                      }
-                    />
+                  </div>
+
+                  {/* Reservation Settings Section */}
+                  <div className="p-4 rounded-lg border bg-muted/30">
+                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" /> Reservation Settings
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="seatingCapacity">Maximum Seating Capacity</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="seatingCapacity"
+                            type="number"
+                            min={1}
+                            max={1000}
+                            value={formData.reservation_seating_capacity}
+                            onChange={(e) => {
+                              setFormData({
+                                ...formData,
+                                reservation_seating_capacity: Number(e.target.value),
+                              });
+                              if (formErrors.reservation_seating_capacity)
+                                setFormErrors((prev) => ({
+                                  ...prev,
+                                  reservation_seating_capacity: undefined,
+                                }));
+                            }}
+                            className={`w-32 ${formErrors.reservation_seating_capacity ? "border-destructive" : ""}`}
+                          />
+                          <span className="text-sm text-muted-foreground">seats</span>
+                        </div>
+                        {formErrors.reservation_seating_capacity ? (
+                          <p className="text-xs text-destructive">
+                            {formErrors.reservation_seating_capacity}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            Maximum guests that can be seated at any time
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="advanceDays">Advance Booking Window</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="advanceDays"
+                            type="number"
+                            min={1}
+                            max={365}
+                            value={formData.reservation_advance_days}
+                            onChange={(e) => {
+                              setFormData({
+                                ...formData,
+                                reservation_advance_days: Number(e.target.value),
+                              });
+                              if (formErrors.reservation_advance_days)
+                                setFormErrors((prev) => ({
+                                  ...prev,
+                                  reservation_advance_days: undefined,
+                                }));
+                            }}
+                            className={`w-32 ${formErrors.reservation_advance_days ? "border-destructive" : ""}`}
+                          />
+                          <span className="text-sm text-muted-foreground">days</span>
+                        </div>
+                        {formErrors.reservation_advance_days ? (
+                          <p className="text-xs text-destructive">
+                            {formErrors.reservation_advance_days}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">
+                            How far in advance customers can book
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator className="my-4" />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="forward_minutes">
+                          Forward Minutes
+                          <span className="text-muted-foreground text-xs ml-2">
+                            (booking window ahead)
+                          </span>
+                        </Label>
+                        <Input
+                          id="forward_minutes"
+                          type="number"
+                          min="0"
+                          max="1440"
+                          value={formData.forward_minutes}
+                          onChange={(e) => {
+                            setFormData({ ...formData, forward_minutes: Number(e.target.value) });
+                            if (formErrors.forward_minutes)
+                              setFormErrors((prev) => ({ ...prev, forward_minutes: undefined }));
+                          }}
+                          className={formErrors.forward_minutes ? "border-destructive" : ""}
+                        />
+                        {formErrors.forward_minutes && (
+                          <p className="text-xs text-destructive">{formErrors.forward_minutes}</p>
+                        )}
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="backward_minutes">
+                          Backward Minutes
+                          <span className="text-muted-foreground text-xs ml-2">
+                            (cancellation window)
+                          </span>
+                        </Label>
+                        <Input
+                          id="backward_minutes"
+                          type="number"
+                          min="0"
+                          max="1440"
+                          value={formData.backward_minutes}
+                          onChange={(e) => {
+                            setFormData({ ...formData, backward_minutes: Number(e.target.value) });
+                            if (formErrors.backward_minutes)
+                              setFormErrors((prev) => ({ ...prev, backward_minutes: undefined }));
+                          }}
+                          className={formErrors.backward_minutes ? "border-destructive" : ""}
+                        />
+                        {formErrors.backward_minutes && (
+                          <p className="text-xs text-destructive">{formErrors.backward_minutes}</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator className="my-4" />
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="credit_card" className="text-sm font-medium">
+                          Credit Card Required
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Require credit card for reservations
+                        </p>
+                      </div>
+                      <Switch
+                        id="credit_card"
+                        checked={formData.is_credit_card_required_for_reservation}
+                        onCheckedChange={(checked) =>
+                          setFormData({
+                            ...formData,
+                            is_credit_card_required_for_reservation: checked,
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="integrations" className="mt-0 space-y-4">
-                <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-700">
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300">
                   <Info className="h-4 w-4 inline mr-2" />
                   Enter JSON configuration for each integration. Leave as{" "}
-                  <code className="bg-blue-100 px-1 rounded">{"{}"}</code> if not configured.
+                  <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">{"{}"}</code> if not
+                  configured.
                 </div>
 
                 <div className="grid gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="twilio_details">
-                      Twilio Details
-                      {formErrors.twilio_details && (
-                        <span className="text-destructive text-xs ml-2">
-                          {formErrors.twilio_details}
+                  {/* Twilio Integration */}
+                  <Collapsible defaultOpen className="border rounded-lg">
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="group w-full justify-between p-4 h-auto hover:bg-muted/50"
+                      >
+                        <span className="flex items-center gap-2 font-medium">
+                          <PhoneCall className="h-4 w-4 text-blue-500" />
+                          Twilio Configuration
                         </span>
-                      )}
-                    </Label>
-                    <Textarea
-                      id="twilio_details"
-                      value={formData.twilio_details_json}
-                      onChange={(e) => {
-                        setFormData({ ...formData, twilio_details_json: e.target.value });
-                        validateJsonField(e.target.value, "twilio_details");
-                      }}
-                      placeholder='{"workspace_sid": "WSxxxx", "phone_sid": "PNxxxx"}'
-                      className={`font-mono text-sm min-h-[80px] ${formErrors.twilio_details ? "border-destructive" : ""}`}
-                    />
-                  </div>
+                        <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="px-4 pb-4">
+                      <div className="grid gap-2">
+                        {formErrors.twilio_details && (
+                          <p className="text-xs text-destructive">{formErrors.twilio_details}</p>
+                        )}
+                        <Textarea
+                          id="twilio_details"
+                          value={formData.twilio_details_json}
+                          onChange={(e) => {
+                            setFormData({ ...formData, twilio_details_json: e.target.value });
+                            validateJsonField(e.target.value, "twilio_details");
+                          }}
+                          placeholder='{"workspace_sid": "WSxxxx", "phone_sid": "PNxxxx"}'
+                          className={`font-mono text-sm min-h-[80px] ${formErrors.twilio_details ? "border-destructive" : ""}`}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
 
-                  <div className="grid gap-2">
-                    <Label htmlFor="deepgram_details">
-                      Deepgram Details
-                      {formErrors.deepgram_details && (
-                        <span className="text-destructive text-xs ml-2">
-                          {formErrors.deepgram_details}
+                  {/* Deepgram Integration */}
+                  <Collapsible defaultOpen className="border rounded-lg">
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="group w-full justify-between p-4 h-auto hover:bg-muted/50"
+                      >
+                        <span className="flex items-center gap-2 font-medium">
+                          <Settings2 className="h-4 w-4 text-green-500" />
+                          Deepgram Configuration
                         </span>
-                      )}
-                    </Label>
-                    <Textarea
-                      id="deepgram_details"
-                      value={formData.deepgram_details_json}
-                      onChange={(e) => {
-                        setFormData({ ...formData, deepgram_details_json: e.target.value });
-                        validateJsonField(e.target.value, "deepgram_details");
-                      }}
-                      placeholder='{"project_id": "dg-project-1"}'
-                      className={`font-mono text-sm min-h-[80px] ${formErrors.deepgram_details ? "border-destructive" : ""}`}
-                    />
-                  </div>
+                        <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="px-4 pb-4">
+                      <div className="grid gap-2">
+                        {formErrors.deepgram_details && (
+                          <p className="text-xs text-destructive">{formErrors.deepgram_details}</p>
+                        )}
+                        <Textarea
+                          id="deepgram_details"
+                          value={formData.deepgram_details_json}
+                          onChange={(e) => {
+                            setFormData({ ...formData, deepgram_details_json: e.target.value });
+                            validateJsonField(e.target.value, "deepgram_details");
+                          }}
+                          placeholder='{"project_id": "dg-project-1"}'
+                          className={`font-mono text-sm min-h-[80px] ${formErrors.deepgram_details ? "border-destructive" : ""}`}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
 
-                  <div className="grid gap-2">
-                    <Label htmlFor="open_table_details">
-                      OpenTable Details
-                      {formErrors.open_table_details && (
-                        <span className="text-destructive text-xs ml-2">
-                          {formErrors.open_table_details}
+                  {/* OpenTable Integration */}
+                  <Collapsible defaultOpen className="border rounded-lg">
+                    <CollapsibleTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="group w-full justify-between p-4 h-auto hover:bg-muted/50"
+                      >
+                        <span className="flex items-center gap-2 font-medium">
+                          <UtensilsCrossed className="h-4 w-4 text-orange-500" />
+                          OpenTable Configuration
                         </span>
-                      )}
-                    </Label>
-                    <Textarea
-                      id="open_table_details"
-                      value={formData.open_table_details_json}
-                      onChange={(e) => {
-                        setFormData({ ...formData, open_table_details_json: e.target.value });
-                        validateJsonField(e.target.value, "open_table_details");
-                      }}
-                      placeholder='{"rid": "99999"}'
-                      className={`font-mono text-sm min-h-[80px] ${formErrors.open_table_details ? "border-destructive" : ""}`}
-                    />
-                  </div>
+                        <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="px-4 pb-4">
+                      <div className="grid gap-2">
+                        {formErrors.open_table_details && (
+                          <p className="text-xs text-destructive">
+                            {formErrors.open_table_details}
+                          </p>
+                        )}
+                        <Textarea
+                          id="open_table_details"
+                          value={formData.open_table_details_json}
+                          onChange={(e) => {
+                            setFormData({ ...formData, open_table_details_json: e.target.value });
+                            validateJsonField(e.target.value, "open_table_details");
+                          }}
+                          placeholder='{"rid": "99999"}'
+                          className={`font-mono text-sm min-h-[80px] ${formErrors.open_table_details ? "border-destructive" : ""}`}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 </div>
               </TabsContent>
             </div>
           </Tabs>
 
-          <DialogFooter className="border-t pt-4">
+          <DialogFooter className="border-t pt-4 gap-2 sm:gap-3">
             <Button
               variant="outline"
               onClick={() => {
@@ -1210,6 +1378,7 @@ const Restaurants = () => {
                 setIsEditDialogOpen(false);
                 resetForm();
               }}
+              disabled={isSubmitting}
             >
               Cancel
             </Button>
@@ -1219,7 +1388,16 @@ const Restaurants = () => {
                 isSubmitting || !formData.name || !formData.address || !formData.phone_number
               }
             >
-              {isSubmitting ? "Saving..." : isEditDialogOpen ? "Save Changes" : "Create Restaurant"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : isEditDialogOpen ? (
+                "Save Changes"
+              ) : (
+                "Create Restaurant"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1286,7 +1464,7 @@ const Restaurants = () => {
               {/* Hours & Settings */}
               <div className="p-4 rounded-lg bg-muted/50">
                 <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <Clock className="h-4 w-4" /> Hours & Settings
+                  <Clock className="h-4 w-4" /> Operating Hours
                 </h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
@@ -1297,9 +1475,30 @@ const Restaurants = () => {
                     <span className="text-muted-foreground">Closing:</span>
                     <span className="ml-2">{restaurantDetails.closing_time || "Not set"}</span>
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <span className="text-muted-foreground">Timezone:</span>
                     <span className="ml-2">{restaurantDetails.timezone || DEFAULT_TIMEZONE}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reservation Settings */}
+              <div className="p-4 rounded-lg bg-muted/50">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" /> Reservation Settings
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Seating Capacity:</span>
+                    <span className="ml-2">
+                      {restaurantDetails.reservation_seating_capacity ?? 50} seats
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Advance Booking:</span>
+                    <span className="ml-2">
+                      {restaurantDetails.reservation_advance_days ?? 30} days
+                    </span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Forward:</span>
@@ -1308,18 +1507,6 @@ const Restaurants = () => {
                   <div>
                     <span className="text-muted-foreground">Backward:</span>
                     <span className="ml-2">{restaurantDetails.backward_minutes} minutes</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Escalations:</span>
-                    <span className="ml-2">
-                      {restaurantDetails.forward_escalations ? "Forwarded" : "Not forwarded"}
-                    </span>
-                  </div>
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground">Escalation Phone:</span>
-                    <span className="ml-2">
-                      {restaurantDetails.escalation_phone_number || "Not set"}
-                    </span>
                   </div>
                   <div className="col-span-2">
                     <span className="text-muted-foreground">Credit Card:</span>
@@ -1335,6 +1522,27 @@ const Restaurants = () => {
                         ? "Required"
                         : "Not Required"}
                     </Badge>
+                  </div>
+                </div>
+              </div>
+
+              {/* Escalation Settings */}
+              <div className="p-4 rounded-lg bg-muted/50">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <PhoneCall className="h-4 w-4" /> Escalation Settings
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Forward Escalations:</span>
+                    <span className="ml-2">
+                      {restaurantDetails.forward_escalations ? "Enabled" : "Disabled"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Escalation Phone:</span>
+                    <span className="ml-2">
+                      {restaurantDetails.escalation_phone_number || "Not set"}
+                    </span>
                   </div>
                 </div>
               </div>

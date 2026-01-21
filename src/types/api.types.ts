@@ -45,6 +45,8 @@ export interface Restaurant {
   is_credit_card_required_for_reservation: boolean;
   opening_time: string | null;
   closing_time: string | null;
+  reservation_seating_capacity: number | null;
+  reservation_advance_days: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -62,6 +64,8 @@ export interface RestaurantCreateRequest {
   is_credit_card_required_for_reservation?: boolean;
   opening_time?: string;
   closing_time?: string;
+  reservation_seating_capacity?: number;
+  reservation_advance_days?: number;
   twilio_details?: Record<string, unknown>;
   deepgram_details?: Record<string, unknown>;
   open_table_details?: Record<string, unknown>;
@@ -80,6 +84,8 @@ export interface RestaurantUpdateRequest {
   is_credit_card_required_for_reservation?: boolean;
   opening_time?: string;
   closing_time?: string;
+  reservation_seating_capacity?: number;
+  reservation_advance_days?: number;
   twilio_details?: Record<string, unknown>;
   deepgram_details?: Record<string, unknown>;
   open_table_details?: Record<string, unknown>;
