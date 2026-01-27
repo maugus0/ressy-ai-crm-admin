@@ -28,6 +28,12 @@ export interface PaginationParams {
 // Restaurant
 // ============================================================================
 
+export interface RestaurantFeatures {
+  orders_enabled: boolean;
+  reservations_enabled: boolean;
+  faqs_enabled: boolean;
+}
+
 export interface Restaurant {
   id: number;
   name: string;
@@ -47,6 +53,7 @@ export interface Restaurant {
   closing_time: string | null;
   reservation_seating_capacity: number | null;
   reservation_advance_days: number | null;
+  features: RestaurantFeatures | null;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +76,7 @@ export interface RestaurantCreateRequest {
   twilio_details?: Record<string, unknown>;
   deepgram_details?: Record<string, unknown>;
   open_table_details?: Record<string, unknown>;
+  features?: Partial<RestaurantFeatures>;
 }
 
 export interface RestaurantUpdateRequest {
@@ -89,6 +97,7 @@ export interface RestaurantUpdateRequest {
   twilio_details?: Record<string, unknown>;
   deepgram_details?: Record<string, unknown>;
   open_table_details?: Record<string, unknown>;
+  features?: Partial<RestaurantFeatures>;
 }
 
 export interface RestaurantParams extends PaginationParams {

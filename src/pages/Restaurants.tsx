@@ -74,6 +74,9 @@ import {
   ArrowDown,
   CalendarDays,
   Loader2,
+  Bot,
+  ShoppingBag,
+  AlertTriangle,
 } from "lucide-react";
 import {
   getRestaurants,
@@ -115,6 +118,9 @@ interface RestaurantFormData {
   twilio_details_json: string;
   deepgram_details_json: string;
   open_table_details_json: string;
+  features_orders_enabled: boolean;
+  features_reservations_enabled: boolean;
+  features_faqs_enabled: boolean;
 }
 
 // Form validation errors
@@ -151,6 +157,9 @@ const defaultFormData: RestaurantFormData = {
   twilio_details_json: "{}",
   deepgram_details_json: "{}",
   open_table_details_json: "{}",
+  features_orders_enabled: true,
+  features_reservations_enabled: true,
+  features_faqs_enabled: true,
 };
 
 // Phone number validation regex (E.164 format)
@@ -380,6 +389,11 @@ const Restaurants = () => {
       twilio_details: safeParseJsonObject(formData.twilio_details_json),
       deepgram_details: safeParseJsonObject(formData.deepgram_details_json),
       open_table_details: safeParseJsonObject(formData.open_table_details_json),
+      features: {
+        orders_enabled: formData.features_orders_enabled,
+        reservations_enabled: formData.features_reservations_enabled,
+        faqs_enabled: formData.features_faqs_enabled,
+      },
     };
   };
 
@@ -465,6 +479,9 @@ const Restaurants = () => {
       twilio_details_json: JSON.stringify(restaurant.twilio_details || {}, null, 2),
       deepgram_details_json: JSON.stringify(restaurant.deepgram_details || {}, null, 2),
       open_table_details_json: JSON.stringify(restaurant.open_table_details || {}, null, 2),
+      features_orders_enabled: restaurant.features?.orders_enabled ?? true,
+      features_reservations_enabled: restaurant.features?.reservations_enabled ?? true,
+      features_faqs_enabled: restaurant.features?.faqs_enabled ?? true,
     });
     setActiveTab("basic");
     setIsEditDialogOpen(true);
@@ -731,6 +748,61 @@ const Restaurants = () => {
                                     </Tooltip>
                                   </TooltipProvider>
                                 )}
+
+                                {/* Feature flags badges */}
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <div
+                                        className={`p-1 rounded ${restaurant.features?.orders_enabled !== false ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}
+                                      >
+                                        <ShoppingBag className="h-3 w-3" />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Orders{" "}
+                                      {restaurant.features?.orders_enabled !== false
+                                        ? "enabled"
+                                        : "disabled"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <div
+                                        className={`p-1 rounded ${restaurant.features?.reservations_enabled !== false ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}
+                                      >
+                                        <CalendarDays className="h-3 w-3" />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      Reservations{" "}
+                                      {restaurant.features?.reservations_enabled !== false
+                                        ? "enabled"
+                                        : "disabled"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <div
+                                        className={`p-1 rounded ${restaurant.features?.faqs_enabled !== false ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}
+                                      >
+                                        <HelpCircle className="h-3 w-3" />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      FAQs{" "}
+                                      {restaurant.features?.faqs_enabled !== false
+                                        ? "enabled"
+                                        : "disabled"}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               </div>
                             </TableCell>
                             <TableCell>
@@ -1253,6 +1325,102 @@ const Restaurants = () => {
                       />
                     </div>
                   </div>
+
+                  {/* Agent Capabilities Section */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Bot className="h-4 w-4" />
+                        Agent Capabilities
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        Configure what RessyAI can handle for this restaurant
+                      </p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {/* Warning Banner */}
+                      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-300">
+                        <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                        <span>
+                          Disabling capabilities will route those requests to restaurant staff via
+                          escalation.
+                        </span>
+                      </div>
+
+                      {/* Orders Toggle */}
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label
+                            htmlFor="features_orders"
+                            className="text-sm font-medium flex items-center gap-2"
+                          >
+                            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                            Pickup Orders
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Handle pickup order requests
+                          </p>
+                        </div>
+                        <Switch
+                          id="features_orders"
+                          checked={formData.features_orders_enabled}
+                          onCheckedChange={(checked) =>
+                            setFormData({ ...formData, features_orders_enabled: checked })
+                          }
+                        />
+                      </div>
+
+                      <Separator />
+
+                      {/* Reservations Toggle */}
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label
+                            htmlFor="features_reservations"
+                            className="text-sm font-medium flex items-center gap-2"
+                          >
+                            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                            Reservations
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Handle table reservation requests
+                          </p>
+                        </div>
+                        <Switch
+                          id="features_reservations"
+                          checked={formData.features_reservations_enabled}
+                          onCheckedChange={(checked) =>
+                            setFormData({ ...formData, features_reservations_enabled: checked })
+                          }
+                        />
+                      </div>
+
+                      <Separator />
+
+                      {/* FAQs Toggle */}
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label
+                            htmlFor="features_faqs"
+                            className="text-sm font-medium flex items-center gap-2"
+                          >
+                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                            FAQs & General Questions
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Answer menu and general inquiries
+                          </p>
+                        </div>
+                        <Switch
+                          id="features_faqs"
+                          checked={formData.features_faqs_enabled}
+                          onCheckedChange={(checked) =>
+                            setFormData({ ...formData, features_faqs_enabled: checked })
+                          }
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
               </TabsContent>
 
@@ -1542,6 +1710,57 @@ const Restaurants = () => {
                     <span className="text-muted-foreground">Escalation Phone:</span>
                     <span className="ml-2">
                       {restaurantDetails.escalation_phone_number || "Not set"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Agent Capabilities Section */}
+              <div className="p-4 rounded-lg bg-muted/50">
+                <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <Bot className="h-4 w-4" /> Agent Capabilities
+                </h4>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`h-2 w-2 rounded-full ${restaurantDetails.features?.orders_enabled !== false ? "bg-green-500" : "bg-gray-300"}`}
+                    />
+                    <span
+                      className={
+                        restaurantDetails.features?.orders_enabled !== false
+                          ? ""
+                          : "text-muted-foreground"
+                      }
+                    >
+                      Orders
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`h-2 w-2 rounded-full ${restaurantDetails.features?.reservations_enabled !== false ? "bg-green-500" : "bg-gray-300"}`}
+                    />
+                    <span
+                      className={
+                        restaurantDetails.features?.reservations_enabled !== false
+                          ? ""
+                          : "text-muted-foreground"
+                      }
+                    >
+                      Reservations
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`h-2 w-2 rounded-full ${restaurantDetails.features?.faqs_enabled !== false ? "bg-green-500" : "bg-gray-300"}`}
+                    />
+                    <span
+                      className={
+                        restaurantDetails.features?.faqs_enabled !== false
+                          ? ""
+                          : "text-muted-foreground"
+                      }
+                    >
+                      FAQs
                     </span>
                   </div>
                 </div>
