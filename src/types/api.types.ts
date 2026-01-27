@@ -29,9 +29,9 @@ export interface PaginationParams {
 // ============================================================================
 
 export interface RestaurantFeatures {
-  orders_enabled: boolean;
-  reservations_enabled: boolean;
-  faqs_enabled: boolean;
+  orders_enabled?: boolean;
+  reservations_enabled?: boolean;
+  faqs_enabled?: boolean;
 }
 
 export interface Restaurant {
