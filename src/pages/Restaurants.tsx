@@ -91,12 +91,47 @@ import type {
   RestaurantCreateRequest,
   RestaurantStats,
   PaginationInfo,
+  OperatingHours,
 } from "@/types/api.types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { formatTimeForApi, formatTimeForInput } from "@/lib/utils/time";
 import { validateJsonObject, safeParseJsonObject } from "@/lib/utils/json";
 import { DEFAULT_TIMEZONE, formatLocalDateTime, getSupportedTimeZones } from "@/lib/utils/timezone";
+
+// Days of week constant
+const DAYS_OF_WEEK = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+
+type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
+
+// Day display names
+const DAY_LABELS: Record<DayOfWeek, string> = {
+  monday: "Mon",
+  tuesday: "Tue",
+  wednesday: "Wed",
+  thursday: "Thu",
+  friday: "Fri",
+  saturday: "Sat",
+  sunday: "Sun",
+};
+
+// Default operating hours for new restaurants
+const DEFAULT_OPERATING_HOURS: OperatingHours = {
+  monday: { open: "09:00:00", close: "22:00:00", is_closed: false },
+  tuesday: { open: "09:00:00", close: "22:00:00", is_closed: false },
+  wednesday: { open: "09:00:00", close: "22:00:00", is_closed: false },
+  thursday: { open: "09:00:00", close: "22:00:00", is_closed: false },
+  friday: { open: "09:00:00", close: "22:00:00", is_closed: false },
+  saturday: { open: "09:00:00", close: "22:00:00", is_closed: false },
+  sunday: { open: "09:00:00", close: "22:00:00", is_closed: false },
+};
 
 // Form data structure - uses JSON strings for integration details
 // Objects are only created during submission
@@ -110,8 +145,7 @@ interface RestaurantFormData {
   forward_minutes: number;
   backward_minutes: number;
   is_credit_card_required_for_reservation: boolean;
-  opening_time: string;
-  closing_time: string;
+  operating_hours: OperatingHours;
   timezone: string;
   reservation_seating_capacity: number;
   reservation_advance_days: number;
@@ -149,8 +183,7 @@ const defaultFormData: RestaurantFormData = {
   forward_minutes: 60,
   backward_minutes: 30,
   is_credit_card_required_for_reservation: false,
-  opening_time: "",
-  closing_time: "",
+  operating_hours: { ...DEFAULT_OPERATING_HOURS },
   timezone: DEFAULT_TIMEZONE,
   reservation_seating_capacity: 50,
   reservation_advance_days: 30,
@@ -194,6 +227,58 @@ const Restaurants = () => {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [activeTab, setActiveTab] = useState("basic");
   const timeZoneOptions = useMemo(() => [...getSupportedTimeZones()].sort(), []);
+
+  /**
+   * Format time from HH:MM:SS to HH:MM for input fields
+   */
+  const formatTimeForInput = (time: string | null | undefined): string => {
+    if (!time) return "";
+    return time.slice(0, 5); // "09:00:00" -> "09:00"
+  };
+
+  /**
+   * Format time from HH:MM to HH:MM:SS for API
+   */
+  const formatTimeForApi = (time: string): string => {
+    if (!time) return "";
+    if (time.length === 5) return `${time}:00`; // "09:00" -> "09:00:00"
+    return time;
+  };
+
+  /**
+   * Copy hours from one day to all days
+   */
+  const copyToAllDays = (sourceDay: DayOfWeek) => {
+    const sourceDayHours = formData.operating_hours[sourceDay];
+    const newOperatingHours = { ...formData.operating_hours };
+
+    DAYS_OF_WEEK.forEach((day) => {
+      newOperatingHours[day] = { ...sourceDayHours };
+    });
+
+    setFormData({ ...formData, operating_hours: newOperatingHours });
+    toast.success(`Copied ${DAY_LABELS[sourceDay]}'s hours to all days`);
+  };
+
+  /**
+   * Update a specific day's hours
+   */
+  const updateDayHours = (
+    day: DayOfWeek,
+    field: "open" | "close" | "is_closed",
+    value: string | boolean
+  ) => {
+    setFormData({
+      ...formData,
+      operating_hours: {
+        ...formData.operating_hours,
+        [day]: {
+          ...formData.operating_hours[day],
+          [field]: value,
+        },
+      },
+    });
+  };
 
   const fetchRestaurants = useCallback(async () => {
     try {
@@ -381,8 +466,7 @@ const Restaurants = () => {
       forward_minutes: formData.forward_minutes,
       backward_minutes: formData.backward_minutes,
       is_credit_card_required_for_reservation: formData.is_credit_card_required_for_reservation,
-      opening_time: formData.opening_time ? formatTimeForApi(formData.opening_time) : undefined,
-      closing_time: formData.closing_time ? formatTimeForApi(formData.closing_time) : undefined,
+      operating_hours: formData.operating_hours,
       timezone: formData.timezone || DEFAULT_TIMEZONE,
       reservation_seating_capacity: formData.reservation_seating_capacity,
       reservation_advance_days: formData.reservation_advance_days,
@@ -471,8 +555,7 @@ const Restaurants = () => {
       forward_minutes: restaurant.forward_minutes,
       backward_minutes: restaurant.backward_minutes,
       is_credit_card_required_for_reservation: restaurant.is_credit_card_required_for_reservation,
-      opening_time: formatTimeForInput(restaurant.opening_time),
-      closing_time: formatTimeForInput(restaurant.closing_time),
+      operating_hours: restaurant.operating_hours || { ...DEFAULT_OPERATING_HOURS },
       timezone: restaurant.timezone || DEFAULT_TIMEZONE,
       reservation_seating_capacity: restaurant.reservation_seating_capacity ?? 50,
       reservation_advance_days: restaurant.reservation_advance_days ?? 30,
@@ -665,12 +748,36 @@ const Restaurants = () => {
                               </div>
                             </TableCell>
                             <TableCell className="text-center hidden lg:table-cell">
-                              {restaurant.opening_time && restaurant.closing_time ? (
-                                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50 text-green-700 text-xs font-medium">
-                                  <Clock className="h-3 w-3" />
-                                  {restaurant.opening_time.slice(0, 5)} -{" "}
-                                  {restaurant.closing_time.slice(0, 5)}
-                                </div>
+                              {restaurant.operating_hours ? (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50 text-green-700 text-xs font-medium">
+                                        <Clock className="h-3 w-3" />
+                                        Varies
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs">
+                                      <div className="space-y-1 text-xs">
+                                        {DAYS_OF_WEEK.map((day) => {
+                                          const hours = restaurant.operating_hours![day];
+                                          return (
+                                            <div key={day} className="flex justify-between gap-4">
+                                              <span className="font-medium">
+                                                {DAY_LABELS[day]}:
+                                              </span>
+                                              <span>
+                                                {hours.is_closed
+                                                  ? "Closed"
+                                                  : `${hours.open?.slice(0, 5)} - ${hours.close?.slice(0, 5)}`}
+                                              </span>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               ) : (
                                 <span className="text-xs text-muted-foreground">Not set</span>
                               )}
@@ -1113,44 +1220,113 @@ const Restaurants = () => {
 
               <TabsContent value="settings" className="mt-0 space-y-4">
                 <div className="grid gap-4">
-                  {/* Operating Hours Section */}
+                  {/* Operating Hours Section - Per Day */}
                   <div className="p-4 rounded-lg border bg-muted/30">
-                    <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                      <Clock className="h-4 w-4" /> Operating Hours
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="opening_time">Opening Time</Label>
-                        <div className="relative">
-                          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            id="opening_time"
-                            type="time"
-                            value={formData.opening_time}
-                            onChange={(e) =>
-                              setFormData({ ...formData, opening_time: e.target.value })
-                            }
-                            className="pl-10"
-                          />
-                        </div>
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="closing_time">Closing Time</Label>
-                        <div className="relative">
-                          <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            id="closing_time"
-                            type="time"
-                            value={formData.closing_time}
-                            onChange={(e) =>
-                              setFormData({ ...formData, closing_time: e.target.value })
-                            }
-                            className="pl-10"
-                          />
-                        </div>
-                      </div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold flex items-center gap-2">
+                        <Clock className="h-4 w-4" /> Weekly Operating Hours
+                      </h4>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => copyToAllDays("monday")}
+                              className="h-7 text-xs"
+                            >
+                              <Clock className="h-3 w-3 mr-1" />
+                              Copy Mon to All
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Copy Monday's hours to all days</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
-                    <div className="grid gap-2 mt-4">
+
+                    <div className="space-y-3">
+                      {DAYS_OF_WEEK.map((day) => {
+                        const dayHours = formData.operating_hours[day];
+                        return (
+                          <div
+                            key={day}
+                            className="flex items-center gap-2 p-2 rounded-lg border bg-background"
+                          >
+                            {/* Day Name */}
+                            <div className="min-w-[50px]">
+                              <Label className="text-xs font-medium">{DAY_LABELS[day]}</Label>
+                            </div>
+
+                            {/* Closed Toggle */}
+                            <div className="flex items-center gap-1.5">
+                              <Switch
+                                checked={dayHours.is_closed}
+                                onCheckedChange={(checked) => {
+                                  updateDayHours(day, "is_closed", checked);
+                                }}
+                                className="scale-75"
+                              />
+                              <span className="text-xs text-muted-foreground w-12">
+                                {dayHours.is_closed ? "Closed" : "Open"}
+                              </span>
+                            </div>
+
+                            {/* Time Inputs - Only show if not closed */}
+                            {!dayHours.is_closed && (
+                              <>
+                                <div className="flex-1 min-w-0">
+                                  <Input
+                                    type="time"
+                                    value={formatTimeForInput(dayHours.open)}
+                                    onChange={(e) => {
+                                      updateDayHours(day, "open", formatTimeForApi(e.target.value));
+                                    }}
+                                    className="h-8 text-xs"
+                                    placeholder="Opening"
+                                  />
+                                </div>
+                                <span className="text-xs text-muted-foreground">-</span>
+                                <div className="flex-1 min-w-0">
+                                  <Input
+                                    type="time"
+                                    value={formatTimeForInput(dayHours.close)}
+                                    onChange={(e) => {
+                                      updateDayHours(
+                                        day,
+                                        "close",
+                                        formatTimeForApi(e.target.value)
+                                      );
+                                    }}
+                                    className="h-8 text-xs"
+                                    placeholder="Closing"
+                                  />
+                                </div>
+                              </>
+                            )}
+
+                            {/* Copy Button */}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => copyToAllDays(day)}
+                                    className="h-7 w-7 shrink-0"
+                                  >
+                                    <ArrowDown className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Copy to all days</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Timezone Selection */}
+                    <div className="grid gap-2 mt-4 pt-4 border-t">
                       <Label htmlFor="timezone">Timezone</Label>
                       <Select
                         value={formData.timezone}
@@ -1168,7 +1344,7 @@ const Restaurants = () => {
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground">
-                        Used to interpret operating hours and escalation routing times
+                        Used to interpret operating hours and availability checks
                       </p>
                     </div>
                   </div>
@@ -1634,18 +1810,35 @@ const Restaurants = () => {
                 <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <Clock className="h-4 w-4" /> Operating Hours
                 </h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Opening:</span>
-                    <span className="ml-2">{restaurantDetails.opening_time || "Not set"}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Closing:</span>
-                    <span className="ml-2">{restaurantDetails.closing_time || "Not set"}</span>
-                  </div>
-                  <div className="col-span-2">
+                <div className="space-y-2 text-sm">
+                  {restaurantDetails.operating_hours ? (
+                    DAYS_OF_WEEK.map((day) => {
+                      const hours = restaurantDetails.operating_hours![day];
+                      return (
+                        <div key={day} className="flex justify-between items-center py-1">
+                          <span className="text-muted-foreground font-medium min-w-[100px]">
+                            {DAY_LABELS[day]}:
+                          </span>
+                          {hours.is_closed ? (
+                            <Badge variant="secondary" className="text-xs">
+                              Closed
+                            </Badge>
+                          ) : (
+                            <span className="font-mono text-xs">
+                              {hours.open?.slice(0, 5)} - {hours.close?.slice(0, 5)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-muted-foreground">No hours configured</p>
+                  )}
+                  <div className="pt-2 border-t mt-3">
                     <span className="text-muted-foreground">Timezone:</span>
-                    <span className="ml-2">{restaurantDetails.timezone || DEFAULT_TIMEZONE}</span>
+                    <span className="ml-2 font-medium">
+                      {restaurantDetails.timezone || DEFAULT_TIMEZONE}
+                    </span>
                   </div>
                 </div>
               </div>

@@ -4,6 +4,8 @@
  * Vancouver timezone: PST (UTC-8) or PDT (UTC-7) depending on DST
  */
 
+import type { OperatingHours, DayHours } from "@/types/api.types";
+
 export const VANCOUVER_TIMEZONE = "America/Vancouver";
 export const DEFAULT_TIMEZONE = VANCOUVER_TIMEZONE;
 
@@ -254,6 +256,7 @@ export const getCurrentVancouverDateTime = (): string => {
 /**
  * Check if a time (HH:mm format) is within opening hours
  * openingTime and closingTime should be in HH:MM:SS or HH:MM format
+ * @deprecated Use isWithinOperatingHours for day-aware validation
  */
 export const isWithinOpeningHours = (
   time: string, // HH:mm format
@@ -282,6 +285,160 @@ export const isWithinOpeningHours = (
 
   // Normal case: opening < closing
   return normalizedTime >= normalizedOpening && normalizedTime <= normalizedClosing;
+};
+
+// ============================================================================
+// Day-aware Operating Hours Utilities
+// ============================================================================
+
+/**
+ * Days of week constant for iteration
+ */
+export const DAYS_OF_WEEK = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const;
+
+export type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
+
+/**
+ * Day display labels
+ */
+export const DAY_LABELS: Record<DayOfWeek, string> = {
+  monday: "Monday",
+  tuesday: "Tuesday",
+  wednesday: "Wednesday",
+  thursday: "Thursday",
+  friday: "Friday",
+  saturday: "Saturday",
+  sunday: "Sunday",
+};
+
+/**
+ * Short day display labels
+ */
+export const DAY_LABELS_SHORT: Record<DayOfWeek, string> = {
+  monday: "Mon",
+  tuesday: "Tue",
+  wednesday: "Wed",
+  thursday: "Thu",
+  friday: "Fri",
+  saturday: "Sat",
+  sunday: "Sun",
+};
+
+/**
+ * Get the day name from a Date object
+ */
+export const getDayName = (date: Date): DayOfWeek => {
+  const dayIndex = date.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const dayMap: DayOfWeek[] = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ];
+  return dayMap[dayIndex];
+};
+
+/**
+ * Get operating hours for a specific date
+ */
+export const getHoursForDate = (
+  operatingHours: OperatingHours | null | undefined,
+  date: Date
+): DayHours => {
+  if (!operatingHours) {
+    return { open: null, close: null, is_closed: false };
+  }
+
+  const dayName = getDayName(date);
+  return operatingHours[dayName];
+};
+
+/**
+ * Format time from HH:MM:SS to HH:MM for display
+ */
+export const formatTimeForDisplay = (time: string | null | undefined): string => {
+  if (!time) return "";
+  return time.slice(0, 5); // "09:00:00" -> "09:00"
+};
+
+/**
+ * Check if a time is within operating hours for a given date (day-aware)
+ */
+export const isWithinOperatingHours = (
+  time: string, // HH:mm format
+  operatingHours: OperatingHours | null | undefined,
+  date: Date
+): { valid: boolean; reason?: string } => {
+  if (!operatingHours) {
+    return { valid: true }; // No restrictions if hours not configured
+  }
+
+  const dayHours = getHoursForDate(operatingHours, date);
+  const dayName = getDayName(date);
+  const dayLabel = DAY_LABELS[dayName];
+
+  if (dayHours.is_closed) {
+    return { valid: false, reason: `Restaurant is closed on ${dayLabel}s` };
+  }
+
+  if (!dayHours.open || !dayHours.close) {
+    return { valid: true }; // No restrictions if hours not set for this day
+  }
+
+  const normalizedTime = time.slice(0, 5);
+  const openTime = dayHours.open.slice(0, 5);
+  const closeTime = dayHours.close.slice(0, 5);
+
+  // Handle overnight hours (close < open, e.g., 22:00 to 02:00)
+  if (closeTime < openTime) {
+    if (normalizedTime >= openTime || normalizedTime <= closeTime) {
+      return { valid: true };
+    }
+    return {
+      valid: false,
+      reason: `Time must be between ${openTime} and ${closeTime} on ${dayLabel}s`,
+    };
+  }
+
+  // Normal case: open < close
+  if (normalizedTime >= openTime && normalizedTime <= closeTime) {
+    return { valid: true };
+  }
+
+  return {
+    valid: false,
+    reason: `Time must be between ${openTime} and ${closeTime} on ${dayLabel}s`,
+  };
+};
+
+/**
+ * Get available time range for a date
+ */
+export const getAvailableTimeRange = (
+  operatingHours: OperatingHours | null | undefined,
+  date: Date
+): { start: string; end: string } | null => {
+  const dayHours = getHoursForDate(operatingHours, date);
+
+  if (dayHours.is_closed || !dayHours.open || !dayHours.close) {
+    return null;
+  }
+
+  return {
+    start: formatTimeForDisplay(dayHours.open),
+    end: formatTimeForDisplay(dayHours.close),
+  };
 };
 
 /**
