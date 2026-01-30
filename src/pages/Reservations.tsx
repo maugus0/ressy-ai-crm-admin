@@ -442,13 +442,10 @@ const Reservations = () => {
           const restaurant = restaurants.find((r) => r.id === selectedRestaurantId);
           if (restaurant?.operating_hours) {
             const time = getTimeFromDateTime(formData.date_time); // HH:mm format
-            const [datePart] = formData.date_time.split("T");
-            const [y, m, d] = datePart.split("-").map(Number);
-            const reservationDate = new Date(y, m - 1, d);
             const hoursCheck = isWithinOperatingHours(
               time,
               restaurant.operating_hours,
-              reservationDate
+              selectedDate
             );
             if (!hoursCheck.valid) {
               errors.date_time = hoursCheck.reason || "Time is outside operating hours";

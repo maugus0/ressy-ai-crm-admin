@@ -1,15 +1,16 @@
 # RessyAI CRM Admin Dashboard
 
-Administration interface for managing restaurants, orders, reservations, menu items, FAQs, escalations, and users in the RessyAI CRM ecosystem.
+Administration interface for managing restaurants, orders, reservations, menu items, FAQs, escalations, callers, and users in the RessyAI CRM ecosystem.
 
 ## Features
 
-- **Restaurant Management** - Create, edit, and manage restaurant profiles
+- **Restaurant Management** - Create, edit, and manage restaurant profiles with per-day operating hours, timezone (searchable dropdown), agent capabilities (orders, reservations, FAQs), and integrations (Twilio, Deepgram, OpenTable)
 - **Order Management** - View and manage customer orders with real-time updates
-- **Reservation Management** - Handle restaurant reservations and bookings
+- **Reservation Management** - Handle restaurant reservations and bookings; day-aware validation against operating hours
 - **Menu Management** - Manage menu items, categories, and bulk updates via CSV
 - **FAQ Management** - Create and manage frequently asked questions per restaurant
 - **Escalation Management** - Track and manage customer escalations and calls
+- **Calls & Callers** - View call history and caller (customer) data
 - **User Management** - Admin and user account management
 - **Real-time Notifications** - Server-Sent Events (SSE) for live updates with sound alerts
 - **Mobile Responsive** - Fully responsive design for all screen sizes
@@ -29,8 +30,8 @@ Administration interface for managing restaurants, orders, reservations, menu it
 
 ### Prerequisites
 
-- Node.js (v18 or newer)
-- npm (v9 or newer)
+- Node.js (v20.19 or newer; see `.nvmrc`)
+- npm (v10 or newer)
 
 ### Installation
 
@@ -70,6 +71,16 @@ The app will be available at `http://localhost:8080`.
 npm run build
 ```
 
+### Other Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run lint` | Run ESLint |
+| `npm run format` | Format code with Prettier |
+| `npm run format:check` | Check formatting without writing |
+| `npm run test` | Run Vitest tests |
+| `npm run preview` | Preview production build locally |
+
 ## Environment Configuration
 
 | Variable | Description | Default |
@@ -89,24 +100,33 @@ The CI/CD workflow will automatically build and deploy to GitHub Pages.
 
 ```
 src/
-├── components/          # React components
-│   ├── ui/             # Shadcn UI components
-│   ├── Header.tsx      # App header with notifications
-│   └── Sidebar.tsx     # Navigation sidebar
-├── contexts/           # React contexts
-│   ├── AuthContext.tsx # Authentication state
-│   └── SSEContext.tsx  # Real-time event handling
-├── pages/              # Application pages
-│   ├── Restaurants.tsx
+├── components/              # React components
+│   ├── ui/                 # Shadcn UI components (command, popover, timezone-combobox, etc.)
+│   ├── Header.tsx          # App header with notifications
+│   ├── ProtectedRoute.tsx  # Auth guard for routes
+│   └── Sidebar.tsx         # Navigation sidebar
+├── config/                 # App configuration (env)
+├── contexts/
+│   ├── AuthContext.tsx     # Authentication state
+│   └── SSEContext.tsx      # Real-time event handling
+├── hooks/                  # Custom React hooks
+├── lib/                    # Utilities and API client
+│   ├── api/                # API client and endpoints
+│   └── utils/              # timezone, time, json, tokenRefresh, etc.
+├── pages/
+│   ├── Login.tsx
+│   ├── Restaurants.tsx     # Per-day hours, agent capabilities, timezone combobox
 │   ├── Orders.tsx
-│   ├── Reservations.tsx
+│   ├── Reservations.tsx    # Day-aware operating hours validation
 │   ├── Menu.tsx
 │   ├── FAQ.tsx
 │   ├── Escalations.tsx
-│   └── Users.tsx
-├── services/           # API service layer
-├── lib/                # Utilities and API client
-└── types/              # TypeScript type definitions
+│   ├── Callers.tsx
+│   ├── Calls.tsx
+│   ├── Users.tsx
+│   └── NotFound.tsx
+├── services/               # API service layer
+└── types/                  # TypeScript type definitions (api.types, auth.types)
 ```
 
 ## Authentication

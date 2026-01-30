@@ -70,8 +70,13 @@ export function TimezoneCombobox({
     return Object.entries(groups).filter(([, tzs]) => tzs.length > 0);
   }, [timezones]);
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) setSearch("");
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"

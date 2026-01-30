@@ -97,33 +97,18 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { TimezoneCombobox } from "@/components/ui/timezone-combobox";
 import { toast } from "sonner";
 import { validateJsonObject, safeParseJsonObject } from "@/lib/utils/json";
-import { DEFAULT_TIMEZONE, formatLocalDateTime, getSupportedTimeZones } from "@/lib/utils/timezone";
+import {
+  DEFAULT_TIMEZONE,
+  formatLocalDateTime,
+  getSupportedTimeZones,
+  DAYS_OF_WEEK,
+  DAY_LABELS_SHORT,
+  getDayName,
+} from "@/lib/utils/timezone";
+import type { DayOfWeek } from "@/lib/utils/timezone";
+import { formatTimeForInput, formatTimeForApi } from "@/lib/utils/time";
 
-// Days of week constant
-const DAYS_OF_WEEK = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-] as const;
-
-type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
-
-// Day display names
-const DAY_LABELS: Record<DayOfWeek, string> = {
-  monday: "Mon",
-  tuesday: "Tue",
-  wednesday: "Wed",
-  thursday: "Thu",
-  friday: "Fri",
-  saturday: "Sat",
-  sunday: "Sun",
-};
-
-// Default operating hours for new restaurants
+// Default operating hours for new restaurants (deep clone to avoid mutating shared reference)
 const DEFAULT_OPERATING_HOURS: OperatingHours = {
   monday: { open: "09:00:00", close: "22:00:00", is_closed: false },
   tuesday: { open: "09:00:00", close: "22:00:00", is_closed: false },
@@ -134,6 +119,10 @@ const DEFAULT_OPERATING_HOURS: OperatingHours = {
   sunday: { open: "09:00:00", close: "22:00:00", is_closed: false },
 };
 
+function getDefaultOperatingHoursClone(): OperatingHours {
+  return JSON.parse(JSON.stringify(DEFAULT_OPERATING_HOURS)) as OperatingHours;
+}
+
 /**
  * Get display text for today's operating hours
  */
@@ -141,17 +130,7 @@ const getTodayHoursDisplay = (operatingHours: OperatingHours | null): string => 
   if (!operatingHours) return "Not set";
 
   const today = new Date();
-  const dayIndex = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
-  const dayMap: DayOfWeek[] = [
-    "sunday",
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-  ];
-  const dayName = dayMap[dayIndex];
+  const dayName = getDayName(today);
   const todayHours = operatingHours[dayName];
 
   if (todayHours.is_closed) {
@@ -215,7 +194,7 @@ const defaultFormData: RestaurantFormData = {
   forward_minutes: 60,
   backward_minutes: 30,
   is_credit_card_required_for_reservation: false,
-  operating_hours: { ...DEFAULT_OPERATING_HOURS },
+  operating_hours: getDefaultOperatingHoursClone(),
   timezone: DEFAULT_TIMEZONE,
   reservation_seating_capacity: 50,
   reservation_advance_days: 30,
@@ -261,23 +240,6 @@ const Restaurants = () => {
   const timeZoneOptions = useMemo(() => [...getSupportedTimeZones()].sort(), []);
 
   /**
-   * Format time from HH:MM:SS to HH:MM for input fields
-   */
-  const formatTimeForInput = (time: string | null | undefined): string => {
-    if (!time) return "";
-    return time.slice(0, 5); // "09:00:00" -> "09:00"
-  };
-
-  /**
-   * Format time from HH:MM to HH:MM:SS for API
-   */
-  const formatTimeForApi = (time: string): string => {
-    if (!time) return "";
-    if (time.length === 5) return `${time}:00`; // "09:00" -> "09:00:00"
-    return time;
-  };
-
-  /**
    * Copy hours from one day to all days
    */
   const copyToAllDays = (sourceDay: DayOfWeek) => {
@@ -289,7 +251,7 @@ const Restaurants = () => {
     });
 
     setFormData({ ...formData, operating_hours: newOperatingHours });
-    toast.success(`Copied ${DAY_LABELS[sourceDay]}'s hours to all days`);
+    toast.success(`Copied ${DAY_LABELS_SHORT[sourceDay]}'s hours to all days`);
   };
 
   /**
@@ -371,7 +333,7 @@ const Restaurants = () => {
   };
 
   const resetForm = () => {
-    setFormData(defaultFormData);
+    setFormData({ ...defaultFormData, operating_hours: getDefaultOperatingHoursClone() });
     setFormErrors({});
     setActiveTab("basic");
   };
@@ -587,7 +549,7 @@ const Restaurants = () => {
       forward_minutes: restaurant.forward_minutes,
       backward_minutes: restaurant.backward_minutes,
       is_credit_card_required_for_reservation: restaurant.is_credit_card_required_for_reservation,
-      operating_hours: restaurant.operating_hours || { ...DEFAULT_OPERATING_HOURS },
+      operating_hours: restaurant.operating_hours || getDefaultOperatingHoursClone(),
       timezone: restaurant.timezone || DEFAULT_TIMEZONE,
       reservation_seating_capacity: restaurant.reservation_seating_capacity ?? 50,
       reservation_advance_days: restaurant.reservation_advance_days ?? 30,
@@ -806,7 +768,7 @@ const Restaurants = () => {
                                           return (
                                             <div key={day} className="flex justify-between gap-4">
                                               <span className="font-medium">
-                                                {DAY_LABELS[day]}:
+                                                {DAY_LABELS_SHORT[day]}:
                                               </span>
                                               <span>
                                                 {hours.is_closed
@@ -1296,7 +1258,7 @@ const Restaurants = () => {
                           >
                             {/* Day Name */}
                             <div className="min-w-[50px]">
-                              <Label className="text-xs font-medium">{DAY_LABELS[day]}</Label>
+                              <Label className="text-xs font-medium">{DAY_LABELS_SHORT[day]}</Label>
                             </div>
 
                             {/* Closed Toggle */}
@@ -1321,7 +1283,11 @@ const Restaurants = () => {
                                     type="time"
                                     value={formatTimeForInput(dayHours.open)}
                                     onChange={(e) => {
-                                      updateDayHours(day, "open", formatTimeForApi(e.target.value));
+                                      updateDayHours(
+                                        day,
+                                        "open",
+                                        formatTimeForApi(e.target.value) ?? ""
+                                      );
                                     }}
                                     className="h-8 text-xs"
                                     placeholder="Opening"
@@ -1336,7 +1302,7 @@ const Restaurants = () => {
                                       updateDayHours(
                                         day,
                                         "close",
-                                        formatTimeForApi(e.target.value)
+                                        formatTimeForApi(e.target.value) ?? ""
                                       );
                                     }}
                                     className="h-8 text-xs"
@@ -1850,7 +1816,7 @@ const Restaurants = () => {
                       return (
                         <div key={day} className="flex justify-between items-center py-1">
                           <span className="text-muted-foreground font-medium min-w-[100px]">
-                            {DAY_LABELS[day]}:
+                            {DAY_LABELS_SHORT[day]}:
                           </span>
                           {hours.is_closed ? (
                             <Badge variant="secondary" className="text-xs">

@@ -402,7 +402,19 @@ export const isWithinOperatingHours = (
   const openTime = dayHours.open.slice(0, 5);
   const closeTime = dayHours.close.slice(0, 5);
 
-  // Handle overnight hours (close < open, e.g., 22:00 to 02:00)
+  // Early morning: may fall within previous day's overnight hours (e.g. Monday 22:00-02:00, 01:00 Tuesday is valid)
+  const prevDate = new Date(date);
+  prevDate.setDate(prevDate.getDate() - 1);
+  const prevDayHours = getHoursForDate(operatingHours, prevDate);
+  if (!prevDayHours.is_closed && prevDayHours.open && prevDayHours.close) {
+    const prevOpen = prevDayHours.open.slice(0, 5);
+    const prevClose = prevDayHours.close.slice(0, 5);
+    if (prevClose < prevOpen && normalizedTime <= prevClose) {
+      return { valid: true };
+    }
+  }
+
+  // Handle overnight hours on current day (close < open, e.g., 22:00 to 02:00)
   if (closeTime < openTime) {
     if (normalizedTime >= openTime || normalizedTime <= closeTime) {
       return { valid: true };
