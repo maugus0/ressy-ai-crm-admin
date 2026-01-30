@@ -94,6 +94,7 @@ import type {
   OperatingHours,
 } from "@/types/api.types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { TimezoneCombobox } from "@/components/ui/timezone-combobox";
 import { toast } from "sonner";
 import { validateJsonObject, safeParseJsonObject } from "@/lib/utils/json";
 import { DEFAULT_TIMEZONE, formatLocalDateTime, getSupportedTimeZones } from "@/lib/utils/timezone";
@@ -1369,21 +1370,12 @@ const Restaurants = () => {
                     {/* Timezone Selection */}
                     <div className="grid gap-2 mt-4 pt-4 border-t">
                       <Label htmlFor="timezone">Timezone</Label>
-                      <Select
+                      <TimezoneCombobox
                         value={formData.timezone}
                         onValueChange={(value) => setFormData({ ...formData, timezone: value })}
-                      >
-                        <SelectTrigger id="timezone">
-                          <SelectValue placeholder="Select timezone" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-64">
-                          {timeZoneOptions.map((zone) => (
-                            <SelectItem key={zone} value={zone}>
-                              {zone}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        timezones={timeZoneOptions}
+                        placeholder="Select timezone"
+                      />
                       <p className="text-xs text-muted-foreground">
                         Used to interpret operating hours and availability checks
                       </p>
