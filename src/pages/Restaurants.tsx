@@ -133,6 +133,37 @@ const DEFAULT_OPERATING_HOURS: OperatingHours = {
   sunday: { open: "09:00:00", close: "22:00:00", is_closed: false },
 };
 
+/**
+ * Get display text for today's operating hours
+ */
+const getTodayHoursDisplay = (operatingHours: OperatingHours | null): string => {
+  if (!operatingHours) return "Not set";
+
+  const today = new Date();
+  const dayIndex = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const dayMap: DayOfWeek[] = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ];
+  const dayName = dayMap[dayIndex];
+  const todayHours = operatingHours[dayName];
+
+  if (todayHours.is_closed) {
+    return "Closed Today";
+  }
+
+  if (!todayHours.open || !todayHours.close) {
+    return "Not set";
+  }
+
+  return `${todayHours.open.slice(0, 5)} - ${todayHours.close.slice(0, 5)}`;
+};
+
 // Form data structure - uses JSON strings for integration details
 // Objects are only created during submission
 interface RestaurantFormData {
@@ -752,13 +783,23 @@ const Restaurants = () => {
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger>
-                                      <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-green-50 text-green-700 text-xs font-medium">
+                                      <div
+                                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${
+                                          getTodayHoursDisplay(restaurant.operating_hours) ===
+                                          "Closed Today"
+                                            ? "bg-red-50 text-red-700"
+                                            : "bg-green-50 text-green-700"
+                                        }`}
+                                      >
                                         <Clock className="h-3 w-3" />
-                                        Varies
+                                        {getTodayHoursDisplay(restaurant.operating_hours)}
                                       </div>
                                     </TooltipTrigger>
                                     <TooltipContent className="max-w-xs">
                                       <div className="space-y-1 text-xs">
+                                        <p className="font-semibold mb-2 pb-1 border-b">
+                                          Weekly Schedule
+                                        </p>
                                         {DAYS_OF_WEEK.map((day) => {
                                           const hours = restaurant.operating_hours![day];
                                           return (
