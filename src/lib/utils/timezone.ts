@@ -100,7 +100,9 @@ export const getSupportedTimeZones = (): string[] => {
   }
 
   try {
-    const values = Intl.supportedValuesOf?.("timeZone");
+    // supportedValuesOf is available in modern browsers but not in all TS lib definitions
+    const intl = Intl as typeof Intl & { supportedValuesOf?: (key: string) => string[] };
+    const values = intl.supportedValuesOf?.("timeZone");
     if (values && values.length > 0) {
       return values;
     }
