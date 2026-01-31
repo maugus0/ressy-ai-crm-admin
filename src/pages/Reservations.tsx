@@ -90,7 +90,7 @@ import {
   datetimeLocalToUtcIso,
   formatLocalDateTimeInput,
   formatLocalDateTimeParts,
-  isWithinOpeningHours,
+  isWithinOperatingHours,
   getTimeFromDateTime,
 } from "@/lib/utils/timezone";
 
@@ -437,13 +437,18 @@ const Reservations = () => {
           errors.date_time = "Reservation date cannot be in the past";
         }
 
-        // Validate opening hours if restaurant is selected
+        // Validate operating hours if restaurant is selected (day-aware)
         if (selectedRestaurantId && !isEditMode) {
           const restaurant = restaurants.find((r) => r.id === selectedRestaurantId);
-          if (restaurant?.opening_time && restaurant?.closing_time) {
+          if (restaurant?.operating_hours) {
             const time = getTimeFromDateTime(formData.date_time); // HH:mm format
-            if (!isWithinOpeningHours(time, restaurant.opening_time, restaurant.closing_time)) {
-              errors.date_time = `Reservation time must be within opening hours (${restaurant.opening_time.slice(0, 5)} - ${restaurant.closing_time.slice(0, 5)})`;
+            const hoursCheck = isWithinOperatingHours(
+              time,
+              restaurant.operating_hours,
+              selectedDate
+            );
+            if (!hoursCheck.valid) {
+              errors.date_time = hoursCheck.reason || "Time is outside operating hours";
             }
           }
         }

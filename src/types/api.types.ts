@@ -34,6 +34,23 @@ export interface RestaurantFeatures {
   faqs_enabled?: boolean;
 }
 
+export interface DayHours {
+  open: string | null;
+  close: string | null;
+  is_closed: boolean;
+  is_24_hours: boolean;
+}
+
+export interface OperatingHours {
+  monday: DayHours;
+  tuesday: DayHours;
+  wednesday: DayHours;
+  thursday: DayHours;
+  friday: DayHours;
+  saturday: DayHours;
+  sunday: DayHours;
+}
+
 export interface Restaurant {
   id: number;
   name: string;
@@ -49,8 +66,7 @@ export interface Restaurant {
   forward_minutes: number;
   backward_minutes: number;
   is_credit_card_required_for_reservation: boolean;
-  opening_time: string | null;
-  closing_time: string | null;
+  operating_hours: OperatingHours | null;
   reservation_seating_capacity: number | null;
   reservation_advance_days: number | null;
   features: RestaurantFeatures | null;
@@ -69,8 +85,7 @@ export interface RestaurantCreateRequest {
   forward_minutes?: number;
   backward_minutes?: number;
   is_credit_card_required_for_reservation?: boolean;
-  opening_time?: string;
-  closing_time?: string;
+  operating_hours?: OperatingHours;
   reservation_seating_capacity?: number;
   reservation_advance_days?: number;
   twilio_details?: Record<string, unknown>;
@@ -90,8 +105,7 @@ export interface RestaurantUpdateRequest {
   forward_minutes?: number;
   backward_minutes?: number;
   is_credit_card_required_for_reservation?: boolean;
-  opening_time?: string;
-  closing_time?: string;
+  operating_hours?: OperatingHours;
   reservation_seating_capacity?: number;
   reservation_advance_days?: number;
   twilio_details?: Record<string, unknown>;
