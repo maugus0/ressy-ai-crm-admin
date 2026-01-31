@@ -434,7 +434,7 @@ export const isWithinOperatingHours = (
     }
     return {
       valid: false,
-      reason: `Time must be between ${openTime} and ${closeTime} on ${dayLabel}s`,
+      reason: `Time must be after ${openTime} or before ${closeTime} on ${dayLabel}s (spans midnight)`,
     };
   }
 

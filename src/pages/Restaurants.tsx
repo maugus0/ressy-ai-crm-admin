@@ -264,7 +264,7 @@ const Restaurants = () => {
   const updateDayHours = (
     day: DayOfWeek,
     field: "open" | "close" | "is_closed" | "is_24_hours",
-    value: string | boolean
+    value: string | boolean | null
   ) => {
     const currentDayHours = formData.operating_hours[day];
     const updatedDayHours = { ...currentDayHours, [field]: value };
@@ -273,6 +273,12 @@ const Restaurants = () => {
     if (field === "is_closed" && value === true) {
       // When marking as closed, disable 24 hours
       updatedDayHours.is_24_hours = false;
+    } else if (field === "is_closed" && value === false) {
+      // When unmarking as closed, ensure we have valid times if not 24 hours
+      if (!updatedDayHours.is_24_hours) {
+        updatedDayHours.open = updatedDayHours.open || "09:00:00";
+        updatedDayHours.close = updatedDayHours.close || "22:00:00";
+      }
     } else if (field === "is_24_hours" && value === true) {
       // When marking as 24 hours, clear the times (optional: keep them for if they toggle back)
       updatedDayHours.open = null;
@@ -558,17 +564,18 @@ const Restaurants = () => {
     setSelectedRestaurant(restaurant);
     setFormErrors({});
 
-    // Ensure is_24_hours is populated for each day when loading restaurant data
-    let operatingHours = getDefaultOperatingHoursClone();
+    // Ensure is_24_hours is populated for each day when loading restaurant data (handles legacy API)
+    const operatingHours = getDefaultOperatingHoursClone();
     if (restaurant.operating_hours) {
-      operatingHours = { ...restaurant.operating_hours };
+      const defaultDay = getDefaultOperatingHoursClone().monday;
       DAYS_OF_WEEK.forEach((day) => {
-        if (operatingHours[day]) {
-          operatingHours[day] = {
-            ...operatingHours[day],
-            is_24_hours: operatingHours[day].is_24_hours ?? false,
-          };
-        }
+        const fromApi = restaurant.operating_hours![day];
+        operatingHours[day] = {
+          open: fromApi?.open ?? defaultDay.open,
+          close: fromApi?.close ?? defaultDay.close,
+          is_closed: fromApi?.is_closed ?? false,
+          is_24_hours: fromApi?.is_24_hours ?? false,
+        };
       });
     }
 
@@ -808,7 +815,9 @@ const Restaurants = () => {
                                                   ? "Closed"
                                                   : hours.is_24_hours
                                                     ? "24 hrs"
-                                                    : `${hours.open?.slice(0, 5)} - ${hours.close?.slice(0, 5)}`}
+                                                    : hours.open && hours.close
+                                                      ? `${hours.open.slice(0, 5)} - ${hours.close.slice(0, 5)}`
+                                                      : "Not set"}
                                               </span>
                                             </div>
                                           );
@@ -1332,11 +1341,8 @@ const Restaurants = () => {
                                     type="time"
                                     value={formatTimeForInput(dayHours.open)}
                                     onChange={(e) => {
-                                      updateDayHours(
-                                        day,
-                                        "open",
-                                        formatTimeForApi(e.target.value) ?? ""
-                                      );
+                                      const v = formatTimeForApi(e.target.value);
+                                      updateDayHours(day, "open", v ?? null);
                                     }}
                                     className="h-8 text-xs"
                                     placeholder="Opening"
@@ -1348,11 +1354,8 @@ const Restaurants = () => {
                                     type="time"
                                     value={formatTimeForInput(dayHours.close)}
                                     onChange={(e) => {
-                                      updateDayHours(
-                                        day,
-                                        "close",
-                                        formatTimeForApi(e.target.value) ?? ""
-                                      );
+                                      const v = formatTimeForApi(e.target.value);
+                                      updateDayHours(day, "close", v ?? null);
                                     }}
                                     className="h-8 text-xs"
                                     placeholder="Closing"
@@ -1886,7 +1889,9 @@ const Restaurants = () => {
                             </span>
                           ) : (
                             <span className="font-mono text-xs">
-                              {hours.open?.slice(0, 5)} - {hours.close?.slice(0, 5)}
+                              {hours.open && hours.close
+                                ? `${hours.open.slice(0, 5)} - ${hours.close.slice(0, 5)}`
+                                : "Not set"}
                             </span>
                           )}
                         </div>
