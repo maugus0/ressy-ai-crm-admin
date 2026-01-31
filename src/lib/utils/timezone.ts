@@ -359,7 +359,7 @@ export const getHoursForDate = (
   date: Date
 ): DayHours => {
   if (!operatingHours) {
-    return { open: null, close: null, is_closed: false };
+    return { open: null, close: null, is_closed: false, is_24_hours: false };
   }
 
   const dayName = getDayName(date);
@@ -394,6 +394,11 @@ export const isWithinOperatingHours = (
     return { valid: false, reason: `Restaurant is closed on ${dayLabel}s` };
   }
 
+  // If open 24 hours, always valid
+  if (dayHours.is_24_hours) {
+    return { valid: true };
+  }
+
   if (!dayHours.open || !dayHours.close) {
     return { valid: true }; // No restrictions if hours not set for this day
   }
@@ -403,14 +408,22 @@ export const isWithinOperatingHours = (
   const closeTime = dayHours.close.slice(0, 5);
 
   // Early morning: may fall within previous day's overnight hours (e.g. Monday 22:00-02:00, 01:00 Tuesday is valid)
+  // or previous day's 24-hour schedule
   const prevDate = new Date(date);
   prevDate.setDate(prevDate.getDate() - 1);
   const prevDayHours = getHoursForDate(operatingHours, prevDate);
-  if (!prevDayHours.is_closed && prevDayHours.open && prevDayHours.close) {
-    const prevOpen = prevDayHours.open.slice(0, 5);
-    const prevClose = prevDayHours.close.slice(0, 5);
-    if (prevClose < prevOpen && normalizedTime <= prevClose) {
+  if (!prevDayHours.is_closed) {
+    // If previous day was 24 hours, early morning times are valid
+    if (prevDayHours.is_24_hours) {
       return { valid: true };
+    }
+    // Check overnight hours from previous day
+    if (prevDayHours.open && prevDayHours.close) {
+      const prevOpen = prevDayHours.open.slice(0, 5);
+      const prevClose = prevDayHours.close.slice(0, 5);
+      if (prevClose < prevOpen && normalizedTime <= prevClose) {
+        return { valid: true };
+      }
     }
   }
 
@@ -442,10 +455,23 @@ export const isWithinOperatingHours = (
 export const getAvailableTimeRange = (
   operatingHours: OperatingHours | null | undefined,
   date: Date
-): { start: string; end: string } | null => {
+): { start: string; end: string; is_24_hours?: boolean } | null => {
   const dayHours = getHoursForDate(operatingHours, date);
 
-  if (dayHours.is_closed || !dayHours.open || !dayHours.close) {
+  if (dayHours.is_closed) {
+    return null;
+  }
+
+  // If open 24 hours, return full day range
+  if (dayHours.is_24_hours) {
+    return {
+      start: "00:00",
+      end: "23:59",
+      is_24_hours: true,
+    };
+  }
+
+  if (!dayHours.open || !dayHours.close) {
     return null;
   }
 

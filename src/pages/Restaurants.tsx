@@ -110,13 +110,13 @@ import { formatTimeForInput, formatTimeForApi } from "@/lib/utils/time";
 
 // Default operating hours for new restaurants (deep clone to avoid mutating shared reference)
 const DEFAULT_OPERATING_HOURS: OperatingHours = {
-  monday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  tuesday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  wednesday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  thursday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  friday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  saturday: { open: "09:00:00", close: "22:00:00", is_closed: false },
-  sunday: { open: "09:00:00", close: "22:00:00", is_closed: false },
+  monday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  tuesday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  wednesday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  thursday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  friday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  saturday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
+  sunday: { open: "09:00:00", close: "22:00:00", is_closed: false, is_24_hours: false },
 };
 
 function getDefaultOperatingHoursClone(): OperatingHours {
@@ -135,6 +135,10 @@ const getTodayHoursDisplay = (operatingHours: OperatingHours | null): string => 
 
   if (todayHours.is_closed) {
     return "Closed Today";
+  }
+
+  if (todayHours.is_24_hours) {
+    return "Open 24 hrs";
   }
 
   if (!todayHours.open || !todayHours.close) {
@@ -259,17 +263,31 @@ const Restaurants = () => {
    */
   const updateDayHours = (
     day: DayOfWeek,
-    field: "open" | "close" | "is_closed",
+    field: "open" | "close" | "is_closed" | "is_24_hours",
     value: string | boolean
   ) => {
+    const currentDayHours = formData.operating_hours[day];
+    const updatedDayHours = { ...currentDayHours, [field]: value };
+
+    // Handle mutual exclusivity and clearing logic
+    if (field === "is_closed" && value === true) {
+      // When marking as closed, disable 24 hours
+      updatedDayHours.is_24_hours = false;
+    } else if (field === "is_24_hours" && value === true) {
+      // When marking as 24 hours, clear the times (optional: keep them for if they toggle back)
+      updatedDayHours.open = null;
+      updatedDayHours.close = null;
+    } else if (field === "is_24_hours" && value === false) {
+      // When toggling off 24 hours, restore default times
+      updatedDayHours.open = currentDayHours.open || "09:00:00";
+      updatedDayHours.close = currentDayHours.close || "22:00:00";
+    }
+
     setFormData({
       ...formData,
       operating_hours: {
         ...formData.operating_hours,
-        [day]: {
-          ...formData.operating_hours[day],
-          [field]: value,
-        },
+        [day]: updatedDayHours,
       },
     });
   };
@@ -539,6 +557,21 @@ const Restaurants = () => {
   const openEditDialog = (restaurant: Restaurant) => {
     setSelectedRestaurant(restaurant);
     setFormErrors({});
+
+    // Ensure is_24_hours is populated for each day when loading restaurant data
+    let operatingHours = getDefaultOperatingHoursClone();
+    if (restaurant.operating_hours) {
+      operatingHours = { ...restaurant.operating_hours };
+      DAYS_OF_WEEK.forEach((day) => {
+        if (operatingHours[day]) {
+          operatingHours[day] = {
+            ...operatingHours[day],
+            is_24_hours: operatingHours[day].is_24_hours ?? false,
+          };
+        }
+      });
+    }
+
     setFormData({
       name: restaurant.name,
       address: restaurant.address,
@@ -549,7 +582,7 @@ const Restaurants = () => {
       forward_minutes: restaurant.forward_minutes,
       backward_minutes: restaurant.backward_minutes,
       is_credit_card_required_for_reservation: restaurant.is_credit_card_required_for_reservation,
-      operating_hours: restaurant.operating_hours || getDefaultOperatingHoursClone(),
+      operating_hours: operatingHours,
       timezone: restaurant.timezone || DEFAULT_TIMEZONE,
       reservation_seating_capacity: restaurant.reservation_seating_capacity ?? 50,
       reservation_advance_days: restaurant.reservation_advance_days ?? 30,
@@ -773,7 +806,9 @@ const Restaurants = () => {
                                               <span>
                                                 {hours.is_closed
                                                   ? "Closed"
-                                                  : `${hours.open?.slice(0, 5)} - ${hours.close?.slice(0, 5)}`}
+                                                  : hours.is_24_hours
+                                                    ? "24 hrs"
+                                                    : `${hours.open?.slice(0, 5)} - ${hours.close?.slice(0, 5)}`}
                                               </span>
                                             </div>
                                           );
@@ -1275,8 +1310,22 @@ const Restaurants = () => {
                               </span>
                             </div>
 
-                            {/* Time Inputs - Only show if not closed */}
+                            {/* 24 Hours Toggle - Only show if not closed */}
                             {!dayHours.is_closed && (
+                              <div className="flex items-center gap-1.5">
+                                <Switch
+                                  checked={dayHours.is_24_hours}
+                                  onCheckedChange={(checked) => {
+                                    updateDayHours(day, "is_24_hours", checked);
+                                  }}
+                                  className="scale-75"
+                                />
+                                <span className="text-xs text-muted-foreground w-10">24 hrs</span>
+                              </div>
+                            )}
+
+                            {/* Time Inputs - Only show if not closed and not 24 hours */}
+                            {!dayHours.is_closed && !dayHours.is_24_hours && (
                               <>
                                 <div className="flex-1 min-w-0">
                                   <Input
@@ -1310,6 +1359,14 @@ const Restaurants = () => {
                                   />
                                 </div>
                               </>
+                            )}
+
+                            {/* Open 24 Hours display - Only show if 24 hours is enabled */}
+                            {!dayHours.is_closed && dayHours.is_24_hours && (
+                              <span className="flex-1 text-xs text-green-600 font-medium flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                Open 24 hours
+                              </span>
                             )}
 
                             {/* Copy Button */}
@@ -1822,6 +1879,11 @@ const Restaurants = () => {
                             <Badge variant="secondary" className="text-xs">
                               Closed
                             </Badge>
+                          ) : hours.is_24_hours ? (
+                            <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Open 24 hours
+                            </span>
                           ) : (
                             <span className="font-mono text-xs">
                               {hours.open?.slice(0, 5)} - {hours.close?.slice(0, 5)}

@@ -38,6 +38,7 @@ export interface DayHours {
   open: string | null;
   close: string | null;
   is_closed: boolean;
+  is_24_hours: boolean;
 }
 
 export interface OperatingHours {
