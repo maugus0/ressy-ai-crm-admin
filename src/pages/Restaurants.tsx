@@ -77,6 +77,7 @@ import {
   Bot,
   ShoppingBag,
   AlertTriangle,
+  Lock,
 } from "lucide-react";
 import {
   getRestaurants,
@@ -169,7 +170,6 @@ interface RestaurantFormData {
   open_table_details_json: string;
   features_orders_enabled: boolean;
   features_reservations_enabled: boolean;
-  features_faqs_enabled: boolean;
 }
 
 // Form validation errors
@@ -207,7 +207,6 @@ const defaultFormData: RestaurantFormData = {
   open_table_details_json: "{}",
   features_orders_enabled: true,
   features_reservations_enabled: true,
-  features_faqs_enabled: true,
 };
 
 // Phone number validation regex (E.164 format)
@@ -494,7 +493,7 @@ const Restaurants = () => {
       features: {
         orders_enabled: formData.features_orders_enabled,
         reservations_enabled: formData.features_reservations_enabled,
-        faqs_enabled: formData.features_faqs_enabled,
+        faqs_enabled: true, // Always true; FAQ feature is required for the agent to function correctly
       },
     };
   };
@@ -598,7 +597,6 @@ const Restaurants = () => {
       open_table_details_json: JSON.stringify(restaurant.open_table_details || {}, null, 2),
       features_orders_enabled: restaurant.features?.orders_enabled ?? true,
       features_reservations_enabled: restaurant.features?.reservations_enabled ?? true,
-      features_faqs_enabled: restaurant.features?.faqs_enabled ?? true,
     });
     setActiveTab("basic");
     setIsEditDialogOpen(true);
@@ -1632,8 +1630,8 @@ const Restaurants = () => {
 
                       <Separator />
 
-                      {/* FAQs Toggle */}
-                      <div className="flex items-center justify-between">
+                      {/* FAQs Toggle - Always ON (required for agent) */}
+                      <div className="flex items-center justify-between opacity-90">
                         <div className="space-y-0.5">
                           <Label
                             htmlFor="features_faqs"
@@ -1641,17 +1639,26 @@ const Restaurants = () => {
                           >
                             <HelpCircle className="h-4 w-4 text-muted-foreground" />
                             FAQs & General Questions
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  FAQ feature is always enabled for the agent to function correctly
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </Label>
                           <p className="text-xs text-muted-foreground">
-                            Answer menu and general inquiries
+                            Answer menu and general inquiries (always on)
                           </p>
                         </div>
                         <Switch
                           id="features_faqs"
-                          checked={formData.features_faqs_enabled}
-                          onCheckedChange={(checked) =>
-                            setFormData({ ...formData, features_faqs_enabled: checked })
-                          }
+                          checked={true}
+                          disabled
+                          className="data-[state=checked]:opacity-70"
                         />
                       </div>
                     </CardContent>
