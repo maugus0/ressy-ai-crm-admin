@@ -170,7 +170,6 @@ interface RestaurantFormData {
   open_table_details_json: string;
   features_orders_enabled: boolean;
   features_reservations_enabled: boolean;
-  features_faqs_enabled: boolean;
 }
 
 // Form validation errors
@@ -208,7 +207,6 @@ const defaultFormData: RestaurantFormData = {
   open_table_details_json: "{}",
   features_orders_enabled: true,
   features_reservations_enabled: true,
-  features_faqs_enabled: true,
 };
 
 // Phone number validation regex (E.164 format)
@@ -599,7 +597,6 @@ const Restaurants = () => {
       open_table_details_json: JSON.stringify(restaurant.open_table_details || {}, null, 2),
       features_orders_enabled: restaurant.features?.orders_enabled ?? true,
       features_reservations_enabled: restaurant.features?.reservations_enabled ?? true,
-      features_faqs_enabled: restaurant.features?.faqs_enabled ?? true,
     });
     setActiveTab("basic");
     setIsEditDialogOpen(true);
