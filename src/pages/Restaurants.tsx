@@ -55,6 +55,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Search,
   Info,
   BarChart3,
@@ -239,10 +240,17 @@ function SmsRedirectConfigFields({
     <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3">
       <div className="space-y-1.5">
         <Label htmlFor={urlInputId} className="text-xs sm:text-sm">
-          Redirect URL <span className="text-destructive">*</span>
+          Redirect URL{" "}
+          <span className="text-destructive" aria-hidden="true">
+            *
+          </span>
+          <span className="sr-only"> (required)</span>
         </Label>
         <div className="relative">
-          <Link className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+          <Link
+            aria-hidden="true"
+            className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground"
+          />
           <Input
             id={urlInputId}
             type="url"
@@ -287,6 +295,7 @@ function SmsRedirectConfigFields({
         <button
           type="button"
           onClick={onTogglePreview}
+          aria-expanded={showPreview}
           className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <Eye className="h-3.5 w-3.5" />
@@ -346,10 +355,10 @@ const defaultFormData: RestaurantFormData = {
 // Phone number validation regex (E.164 format)
 const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
 
-// URL validation regex (requires http:// or https://)
-const URL_REGEX = /^https?:\/\/.+/i;
+// URL validation regex (requires http:// or https:// and a valid-looking domain/path)
+const URL_REGEX = /^https?:\/\/[^\s/$.?#].[^\s]*$/i;
 
-// Default SMS redirect messages (instruction text only; URL and signature are added by the backend)
+// Default SMS redirect messages (instruction text only; full message includes this plus URL and signature)
 const DEFAULT_ORDERS_SMS_MESSAGE = "Please place your order using the link below.";
 const DEFAULT_RESERVATIONS_SMS_MESSAGE = "Please make your reservation using the link below.";
 // Default SMS redirect config
@@ -439,7 +448,7 @@ const Restaurants = () => {
       ? formData.orders_sms_redirect_url.trim() || "https://your-link-here.com"
       : formData.reservations_sms_redirect_url.trim() || "https://your-link-here.com";
 
-    return `Hello.\n${instructionText}\n\n${url}\n\nYours sincerely,\n${restaurantName} via Ressy AI`;
+    return `Hello.\n${instructionText}\n\n${url}\n\nYours sincerely,\n${restaurantName} via RessyAI`;
   };
 
   /**
@@ -1945,8 +1954,7 @@ const Restaurants = () => {
                           </div>
 
                           {/* SMS Redirect Configuration (shown when enabled or has URL configured) */}
-                          {(formData.orders_sms_redirect_enabled ||
-                            formData.orders_sms_redirect_url) && (
+                          {formData.orders_sms_redirect_enabled && (
                             <SmsRedirectConfigFields
                               urlInputId="orders_redirect_url"
                               messageInputId="orders_redirect_message"
@@ -2086,8 +2094,7 @@ const Restaurants = () => {
                           </div>
 
                           {/* SMS Redirect Configuration (shown when enabled or has URL configured) */}
-                          {(formData.reservations_sms_redirect_enabled ||
-                            formData.reservations_sms_redirect_url) && (
+                          {formData.reservations_sms_redirect_enabled && (
                             <SmsRedirectConfigFields
                               urlInputId="reservations_redirect_url"
                               messageInputId="reservations_redirect_message"

@@ -808,7 +808,11 @@ export interface DeleteResponse {
 // SSE (Server-Sent Events)
 // ============================================================================
 
-export type SSEEscalationType = "user_requested" | "internal_server_error" | "suspected_spam";
+export type SSEEscalationType =
+  | "user_requested"
+  | "internal_server_error"
+  | "suspected_spam"
+  | "sms_redirect_failed";
 
 export type SSEEventType = "escalation" | "order" | "reservation" | "heartbeat";
 
@@ -816,6 +820,7 @@ export type SSEEventSubtype =
   | "user_requested"
   | "internal_server_error"
   | "suspected_spam"
+  | "sms_redirect_failed"
   | "new_order"
   | "order_updated"
   | "order_cancelled"

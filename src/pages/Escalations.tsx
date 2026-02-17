@@ -36,6 +36,7 @@ import {
   ShieldAlert,
   Info,
   RefreshCw,
+  Send,
 } from "lucide-react";
 import { useSSE } from "@/contexts/SSEContext";
 import { getAdminEscalations } from "@/lib/api/escalations";
@@ -89,6 +90,12 @@ const getEscalationInfo = (subtype: SSEEventSubtype) => {
       description: "Call was flagged as potential spam or abuse",
       icon: <ShieldAlert className="h-5 w-5" />,
       color: "bg-orange-500",
+    },
+    sms_redirect_failed: {
+      title: "SMS Redirect Failed",
+      description: "Could not send redirect link to customer via SMS",
+      icon: <Send className="h-5 w-5" />,
+      color: "bg-blue-500",
     },
   };
   return (
@@ -159,6 +166,7 @@ const Escalations = () => {
     user_requested: escalations.filter((e) => e.subtype === "user_requested").length,
     internal_server_error: escalations.filter((e) => e.subtype === "internal_server_error").length,
     suspected_spam: escalations.filter((e) => e.subtype === "suspected_spam").length,
+    sms_redirect_failed: escalations.filter((e) => e.subtype === "sms_redirect_failed").length,
   };
 
   return (
@@ -222,6 +230,9 @@ const Escalations = () => {
                           <SelectItem value="suspected_spam">
                             Spam Detected ({counts.suspected_spam})
                           </SelectItem>
+                          <SelectItem value="sms_redirect_failed">
+                            SMS Redirect Failed ({counts.sms_redirect_failed})
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       {escalations.length > 0 && (
@@ -237,7 +248,7 @@ const Escalations = () => {
                     </div>
                   </div>
                   {escalations.length > 0 && (
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
                       <div className="p-2.5 sm:p-3 rounded-lg border bg-muted/30">
                         <p className="text-xs text-muted-foreground mb-1">Total Alerts</p>
                         <p className="text-xl sm:text-2xl font-bold text-destructive">
@@ -260,6 +271,12 @@ const Escalations = () => {
                         <p className="text-xs text-muted-foreground mb-1">Spam Detected</p>
                         <p className="text-xl sm:text-2xl font-bold text-orange-600">
                           {counts.suspected_spam}
+                        </p>
+                      </div>
+                      <div className="p-2.5 sm:p-3 rounded-lg border bg-blue-50 dark:bg-blue-950/20">
+                        <p className="text-xs text-muted-foreground mb-1">SMS Redirect Failed</p>
+                        <p className="text-xl sm:text-2xl font-bold text-blue-600">
+                          {counts.sms_redirect_failed}
                         </p>
                       </div>
                     </div>
@@ -520,7 +537,17 @@ interface EscalationCardProps {
 }
 
 const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardProps) => {
-  const info = getEscalationInfo(escalation.subtype);
+  const baseInfo = getEscalationInfo(escalation.subtype);
+  // Use backend-provided title/description when available (e.g. sms_redirect_failed)
+  const info = {
+    ...baseInfo,
+    ...(escalation.data?.title && typeof escalation.data.title === "string"
+      ? { title: escalation.data.title }
+      : {}),
+    ...(escalation.data?.description && typeof escalation.data.description === "string"
+      ? { description: escalation.data.description }
+      : {}),
+  };
   const { date, time } = formatDateTime(escalation.timestamp);
   const relativeTime = formatRelativeTimeLong(escalation.timestamp);
 
@@ -702,11 +729,17 @@ const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardPro
                   ? "default"
                   : escalation.subtype === "internal_server_error"
                     ? "destructive"
-                    : "secondary"
+                    : escalation.subtype === "sms_redirect_failed"
+                      ? "outline"
+                      : "secondary"
               }
               className="text-xs"
             >
-              {escalation.subtype.replace(/_/g, " ")}
+              {escalation.data?.title &&
+              typeof escalation.data.title === "string" &&
+              escalation.subtype === "sms_redirect_failed"
+                ? escalation.data.title
+                : escalation.subtype.replace(/_/g, " ")}
             </Badge>
             <span className="text-xs text-muted-foreground hidden sm:inline">{relativeTime}</span>
             {callId && (

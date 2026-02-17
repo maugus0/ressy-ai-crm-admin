@@ -16,7 +16,11 @@ export type ReservationSubtype =
   | "reservation_cancelled";
 
 // Escalation subtypes
-export type EscalationSubtype = "user_requested" | "internal_server_error" | "suspected_spam";
+export type EscalationSubtype =
+  | "user_requested"
+  | "internal_server_error"
+  | "suspected_spam"
+  | "sms_redirect_failed";
 
 export type NotificationSubtype = OrderSubtype | ReservationSubtype | EscalationSubtype;
 

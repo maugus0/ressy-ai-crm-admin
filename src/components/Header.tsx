@@ -41,6 +41,7 @@ const getEventTitle = (event: SSEEvent) => {
     user_requested: "Human Assistance Requested",
     internal_server_error: "System Error",
     suspected_spam: "Spam Detected",
+    sms_redirect_failed: "SMS Redirect Failed",
     new_order: "New Order",
     order_updated: "Order Updated",
     order_cancelled: "Order Cancelled",
@@ -48,6 +49,14 @@ const getEventTitle = (event: SSEEvent) => {
     reservation_updated: "Reservation Updated",
     reservation_cancelled: "Reservation Cancelled",
   };
+  // Use backend-provided title when available (e.g. sms_redirect_failed)
+  if (
+    event.data?.title &&
+    typeof event.data.title === "string" &&
+    event.event_type === "escalation"
+  ) {
+    return event.data.title;
+  }
   return titles[event.subtype] || event.subtype;
 };
 
