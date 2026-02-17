@@ -25,65 +25,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Bell,
-  Filter,
-  RefreshCw,
-  ShoppingBag,
-  CalendarDays,
-  AlertTriangle,
-  Circle,
-} from "lucide-react";
+import { Bell, Filter, RefreshCw, Circle } from "lucide-react";
 import { getAdminNotifications } from "@/lib/api/notifications";
 import { getRestaurants } from "@/services/restaurants";
-import { formatLocalDateTimeParts, parseApiDate } from "@/lib/utils/timezone";
 import { getNotificationNavigationTarget } from "@/lib/utils/notificationNavigation";
+import { formatRelativeTime } from "@/lib/utils/formatRelativeTime";
+import {
+  getNotificationTypeIcon,
+  notificationTypeBadgeColors,
+} from "@/lib/utils/notificationIcons";
 import type { Notification, NotificationType } from "@/types/notification.types";
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-const formatRelativeTime = (timestamp: string) => {
-  const now = new Date();
-  const eventTime = parseApiDate(timestamp);
-  if (!eventTime) return "";
-  const diffMs = now.getTime() - eventTime.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
-};
-
-const getTypeIcon = (type: NotificationType) => {
-  switch (type) {
-    case "order":
-      return <ShoppingBag className="h-4 w-4 text-blue-500" />;
-    case "reservation":
-      return <CalendarDays className="h-4 w-4 text-green-500" />;
-    case "escalation":
-      return <AlertTriangle className="h-4 w-4 text-destructive" />;
-    default:
-      return <Bell className="h-4 w-4" />;
-  }
-};
-
-const getTypeBadgeVariant = (type: NotificationType) => {
-  switch (type) {
-    case "order":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200";
-    case "reservation":
-      return "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200";
-    case "escalation":
-      return "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200";
-    default:
-      return "";
-  }
-};
 
 // ============================================================================
 // Component
@@ -252,9 +203,9 @@ const NotificationHistory = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              {getTypeIcon(notification.type)}
+                              {getNotificationTypeIcon(notification.type)}
                               <Badge
-                                className={`capitalize ${getTypeBadgeVariant(notification.type)}`}
+                                className={`capitalize ${notificationTypeBadgeColors[notification.type] ?? ""}`}
                               >
                                 {notification.type}
                               </Badge>

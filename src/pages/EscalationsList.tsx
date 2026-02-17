@@ -27,49 +27,17 @@ import {
 } from "@/components/ui/table";
 import { AlertTriangle, Filter, RefreshCw, Phone, Clock, Bell, ChevronRight } from "lucide-react";
 import { getAdminEscalations } from "@/lib/api/escalations";
-import { formatLocalDateTimeParts, parseApiDate } from "@/lib/utils/timezone";
+import {
+  escalationStatusColors as statusColors,
+  escalationUrgencyColors as urgencyColors,
+} from "@/lib/utils/escalationStyles";
+import { formatRelativeTime } from "@/lib/utils/formatRelativeTime";
 import type {
   Escalation,
   EscalationStatus,
   EscalationUrgency,
   EscalationQueryParams,
 } from "@/types/escalation.types";
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-const statusColors: Record<EscalationStatus, string> = {
-  raised: "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200",
-  forwarded: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200",
-  failed: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
-  resolved: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200",
-};
-
-const urgencyColors: Record<EscalationUrgency, string> = {
-  standard: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-  high: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200",
-  critical: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
-};
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-const formatRelativeTime = (timestamp: string) => {
-  const now = new Date();
-  const eventTime = parseApiDate(timestamp);
-  if (!eventTime) return "";
-  const diffMs = now.getTime() - eventTime.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
-};
 
 // ============================================================================
 // Component

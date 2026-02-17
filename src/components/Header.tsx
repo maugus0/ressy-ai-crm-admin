@@ -4,8 +4,6 @@ import {
   LogOut,
   Bell,
   AlertTriangle,
-  ShoppingBag,
-  CalendarDays,
   X,
   Wifi,
   WifiOff,
@@ -25,46 +23,17 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
 import { getRestaurants } from "@/services/restaurants";
-import { parseApiDate } from "@/lib/utils/timezone";
 import { getNotificationNavigationTarget } from "@/lib/utils/notificationNavigation";
+import { formatRelativeTime } from "@/lib/utils/formatRelativeTime";
+import { getSSEEventIcon, getNotificationTypeIcon } from "@/lib/utils/notificationIcons";
 import type { SSEEvent, Restaurant } from "@/types/api.types";
-import type { Notification, NotificationType } from "@/types/notification.types";
+import type { Notification } from "@/types/notification.types";
 
 interface HeaderProps {
   onMenuClick?: () => void;
   title?: string;
   description?: string;
 }
-
-// Format relative time
-const formatRelativeTime = (timestamp: string) => {
-  const now = new Date();
-  const eventTime = parseApiDate(timestamp);
-  if (!eventTime) return "";
-  const diffMs = now.getTime() - eventTime.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  return `${diffDays}d ago`;
-};
-
-// Get icon for event type
-const getEventIcon = (event: SSEEvent) => {
-  switch (event.event_type) {
-    case "escalation":
-      return <AlertTriangle className="h-4 w-4 text-destructive" />;
-    case "order":
-      return <ShoppingBag className="h-4 w-4 text-blue-500" />;
-    case "reservation":
-      return <CalendarDays className="h-4 w-4 text-green-500" />;
-    default:
-      return <Bell className="h-4 w-4" />;
-  }
-};
 
 // Get event title
 const getEventTitle = (event: SSEEvent) => {
@@ -87,20 +56,6 @@ const getEventDescription = (event: SSEEvent) => {
   const restaurantName =
     (event.data?.restaurant_name as string) || `Restaurant #${event.restaurant_id}`;
   return restaurantName;
-};
-
-// Get icon for persistent notification type
-const getNotificationIcon = (type: NotificationType) => {
-  switch (type) {
-    case "escalation":
-      return <AlertTriangle className="h-4 w-4 text-destructive" />;
-    case "order":
-      return <ShoppingBag className="h-4 w-4 text-blue-500" />;
-    case "reservation":
-      return <CalendarDays className="h-4 w-4 text-green-500" />;
-    default:
-      return <Bell className="h-4 w-4" />;
-  }
 };
 
 export function Header({ onMenuClick, title = "Dashboard", description }: HeaderProps) {
@@ -493,7 +448,7 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                           onClick={() => handleNotificationClick(event)}
                         >
                           <div className="flex items-start gap-2 sm:gap-3">
-                            <div className="mt-0.5 flex-shrink-0">{getEventIcon(event)}</div>
+                            <div className="mt-0.5 flex-shrink-0">{getSSEEventIcon(event)}</div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
@@ -550,7 +505,7 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                         >
                           <div className="flex items-start gap-2 sm:gap-3">
                             <div className="mt-0.5 flex-shrink-0">
-                              {getNotificationIcon(notification.type)}
+                              {getNotificationTypeIcon(notification.type)}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-1 min-w-0">

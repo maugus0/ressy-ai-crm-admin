@@ -33,24 +33,11 @@ import {
 } from "lucide-react";
 import { getAdminEscalation, updateAdminEscalationStatus } from "@/lib/api/escalations";
 import { formatLocalDateTimeParts } from "@/lib/utils/timezone";
-import type { Escalation, EscalationStatus, EscalationUrgency } from "@/types/escalation.types";
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-const statusColors: Record<EscalationStatus, string> = {
-  raised: "bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200",
-  forwarded: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200",
-  failed: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
-  resolved: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200",
-};
-
-const urgencyColors: Record<EscalationUrgency, string> = {
-  standard: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
-  high: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-200",
-  critical: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200",
-};
+import {
+  escalationStatusColors as statusColors,
+  escalationUrgencyColors as urgencyColors,
+} from "@/lib/utils/escalationStyles";
+import type { Escalation, EscalationStatus } from "@/types/escalation.types";
 
 const statusIcons: Record<EscalationStatus, React.ReactNode> = {
   raised: <AlertCircle className="h-5 w-5 text-yellow-600" />,
