@@ -160,4 +160,41 @@ export const ENDPOINTS = {
     ESCALATION: (restaurantId: number) => `/sse/events/escalation/${restaurantId}`,
     STATS: "/sse/events/stats",
   },
+
+  // ============================================================================
+  // Admin Notifications
+  // ============================================================================
+  ADMIN_NOTIFICATIONS: {
+    LIST: "/admin/notifications",
+    GET: (id: number) => `/admin/notifications/${id}`,
+  },
+
+  // ============================================================================
+  // Dashboard Notifications (Client)
+  // ============================================================================
+  DASHBOARD_NOTIFICATIONS: {
+    LIST: "/dashboard/notifications",
+    UNREAD_COUNT: "/dashboard/notifications/unread-count",
+    GET: (id: number) => `/dashboard/notifications/${id}`,
+    MARK_READ: (id: number) => `/dashboard/notifications/${id}/read`,
+    MARK_ALL_READ: "/dashboard/notifications/read-all",
+  },
+
+  // ============================================================================
+  // Admin Escalations
+  // ============================================================================
+  ADMIN_ESCALATIONS: {
+    LIST: "/admin/escalations",
+    GET: (id: number) => `/admin/escalations/${id}`,
+    UPDATE_STATUS: (id: number) => `/admin/escalations/${id}/status`,
+  },
+
+  // ============================================================================
+  // Client Escalations
+  // ============================================================================
+  CLIENT_ESCALATIONS: {
+    LIST: "/client/escalations",
+    GET: (id: number) => `/client/escalations/${id}`,
+    UPDATE_STATUS: (id: number) => `/client/escalations/${id}/status`,
+  },
 } as const;

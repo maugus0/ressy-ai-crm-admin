@@ -1,6 +1,7 @@
 /**
  * SSE Context
  * Provides global access to Server-Sent Events and notifications
+ * Also handles persistent notification catch-up on login
  */
 
 import {
@@ -16,6 +17,8 @@ import {
 import { connectToSSE, disconnectFromSSE, getSSEStats } from "@/services/sse";
 import { useAuth } from "./AuthContext";
 import type { SSEEvent, SSEConnectionStats } from "@/types/api.types";
+import type { Notification, NotificationType } from "@/types/notification.types";
+import { getAdminNotifications, getAdminUnreadCount } from "@/lib/api/notifications";
 import {
   initializeAudio,
   areSoundsEnabled,
@@ -74,6 +77,22 @@ interface SSEContextType {
   stopEventSound: (eventId: string) => void;
   /** Refresh connection stats */
   refreshStats: () => Promise<void>;
+
+  // Persistent notification state
+  /** Persistent notifications from database */
+  persistentNotifications: Notification[];
+  /** Total count of persistent notifications */
+  persistentTotal: number;
+  /** Unread count for persistent notifications */
+  persistentUnreadCount: number;
+  /** Whether persistent notifications are loading */
+  isPersistentLoading: boolean;
+  /** Filter type for persistent notifications */
+  persistentFilterType: NotificationType | null;
+  /** Fetch persistent notifications */
+  fetchPersistentNotifications: (type?: NotificationType | null) => Promise<void>;
+  /** Refresh persistent unread count */
+  refreshPersistentUnreadCount: () => Promise<void>;
 }
 
 // ============================================================================
@@ -107,6 +126,14 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
   const reconnectTimeoutRef = useRef<number | null>(null);
   const statsIntervalRef = useRef<number | null>(null);
 
+  // Persistent notification state
+  const [persistentNotifications, setPersistentNotifications] = useState<Notification[]>([]);
+  const [persistentTotal, setPersistentTotal] = useState(0);
+  const [persistentUnreadCount, setPersistentUnreadCount] = useState(0);
+  const [isPersistentLoading, setIsPersistentLoading] = useState(false);
+  const [persistentFilterType, setPersistentFilterType] = useState<NotificationType | null>(null);
+  const persistentFetchedRef = useRef(false);
+
   // Initialize audio context on mount (for user interaction)
   useEffect(() => {
     // Initialize on first click/keypress to comply with browser autoplay policies
@@ -125,6 +152,71 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
       document.removeEventListener("keydown", handleUserInteraction);
     };
   }, []);
+
+  /**
+   * Fetch persistent notifications from API (catch-up on login)
+   */
+  const fetchPersistentNotifications = useCallback(
+    async (type?: NotificationType | null) => {
+      if (!isAuthenticated || !user) return;
+
+      try {
+        setIsPersistentLoading(true);
+        if (type !== undefined) {
+          setPersistentFilterType(type);
+        }
+
+        const params = {
+          type: type || persistentFilterType || undefined,
+          limit: 50,
+          offset: 0,
+        };
+
+        const response = await getAdminNotifications(params);
+        setPersistentNotifications(response.notifications);
+        setPersistentTotal(response.total);
+        setPersistentUnreadCount(response.unread_count);
+      } catch (error) {
+        console.error("Failed to fetch persistent notifications:", error);
+      } finally {
+        setIsPersistentLoading(false);
+      }
+    },
+    [isAuthenticated, user, persistentFilterType]
+  );
+
+  /**
+   * Refresh persistent unread count
+   */
+  const refreshPersistentUnreadCount = useCallback(async () => {
+    if (!isAuthenticated || !user) return;
+
+    try {
+      const count = await getAdminUnreadCount();
+      setPersistentUnreadCount(count);
+    } catch (error) {
+      console.error("Failed to refresh persistent unread count:", error);
+    }
+  }, [isAuthenticated, user]);
+
+  /**
+   * Fetch persistent notifications on login (catch-up mechanism)
+   */
+  useEffect(() => {
+    if (isAuthenticated && user && !persistentFetchedRef.current) {
+      persistentFetchedRef.current = true;
+      fetchPersistentNotifications();
+    }
+
+    // Reset on logout
+    if (!isAuthenticated) {
+      persistentFetchedRef.current = false;
+      setPersistentNotifications([]);
+      setPersistentTotal(0);
+      setPersistentUnreadCount(0);
+      setPersistentFilterType(null);
+    }
+  }, [isAuthenticated, user, fetchPersistentNotifications]);
 
   /**
    * Start looping sound for an event (no toast notifications - all go through panel)
@@ -403,6 +495,14 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         dismissEvent,
         stopEventSound,
         refreshStats,
+        // Persistent notifications
+        persistentNotifications,
+        persistentTotal,
+        persistentUnreadCount,
+        isPersistentLoading,
+        persistentFilterType,
+        fetchPersistentNotifications,
+        refreshPersistentUnreadCount,
       }}
     >
       {children}

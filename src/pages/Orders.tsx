@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -290,6 +291,8 @@ const Orders = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // Menu state for order creation
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [menuCategories, setMenuCategories] = useState<MenuCategoriesResponse>({ categories: {} });
@@ -433,6 +436,31 @@ const Orders = () => {
   useEffect(() => {
     setOffset(0);
   }, [selectedRestaurantId, statusFilter, startDate, endDate, includeDeleted]);
+
+  // Handle order_id URL parameter (from notification panel / notification history)
+  // Intentionally omit isLoadingDetails from deps: guard prevents re-entry while loading;
+  // including it would re-run the effect when loading finishes and could cause duplicate opens.
+  useEffect(() => {
+    const orderIdFromUrl = searchParams.get("order_id");
+    if (!orderIdFromUrl || isLoadingDetails) return;
+    const orderId = parseInt(orderIdFromUrl, 10);
+    if (Number.isNaN(orderId)) return;
+    setSearchParams({}, { replace: true });
+    (async () => {
+      try {
+        setIsLoadingDetails(true);
+        setIsDetailsDialogOpen(true);
+        const details = await getOrderDetails(orderId);
+        setSelectedOrder(details);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load order details");
+        setIsDetailsDialogOpen(false);
+      } finally {
+        setIsLoadingDetails(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- guard above; omit isLoadingDetails to avoid re-run on loading state change
+  }, [searchParams, setSearchParams]);
 
   // ============================================================================
   // Handlers

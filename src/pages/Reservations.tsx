@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -177,6 +178,8 @@ const Reservations = () => {
   const [formData, setFormData] = useState<ReservationFormData>(defaultFormData);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // Form validation state
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -310,6 +313,23 @@ const Reservations = () => {
 
   // Track last processed event to avoid duplicate refreshes
   const lastProcessedReservationEventRef = useRef<string | null>(null);
+
+  // Handle reservation_id URL parameter (from notification panel / notification history)
+  useEffect(() => {
+    const reservationIdFromUrl = searchParams.get("reservation_id");
+    if (!reservationIdFromUrl) return;
+    const reservationId = parseInt(reservationIdFromUrl, 10);
+    if (Number.isNaN(reservationId)) return;
+    setSearchParams({}, { replace: true });
+    getReservation(reservationId)
+      .then((details) => {
+        setSelectedReservation(details);
+        setIsDetailsDialogOpen(true);
+      })
+      .catch((err) => {
+        toast.error(err instanceof Error ? err.message : "Failed to load reservation details");
+      });
+  }, [searchParams, setSearchParams]);
 
   // Auto-refresh when reservation events arrive from SSE
   useEffect(() => {
