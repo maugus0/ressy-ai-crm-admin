@@ -23,7 +23,7 @@ export function getNotificationDisplayTitle(notification: Notification): string 
   if (dataTitle && typeof dataTitle === "string") {
     return dataTitle;
   }
-  // Fallback: use friendly subtype label for escalation if title looks like "type/subtype"
+  // Fallback: for escalation notifications without data.title, use a friendly subtype label
   if (notification.type === "escalation" && notification.subtype) {
     const label = ESCALATION_SUBTYPE_LABELS[notification.subtype as EscalationSubtype];
     if (label) return label;

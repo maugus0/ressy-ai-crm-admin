@@ -96,6 +96,7 @@ import type {
   RestaurantStats,
   PaginationInfo,
   OperatingHours,
+  SMSRedirectConfig,
 } from "@/types/api.types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TimezoneCombobox } from "@/components/ui/timezone-combobox";
@@ -362,10 +363,10 @@ const URL_REGEX = /^https?:\/\/[^\s/$.?#].[^\s]*$/i;
 const DEFAULT_ORDERS_SMS_MESSAGE = "Please place your order using the link below.";
 const DEFAULT_RESERVATIONS_SMS_MESSAGE = "Please make your reservation using the link below.";
 // Default SMS redirect config
-const DEFAULT_SMS_REDIRECT_CONFIG = {
+const DEFAULT_SMS_REDIRECT_CONFIG: SMSRedirectConfig = {
   enabled: false,
-  redirect_url: null as string | null,
-  redirect_message: null as string | null,
+  redirect_url: null,
+  redirect_message: null,
 };
 
 const Restaurants = () => {
@@ -1953,7 +1954,7 @@ const Restaurants = () => {
                             </div>
                           </div>
 
-                          {/* SMS Redirect Configuration (shown when enabled or has URL configured) */}
+                          {/* SMS Redirect Configuration (shown when enabled) */}
                           {formData.orders_sms_redirect_enabled && (
                             <SmsRedirectConfigFields
                               urlInputId="orders_redirect_url"
@@ -2093,7 +2094,7 @@ const Restaurants = () => {
                             </div>
                           </div>
 
-                          {/* SMS Redirect Configuration (shown when enabled or has URL configured) */}
+                          {/* SMS Redirect Configuration (shown when enabled) */}
                           {formData.reservations_sms_redirect_enabled && (
                             <SmsRedirectConfigFields
                               urlInputId="reservations_redirect_url"
