@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import {
   Store,
   UtensilsCrossed,
@@ -8,6 +9,8 @@ import {
   PhoneCall,
   ShoppingCart,
   CalendarDays,
+  AlertTriangle,
+  Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -19,8 +22,16 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-// Navigation items sorted alphabetically A-Z
-const navigationItems = [
+// Navigation items: Notifications and Escalations first (highlighted), then rest alphabetically A-Z
+type NavItem = {
+  name: string;
+  icon: LucideIcon;
+  path: string;
+  highlight?: boolean;
+};
+const navigationItems: NavItem[] = [
+  { name: "Notifications", icon: Bell, path: "/notifications", highlight: true },
+  { name: "Escalations", icon: AlertTriangle, path: "/escalations", highlight: true },
   { name: "Callers", icon: Phone, path: "/callers" },
   { name: "Calls", icon: PhoneCall, path: "/calls" },
   { name: "FAQs", icon: HelpCircle, path: "/faq" },
@@ -70,6 +81,7 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
+              const isHighlight = item.highlight === true;
               return (
                 <li key={item.name}>
                   <Link
@@ -79,7 +91,9 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors text-sm",
                       isActive
                         ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                      isHighlight &&
+                        "border-l-2 border-primary/80 font-medium bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/20"
                     )}
                   >
                     <Icon className="w-4 h-4" />

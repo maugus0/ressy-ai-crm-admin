@@ -10,8 +10,10 @@ import Login from "./pages/Login";
 import Callers from "./pages/Callers";
 import Calls from "./pages/Calls";
 import Escalations from "./pages/Escalations";
+import EscalationDetail from "./pages/EscalationDetail";
 import FAQ from "./pages/FAQ";
 import Menu from "./pages/Menu";
+import NotificationHistory from "./pages/NotificationHistory";
 import Orders from "./pages/Orders";
 import Reservations from "./pages/Reservations";
 import Restaurants from "./pages/Restaurants";
@@ -72,6 +74,14 @@ const App = () => (
                   }
                 />
                 <Route
+                  path="/escalations/:id"
+                  element={
+                    <ProtectedRoute>
+                      <EscalationDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
                   path="/faq"
                   element={
                     <ProtectedRoute>
@@ -84,6 +94,14 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <Menu />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/notifications"
+                  element={
+                    <ProtectedRoute>
+                      <NotificationHistory />
                     </ProtectedRoute>
                   }
                 />

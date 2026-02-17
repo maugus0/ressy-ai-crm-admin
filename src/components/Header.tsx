@@ -26,7 +26,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
 import { getRestaurants } from "@/services/restaurants";
 import { parseApiDate } from "@/lib/utils/timezone";
+import { getNotificationNavigationTarget } from "@/lib/utils/notificationNavigation";
 import type { SSEEvent, Restaurant } from "@/types/api.types";
+import type { Notification, NotificationType } from "@/types/notification.types";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -87,6 +89,20 @@ const getEventDescription = (event: SSEEvent) => {
   return restaurantName;
 };
 
+// Get icon for persistent notification type
+const getNotificationIcon = (type: NotificationType) => {
+  switch (type) {
+    case "escalation":
+      return <AlertTriangle className="h-4 w-4 text-destructive" />;
+    case "order":
+      return <ShoppingBag className="h-4 w-4 text-blue-500" />;
+    case "reservation":
+      return <CalendarDays className="h-4 w-4 text-green-500" />;
+    default:
+      return <Bell className="h-4 w-4" />;
+  }
+};
+
 export function Header({ onMenuClick, title = "Dashboard", description }: HeaderProps) {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
@@ -104,6 +120,10 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
     clearEvents,
     stopEventSound,
     refreshStats,
+    persistentNotifications,
+    persistentUnreadCount,
+    fetchPersistentNotifications,
+    isPersistentLoading,
   } = useSSE();
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isConnectionsOpen, setIsConnectionsOpen] = useState(false);
@@ -163,9 +183,14 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
 
   const handleNotificationsOpen = (open: boolean) => {
     setIsNotificationsOpen(open);
-    // Note: We don't mark notifications as read when opening the panel
-    // They are only marked as read when individually clicked
+    if (open) {
+      fetchPersistentNotifications();
+    }
   };
+
+  // Combined unread count: live SSE + persistent
+  const totalUnreadCount = unreadCount + persistentUnreadCount;
+  const hasAnyNotifications = events.length > 0 || (persistentNotifications?.length ?? 0) > 0;
 
   const handleViewEscalations = () => {
     setIsNotificationsOpen(false);
@@ -391,12 +416,12 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                 title="Notifications"
               >
                 <Bell className="w-5 h-5" />
-                {unreadCount > 0 && (
+                {totalUnreadCount > 0 && (
                   <Badge
                     variant="destructive"
                     className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1.5 text-xs flex items-center justify-center"
                   >
-                    {unreadCount > 99 ? "99+" : unreadCount}
+                    {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
                   </Badge>
                 )}
               </Button>
@@ -410,9 +435,9 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
               <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-sm">Notifications</h3>
-                  {events.length > 0 && (
+                  {hasAnyNotifications && (
                     <Badge variant="secondary" className="text-xs">
-                      {events.length}
+                      {events.length + (persistentNotifications?.length ?? 0)}
                     </Badge>
                   )}
                 </div>
@@ -452,15 +477,16 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                 </div>
               </div>
 
-              {/* Events List */}
-              {events.length > 0 ? (
+              {/* Events + Persistent Notifications List */}
+              {hasAnyNotifications || isPersistentLoading ? (
                 <ScrollArea className="h-[calc(100vh-250px)] max-h-[400px] sm:h-[400px]">
                   <div className="divide-y">
+                    {/* Live SSE events first */}
                     {events.map((event) => {
                       const isRead = event.id ? readEventIds.has(event.id) : false;
                       return (
                         <div
-                          key={event.id}
+                          key={`sse-${event.id}`}
                           className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors cursor-pointer ${
                             event.event_type === "escalation" ? "bg-destructive/5" : ""
                           } ${isRead ? "opacity-75" : ""}`}
@@ -503,35 +529,93 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                         </div>
                       );
                     })}
+                    {/* Persistent (past) notifications */}
+                    {isPersistentLoading && (persistentNotifications?.length ?? 0) === 0 ? (
+                      <div className="px-3 sm:px-4 py-4 text-center text-muted-foreground text-sm">
+                        Loading notifications…
+                      </div>
+                    ) : (
+                      (persistentNotifications ?? []).map((notification) => (
+                        <div
+                          key={`persistent-${notification.id}`}
+                          className={`px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/50 transition-colors cursor-pointer ${
+                            notification.type === "escalation" ? "bg-destructive/5" : ""
+                          } ${notification.is_read ? "opacity-75" : ""}`}
+                          onClick={() => {
+                            setIsNotificationsOpen(false);
+                            const { pathname, search } =
+                              getNotificationNavigationTarget(notification);
+                            navigate(search ? `${pathname}${search}` : pathname);
+                          }}
+                        >
+                          <div className="flex items-start gap-2 sm:gap-3">
+                            <div className="mt-0.5 flex-shrink-0">
+                              {getNotificationIcon(notification.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <p className="text-xs sm:text-sm font-medium break-words">
+                                  {notification.title}
+                                </p>
+                                {notification.is_read ? (
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                ) : (
+                                  <Circle className="h-3.5 w-3.5 text-primary flex-shrink-0 fill-primary" />
+                                )}
+                              </div>
+                              {notification.message && (
+                                <p className="text-xs text-muted-foreground break-words mt-0.5 line-clamp-2">
+                                  {notification.message}
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {formatRelativeTime(notification.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </ScrollArea>
               ) : (
                 <div className="px-3 sm:px-4 py-8 text-center text-muted-foreground">
                   <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p className="text-sm">No notifications yet</p>
-                  <p className="text-xs mt-1">Events will appear here in real-time</p>
+                  <p className="text-xs mt-1">Events and past notifications will appear here</p>
                 </div>
               )}
 
-              {/* Footer - Always show View Escalations link */}
-              <div className="px-3 sm:px-4 py-3 border-t bg-muted/30">
+              {/* Footer - View Escalations and Notifications links (same styling; Escalations highlighted) */}
+              <div className="px-3 sm:px-4 py-3 border-t bg-muted/30 space-y-2">
                 <Button
-                  variant={hasEscalations ? "default" : "outline"}
+                  variant="outline"
                   size="sm"
-                  className="w-full text-xs sm:text-sm"
+                  className="w-full text-xs sm:text-sm border-2 border-primary text-primary bg-primary/5 hover:bg-primary/10 hover:text-primary font-medium"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleViewEscalations();
                   }}
                 >
-                  <AlertTriangle
-                    className={`h-4 w-4 mr-2 flex-shrink-0 ${hasEscalations ? "" : "text-muted-foreground"}`}
-                  />
+                  <AlertTriangle className="h-4 w-4 mr-2 flex-shrink-0" />
                   <span className="truncate">
                     {hasEscalations
                       ? `View Escalations (${events.filter((e) => e.event_type === "escalation").length})`
                       : "View Escalations"}
                   </span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs sm:text-sm border-2 border-foreground/80 bg-muted/30 hover:bg-muted/50"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsNotificationsOpen(false);
+                    navigate("/notifications");
+                  }}
+                >
+                  <Bell className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span className="truncate">View All Notifications</span>
                 </Button>
               </div>
             </PopoverContent>
