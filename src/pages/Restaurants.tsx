@@ -78,6 +78,8 @@ import {
   ShoppingBag,
   AlertTriangle,
   Lock,
+  Link,
+  MessageSquare,
 } from "lucide-react";
 import {
   getRestaurants,
@@ -170,6 +172,14 @@ interface RestaurantFormData {
   open_table_details_json: string;
   features_orders_enabled: boolean;
   features_reservations_enabled: boolean;
+  // SMS Redirect for Orders
+  orders_sms_redirect_enabled: boolean;
+  orders_sms_redirect_url: string;
+  orders_sms_redirect_message: string;
+  // SMS Redirect for Reservations
+  reservations_sms_redirect_enabled: boolean;
+  reservations_sms_redirect_url: string;
+  reservations_sms_redirect_message: string;
 }
 
 // Form validation errors
@@ -186,6 +196,123 @@ interface FormErrors {
   twilio_details?: string;
   deepgram_details?: string;
   open_table_details?: string;
+  orders_sms_redirect_url?: string;
+  reservations_sms_redirect_url?: string;
+}
+
+/** Props for the SMS Redirect URL + message + preview block */
+interface SmsRedirectConfigFieldsProps {
+  urlInputId: string;
+  messageInputId: string;
+  redirectUrl: string;
+  redirectMessage: string;
+  redirectUrlError?: string;
+  defaultMessagePlaceholder: string;
+  urlPlaceholder: string;
+  urlHelpText: string;
+  showPreview: boolean;
+  onTogglePreview: () => void;
+  onRedirectUrlChange: (value: string) => void;
+  onRedirectMessageChange: (value: string) => void;
+  onClearUrlError: () => void;
+  previewContent: string;
+}
+
+/** SMS Redirect: URL input, custom message textarea, and SMS Preview. */
+function SmsRedirectConfigFields({
+  urlInputId,
+  messageInputId,
+  redirectUrl,
+  redirectMessage,
+  redirectUrlError,
+  defaultMessagePlaceholder,
+  urlPlaceholder,
+  urlHelpText,
+  showPreview,
+  onTogglePreview,
+  onRedirectUrlChange,
+  onRedirectMessageChange,
+  onClearUrlError,
+  previewContent,
+}: SmsRedirectConfigFieldsProps) {
+  return (
+    <div className="px-3 sm:px-4 pb-3 sm:pb-4 space-y-3">
+      <div className="space-y-1.5">
+        <Label htmlFor={urlInputId} className="text-xs sm:text-sm">
+          Redirect URL <span className="text-destructive">*</span>
+        </Label>
+        <div className="relative">
+          <Link className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+          <Input
+            id={urlInputId}
+            type="url"
+            value={redirectUrl}
+            onChange={(e) => {
+              onRedirectUrlChange(e.target.value);
+              onClearUrlError();
+            }}
+            placeholder={urlPlaceholder}
+            className={`pl-8 sm:pl-9 h-9 sm:h-10 text-xs sm:text-sm ${
+              redirectUrlError ? "border-destructive" : ""
+            }`}
+          />
+        </div>
+        {redirectUrlError ? (
+          <p className="text-[10px] sm:text-xs text-destructive">{redirectUrlError}</p>
+        ) : (
+          <p className="text-[10px] sm:text-xs text-muted-foreground">{urlHelpText}</p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor={messageInputId} className="text-xs sm:text-sm">
+          Custom SMS Message <span className="text-muted-foreground font-normal">(optional)</span>
+        </Label>
+        <Textarea
+          id={messageInputId}
+          value={redirectMessage}
+          onChange={(e) => onRedirectMessageChange(e.target.value)}
+          placeholder={defaultMessagePlaceholder}
+          rows={4}
+          className="text-xs sm:text-sm resize-none"
+        />
+        <p className="text-[10px] sm:text-xs text-muted-foreground">
+          Optional. Customize the instruction text customers see in the SMS. Leave blank to use the
+          default message. The link and signature are added automatically.
+        </p>
+      </div>
+
+      {/* SMS Preview */}
+      <div className="space-y-1.5">
+        <button
+          type="button"
+          onClick={onTogglePreview}
+          className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Eye className="h-3.5 w-3.5" />
+          SMS Preview
+          {showPreview ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </button>
+        {showPreview && (
+          <div className="p-3 rounded-lg bg-muted/50 border">
+            <div className="flex items-center gap-1.5 mb-2">
+              <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
+                SMS Preview
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm whitespace-pre-wrap font-mono bg-background p-2 rounded border">
+              {previewContent}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 const defaultFormData: RestaurantFormData = {
@@ -207,10 +334,30 @@ const defaultFormData: RestaurantFormData = {
   open_table_details_json: "{}",
   features_orders_enabled: true,
   features_reservations_enabled: true,
+  // SMS Redirect defaults
+  orders_sms_redirect_enabled: false,
+  orders_sms_redirect_url: "",
+  orders_sms_redirect_message: "",
+  reservations_sms_redirect_enabled: false,
+  reservations_sms_redirect_url: "",
+  reservations_sms_redirect_message: "",
 };
 
 // Phone number validation regex (E.164 format)
 const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
+
+// URL validation regex (requires http:// or https://)
+const URL_REGEX = /^https?:\/\/.+/i;
+
+// Default SMS redirect messages (instruction text only; URL and signature are added by the backend)
+const DEFAULT_ORDERS_SMS_MESSAGE = "Please place your order using the link below.";
+const DEFAULT_RESERVATIONS_SMS_MESSAGE = "Please make your reservation using the link below.";
+// Default SMS redirect config
+const DEFAULT_SMS_REDIRECT_CONFIG = {
+  enabled: false,
+  redirect_url: null as string | null,
+  redirect_message: null as string | null,
+};
 
 const Restaurants = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -241,6 +388,59 @@ const Restaurants = () => {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [activeTab, setActiveTab] = useState("basic");
   const timeZoneOptions = useMemo(() => [...getSupportedTimeZones()].sort(), []);
+
+  // SMS Redirect message preview expansion states
+  const [showOrdersMessagePreview, setShowOrdersMessagePreview] = useState(false);
+  const [showReservationsMessagePreview, setShowReservationsMessagePreview] = useState(false);
+
+  /**
+   * Update form data with mutual exclusivity logic for SMS redirect toggles.
+   * When enabling direct orders/reservations, disable SMS redirect and vice versa.
+   */
+  const updateFormDataWithExclusivity = (updates: Partial<RestaurantFormData>) => {
+    setFormData((prev) => {
+      const newData = { ...prev, ...updates };
+
+      // Handle mutual exclusivity: SMS redirect requires direct handling to be disabled
+      // When enabling direct orders, disable SMS redirect for orders
+      if (updates.features_orders_enabled === true) {
+        newData.orders_sms_redirect_enabled = false;
+      }
+      // When enabling SMS redirect for orders, disable direct orders
+      if (updates.orders_sms_redirect_enabled === true) {
+        newData.features_orders_enabled = false;
+      }
+      // When enabling direct reservations, disable SMS redirect for reservations
+      if (updates.features_reservations_enabled === true) {
+        newData.reservations_sms_redirect_enabled = false;
+      }
+      // When enabling SMS redirect for reservations, disable direct reservations
+      if (updates.reservations_sms_redirect_enabled === true) {
+        newData.features_reservations_enabled = false;
+      }
+
+      return newData;
+    });
+  };
+
+  /**
+   * Generate SMS message preview in the same format as the backend:
+   * Hello. + instruction text + URL + signature
+   */
+  const getSmsMessagePreview = (
+    type: "orders" | "reservations",
+    restaurantName: string
+  ): string => {
+    const isOrders = type === "orders";
+    const instructionText = isOrders
+      ? formData.orders_sms_redirect_message.trim() || DEFAULT_ORDERS_SMS_MESSAGE
+      : formData.reservations_sms_redirect_message.trim() || DEFAULT_RESERVATIONS_SMS_MESSAGE;
+    const url = isOrders
+      ? formData.orders_sms_redirect_url.trim() || "https://your-link-here.com"
+      : formData.reservations_sms_redirect_url.trim() || "https://your-link-here.com";
+
+    return `Hello.\n${instructionText}\n\n${url}\n\nYours sincerely,\n${restaurantName} via Ressy AI`;
+  };
 
   /**
    * Copy hours from one day to all days
@@ -442,6 +642,22 @@ const Restaurants = () => {
       errors.open_table_details = openTableResult.error;
     }
 
+    // SMS Redirect URL validation (required when enabled)
+    if (formData.orders_sms_redirect_enabled) {
+      if (!formData.orders_sms_redirect_url.trim()) {
+        errors.orders_sms_redirect_url = "URL is required when SMS redirect is enabled";
+      } else if (!URL_REGEX.test(formData.orders_sms_redirect_url.trim())) {
+        errors.orders_sms_redirect_url = "URL must start with http:// or https://";
+      }
+    }
+    if (formData.reservations_sms_redirect_enabled) {
+      if (!formData.reservations_sms_redirect_url.trim()) {
+        errors.reservations_sms_redirect_url = "URL is required when SMS redirect is enabled";
+      } else if (!URL_REGEX.test(formData.reservations_sms_redirect_url.trim())) {
+        errors.reservations_sms_redirect_url = "URL must start with http:// or https://";
+      }
+    }
+
     setFormErrors(errors);
     return { valid: Object.keys(errors).length === 0, errors };
   };
@@ -459,7 +675,12 @@ const Restaurants = () => {
         validation.errors.escalation_phone_number
       ) {
         setActiveTab("basic");
-      } else if (validation.errors.forward_minutes || validation.errors.backward_minutes) {
+      } else if (
+        validation.errors.forward_minutes ||
+        validation.errors.backward_minutes ||
+        validation.errors.orders_sms_redirect_url ||
+        validation.errors.reservations_sms_redirect_url
+      ) {
         setActiveTab("settings");
       } else if (
         validation.errors.twilio_details ||
@@ -494,6 +715,16 @@ const Restaurants = () => {
         orders_enabled: formData.features_orders_enabled,
         reservations_enabled: formData.features_reservations_enabled,
         faqs_enabled: true, // Always true; FAQ feature is required for the agent to function correctly
+        orders_sms_redirect: {
+          enabled: formData.orders_sms_redirect_enabled,
+          redirect_url: formData.orders_sms_redirect_url.trim() || null,
+          redirect_message: formData.orders_sms_redirect_message.trim() || null,
+        },
+        reservations_sms_redirect: {
+          enabled: formData.reservations_sms_redirect_enabled,
+          redirect_url: formData.reservations_sms_redirect_url.trim() || null,
+          redirect_message: formData.reservations_sms_redirect_message.trim() || null,
+        },
       },
     };
   };
@@ -578,6 +809,12 @@ const Restaurants = () => {
       });
     }
 
+    // Extract SMS redirect configs with defaults
+    const ordersSmsRedirect =
+      restaurant.features?.orders_sms_redirect ?? DEFAULT_SMS_REDIRECT_CONFIG;
+    const reservationsSmsRedirect =
+      restaurant.features?.reservations_sms_redirect ?? DEFAULT_SMS_REDIRECT_CONFIG;
+
     setFormData({
       name: restaurant.name,
       address: restaurant.address,
@@ -597,6 +834,14 @@ const Restaurants = () => {
       open_table_details_json: JSON.stringify(restaurant.open_table_details || {}, null, 2),
       features_orders_enabled: restaurant.features?.orders_enabled ?? true,
       features_reservations_enabled: restaurant.features?.reservations_enabled ?? true,
+      // SMS Redirect for Orders
+      orders_sms_redirect_enabled: ordersSmsRedirect.enabled,
+      orders_sms_redirect_url: ordersSmsRedirect.redirect_url || "",
+      orders_sms_redirect_message: ordersSmsRedirect.redirect_message || "",
+      // SMS Redirect for Reservations
+      reservations_sms_redirect_enabled: reservationsSmsRedirect.enabled,
+      reservations_sms_redirect_url: reservationsSmsRedirect.redirect_url || "",
+      reservations_sms_redirect_message: reservationsSmsRedirect.redirect_message || "",
     });
     setActiveTab("basic");
     setIsEditDialogOpen(true);
@@ -907,16 +1152,24 @@ const Restaurants = () => {
                                   <Tooltip>
                                     <TooltipTrigger>
                                       <div
-                                        className={`p-1 rounded ${restaurant.features?.orders_enabled !== false ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}
+                                        className={`p-1 rounded ${
+                                          restaurant.features?.orders_enabled !== false
+                                            ? "bg-green-100 text-green-700"
+                                            : restaurant.features?.orders_sms_redirect?.enabled
+                                              ? "bg-blue-100 text-blue-700"
+                                              : "bg-gray-100 text-gray-400"
+                                        }`}
                                       >
                                         <ShoppingBag className="h-3 w-3" />
                                       </div>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      Orders{" "}
+                                      Orders:{" "}
                                       {restaurant.features?.orders_enabled !== false
-                                        ? "enabled"
-                                        : "disabled"}
+                                        ? "Direct"
+                                        : restaurant.features?.orders_sms_redirect?.enabled
+                                          ? "SMS Redirect"
+                                          : "Disabled"}
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -925,16 +1178,25 @@ const Restaurants = () => {
                                   <Tooltip>
                                     <TooltipTrigger>
                                       <div
-                                        className={`p-1 rounded ${restaurant.features?.reservations_enabled !== false ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}
+                                        className={`p-1 rounded ${
+                                          restaurant.features?.reservations_enabled !== false
+                                            ? "bg-green-100 text-green-700"
+                                            : restaurant.features?.reservations_sms_redirect
+                                                  ?.enabled
+                                              ? "bg-blue-100 text-blue-700"
+                                              : "bg-gray-100 text-gray-400"
+                                        }`}
                                       >
                                         <CalendarDays className="h-3 w-3" />
                                       </div>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      Reservations{" "}
+                                      Reservations:{" "}
                                       {restaurant.features?.reservations_enabled !== false
-                                        ? "enabled"
-                                        : "disabled"}
+                                        ? "Direct"
+                                        : restaurant.features?.reservations_sms_redirect?.enabled
+                                          ? "SMS Redirect"
+                                          : "Disabled"}
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -1575,91 +1837,349 @@ const Restaurants = () => {
                       <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-300">
                         <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                         <span>
-                          Disabling capabilities will route those requests to restaurant staff via
-                          escalation.
+                          Disabling a capability will route those requests to your staff. Enable SMS
+                          Redirect to send customers a link instead of processing requests directly.
                         </span>
                       </div>
 
-                      {/* Orders Toggle */}
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label
-                            htmlFor="features_orders"
-                            className="text-sm font-medium flex items-center gap-2"
-                          >
-                            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-                            Pickup Orders
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            Handle pickup order requests
-                          </p>
+                      {/* ==================== ORDERS SECTION ==================== */}
+                      <div className="rounded-lg border overflow-hidden">
+                        {/* Orders (Direct) Toggle */}
+                        <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/30">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                              <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                            </div>
+                            <div className="space-y-0.5 min-w-0">
+                              <Label
+                                htmlFor="features_orders"
+                                className="text-xs sm:text-sm font-medium cursor-pointer block"
+                              >
+                                Pickup Orders (Direct)
+                              </Label>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground">
+                                Allow RessyAI to take and manage pickup orders directly
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {formData.features_orders_enabled && (
+                              <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                Active
+                              </span>
+                            )}
+                            <Switch
+                              id="features_orders"
+                              checked={formData.features_orders_enabled}
+                              onCheckedChange={(checked) =>
+                                updateFormDataWithExclusivity({ features_orders_enabled: checked })
+                              }
+                              disabled={formData.orders_sms_redirect_enabled}
+                              className="shrink-0"
+                            />
+                          </div>
                         </div>
-                        <Switch
-                          id="features_orders"
-                          checked={formData.features_orders_enabled}
-                          onCheckedChange={(checked) =>
-                            setFormData({ ...formData, features_orders_enabled: checked })
-                          }
-                        />
+
+                        {/* Orders SMS Redirect Sub-section */}
+                        <div className="border-t bg-muted/10">
+                          <div className="flex items-center justify-between p-3 sm:p-4">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="p-1.5 sm:p-2 rounded-lg bg-blue-500/10 shrink-0">
+                                <Link className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
+                              </div>
+                              <div className="space-y-0.5 min-w-0">
+                                <Label
+                                  htmlFor="orders_sms_redirect"
+                                  className="text-xs sm:text-sm font-medium cursor-pointer block flex items-center gap-1.5"
+                                >
+                                  SMS Redirect for Orders
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          className="inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-none"
+                                        >
+                                          <HelpCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-[280px]">
+                                        <p>
+                                          Instead of RessyAI processing orders, customers receive an
+                                          SMS with a link to your online ordering platform.
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </Label>
+                                <p className="text-[10px] sm:text-xs text-muted-foreground">
+                                  Send customers an SMS with your online ordering link
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {formData.orders_sms_redirect_enabled && (
+                                <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                  Active
+                                </span>
+                              )}
+                              <Switch
+                                id="orders_sms_redirect"
+                                checked={formData.orders_sms_redirect_enabled}
+                                onCheckedChange={(checked) => {
+                                  // Clear URL validation error when disabling
+                                  if (!checked) {
+                                    setFormErrors((prev) => ({
+                                      ...prev,
+                                      orders_sms_redirect_url: undefined,
+                                    }));
+                                  }
+                                  updateFormDataWithExclusivity({
+                                    orders_sms_redirect_enabled: checked,
+                                  });
+                                }}
+                                disabled={formData.features_orders_enabled}
+                                className="shrink-0"
+                              />
+                            </div>
+                          </div>
+
+                          {/* SMS Redirect Configuration (shown when enabled or has URL configured) */}
+                          {(formData.orders_sms_redirect_enabled ||
+                            formData.orders_sms_redirect_url) && (
+                            <SmsRedirectConfigFields
+                              urlInputId="orders_redirect_url"
+                              messageInputId="orders_redirect_message"
+                              redirectUrl={formData.orders_sms_redirect_url}
+                              redirectMessage={formData.orders_sms_redirect_message}
+                              redirectUrlError={formErrors.orders_sms_redirect_url}
+                              defaultMessagePlaceholder={DEFAULT_ORDERS_SMS_MESSAGE}
+                              urlPlaceholder="https://order.yourrestaurant.com"
+                              urlHelpText="URL to your online ordering platform (must start with http:// or https://)"
+                              showPreview={showOrdersMessagePreview}
+                              onTogglePreview={() =>
+                                setShowOrdersMessagePreview(!showOrdersMessagePreview)
+                              }
+                              onRedirectUrlChange={(value) =>
+                                setFormData({ ...formData, orders_sms_redirect_url: value })
+                              }
+                              onRedirectMessageChange={(value) =>
+                                setFormData({ ...formData, orders_sms_redirect_message: value })
+                              }
+                              onClearUrlError={() =>
+                                setFormErrors((prev) => ({
+                                  ...prev,
+                                  orders_sms_redirect_url: undefined,
+                                }))
+                              }
+                              previewContent={getSmsMessagePreview(
+                                "orders",
+                                formData.name || "Your Restaurant"
+                              )}
+                            />
+                          )}
+                        </div>
                       </div>
 
-                      <Separator />
-
-                      {/* Reservations Toggle */}
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label
-                            htmlFor="features_reservations"
-                            className="text-sm font-medium flex items-center gap-2"
-                          >
-                            <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                            Reservations
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            Handle table reservation requests
-                          </p>
+                      {/* ==================== RESERVATIONS SECTION ==================== */}
+                      <div className="rounded-lg border overflow-hidden">
+                        {/* Reservations (Direct) Toggle */}
+                        <div className="flex items-center justify-between p-3 sm:p-4 bg-muted/30">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                              <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                            </div>
+                            <div className="space-y-0.5 min-w-0">
+                              <Label
+                                htmlFor="features_reservations"
+                                className="text-xs sm:text-sm font-medium cursor-pointer block"
+                              >
+                                Reservations (Direct)
+                              </Label>
+                              <p className="text-[10px] sm:text-xs text-muted-foreground">
+                                Allow RessyAI to book and manage table reservations directly
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {formData.features_reservations_enabled && (
+                              <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                Active
+                              </span>
+                            )}
+                            <Switch
+                              id="features_reservations"
+                              checked={formData.features_reservations_enabled}
+                              onCheckedChange={(checked) =>
+                                updateFormDataWithExclusivity({
+                                  features_reservations_enabled: checked,
+                                })
+                              }
+                              disabled={formData.reservations_sms_redirect_enabled}
+                              className="shrink-0"
+                            />
+                          </div>
                         </div>
-                        <Switch
-                          id="features_reservations"
-                          checked={formData.features_reservations_enabled}
-                          onCheckedChange={(checked) =>
-                            setFormData({ ...formData, features_reservations_enabled: checked })
-                          }
-                        />
+
+                        {/* Reservations SMS Redirect Sub-section */}
+                        <div className="border-t bg-muted/10">
+                          <div className="flex items-center justify-between p-3 sm:p-4">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="p-1.5 sm:p-2 rounded-lg bg-blue-500/10 shrink-0">
+                                <Link className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
+                              </div>
+                              <div className="space-y-0.5 min-w-0">
+                                <Label
+                                  htmlFor="reservations_sms_redirect"
+                                  className="text-xs sm:text-sm font-medium cursor-pointer block flex items-center gap-1.5"
+                                >
+                                  SMS Redirect for Reservations
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          className="inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground focus:outline-none"
+                                        >
+                                          <HelpCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="top" className="max-w-[280px]">
+                                        <p>
+                                          Instead of RessyAI booking reservations, customers receive
+                                          an SMS with a link to your reservation platform.
+                                        </p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </Label>
+                                <p className="text-[10px] sm:text-xs text-muted-foreground">
+                                  Send customers an SMS with your reservation platform link
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {formData.reservations_sms_redirect_enabled && (
+                                <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                  Active
+                                </span>
+                              )}
+                              <Switch
+                                id="reservations_sms_redirect"
+                                checked={formData.reservations_sms_redirect_enabled}
+                                onCheckedChange={(checked) => {
+                                  // Clear URL validation error when disabling
+                                  if (!checked) {
+                                    setFormErrors((prev) => ({
+                                      ...prev,
+                                      reservations_sms_redirect_url: undefined,
+                                    }));
+                                  }
+                                  updateFormDataWithExclusivity({
+                                    reservations_sms_redirect_enabled: checked,
+                                  });
+                                }}
+                                disabled={formData.features_reservations_enabled}
+                                className="shrink-0"
+                              />
+                            </div>
+                          </div>
+
+                          {/* SMS Redirect Configuration (shown when enabled or has URL configured) */}
+                          {(formData.reservations_sms_redirect_enabled ||
+                            formData.reservations_sms_redirect_url) && (
+                            <SmsRedirectConfigFields
+                              urlInputId="reservations_redirect_url"
+                              messageInputId="reservations_redirect_message"
+                              redirectUrl={formData.reservations_sms_redirect_url}
+                              redirectMessage={formData.reservations_sms_redirect_message}
+                              redirectUrlError={formErrors.reservations_sms_redirect_url}
+                              defaultMessagePlaceholder={DEFAULT_RESERVATIONS_SMS_MESSAGE}
+                              urlPlaceholder="https://reserve.yourrestaurant.com"
+                              urlHelpText="URL to your reservation platform (must start with http:// or https://)"
+                              showPreview={showReservationsMessagePreview}
+                              onTogglePreview={() =>
+                                setShowReservationsMessagePreview(!showReservationsMessagePreview)
+                              }
+                              onRedirectUrlChange={(value) =>
+                                setFormData({ ...formData, reservations_sms_redirect_url: value })
+                              }
+                              onRedirectMessageChange={(value) =>
+                                setFormData({
+                                  ...formData,
+                                  reservations_sms_redirect_message: value,
+                                })
+                              }
+                              onClearUrlError={() =>
+                                setFormErrors((prev) => ({
+                                  ...prev,
+                                  reservations_sms_redirect_url: undefined,
+                                }))
+                              }
+                              previewContent={getSmsMessagePreview(
+                                "reservations",
+                                formData.name || "Your Restaurant"
+                              )}
+                            />
+                          )}
+                        </div>
                       </div>
 
-                      <Separator />
-
+                      {/* ==================== FAQs SECTION ==================== */}
                       {/* FAQs Toggle - Always ON (required for agent) */}
-                      <div className="flex items-center justify-between opacity-90">
-                        <div className="space-y-0.5">
-                          <Label
-                            htmlFor="features_faqs"
-                            className="text-sm font-medium flex items-center gap-2"
-                          >
-                            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                            FAQs & General Questions
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  FAQ feature is always enabled for the agent to function correctly
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </Label>
-                          <p className="text-xs text-muted-foreground">
-                            Answer menu and general inquiries (always on)
-                          </p>
+                      <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg border bg-muted/30 opacity-80 cursor-not-allowed">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="p-1.5 sm:p-2 rounded-lg bg-primary/10 shrink-0">
+                            <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                          </div>
+                          <div className="space-y-0.5 min-w-0">
+                            <Label className="text-xs sm:text-sm font-medium block flex items-center gap-1.5">
+                              FAQs & General Questions
+                              <Lock className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
+                            </Label>
+                            <p className="text-[10px] sm:text-xs text-muted-foreground">
+                              Answer menu and general inquiries (always on)
+                            </p>
+                          </div>
                         </div>
-                        <Switch
-                          id="features_faqs"
-                          checked={true}
-                          disabled
-                          className="data-[state=checked]:opacity-70"
-                        />
+                        <Switch checked={true} disabled className="shrink-0 opacity-70" />
+                      </div>
+
+                      {/* ==================== STATUS SUMMARY ==================== */}
+                      <div className="flex flex-col gap-2 p-2.5 sm:p-3 rounded-lg bg-muted/50 border">
+                        <div className="flex items-center gap-2">
+                          <Bot className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground shrink-0" />
+                          <span className="text-xs sm:text-sm text-muted-foreground">
+                            RessyAI is handling:{" "}
+                            <span className="font-medium text-foreground">
+                              {[
+                                formData.features_orders_enabled && "Orders (Direct)",
+                                formData.orders_sms_redirect_enabled && "Orders (SMS Redirect)",
+                                formData.features_reservations_enabled && "Reservations (Direct)",
+                                formData.reservations_sms_redirect_enabled &&
+                                  "Reservations (SMS Redirect)",
+                                "FAQs",
+                              ]
+                                .filter(Boolean)
+                                .join(", ")}
+                            </span>
+                          </span>
+                        </div>
+                        {(formData.orders_sms_redirect_enabled ||
+                          formData.reservations_sms_redirect_enabled) && (
+                          <div className="flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
+                            <Link className="h-3 w-3 shrink-0" />
+                            <span>
+                              SMS redirects active for:{" "}
+                              {[
+                                formData.orders_sms_redirect_enabled && "Orders",
+                                formData.reservations_sms_redirect_enabled && "Reservations",
+                              ]
+                                .filter(Boolean)
+                                .join(", ")}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -1986,48 +2506,74 @@ const Restaurants = () => {
                 <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <Bot className="h-4 w-4" /> Agent Capabilities
                 </h4>
-                <div className="grid grid-cols-3 gap-3 text-sm">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`h-2 w-2 rounded-full ${restaurantDetails.features?.orders_enabled !== false ? "bg-green-500" : "bg-gray-300"}`}
-                    />
-                    <span
-                      className={
-                        restaurantDetails.features?.orders_enabled !== false
-                          ? ""
-                          : "text-muted-foreground"
-                      }
-                    >
-                      Orders
-                    </span>
+                <div className="space-y-3 text-sm">
+                  {/* Orders */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+                      <span>Orders</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {restaurantDetails.features?.orders_enabled !== false ? (
+                        <Badge className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          Direct
+                        </Badge>
+                      ) : restaurantDetails.features?.orders_sms_redirect?.enabled ? (
+                        <Badge className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                          SMS Redirect
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">
+                          Disabled
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`h-2 w-2 rounded-full ${restaurantDetails.features?.reservations_enabled !== false ? "bg-green-500" : "bg-gray-300"}`}
-                    />
-                    <span
-                      className={
-                        restaurantDetails.features?.reservations_enabled !== false
-                          ? ""
-                          : "text-muted-foreground"
-                      }
-                    >
-                      Reservations
-                    </span>
+                  {restaurantDetails.features?.orders_sms_redirect?.enabled &&
+                    restaurantDetails.features?.orders_sms_redirect?.redirect_url && (
+                      <div className="ml-6 text-xs text-muted-foreground truncate">
+                        → {restaurantDetails.features.orders_sms_redirect.redirect_url}
+                      </div>
+                    )}
+
+                  {/* Reservations */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                      <span>Reservations</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {restaurantDetails.features?.reservations_enabled !== false ? (
+                        <Badge className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                          Direct
+                        </Badge>
+                      ) : restaurantDetails.features?.reservations_sms_redirect?.enabled ? (
+                        <Badge className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                          SMS Redirect
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-xs">
+                          Disabled
+                        </Badge>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`h-2 w-2 rounded-full ${restaurantDetails.features?.faqs_enabled !== false ? "bg-green-500" : "bg-gray-300"}`}
-                    />
-                    <span
-                      className={
-                        restaurantDetails.features?.faqs_enabled !== false
-                          ? ""
-                          : "text-muted-foreground"
-                      }
-                    >
-                      FAQs
-                    </span>
+                  {restaurantDetails.features?.reservations_sms_redirect?.enabled &&
+                    restaurantDetails.features?.reservations_sms_redirect?.redirect_url && (
+                      <div className="ml-6 text-xs text-muted-foreground truncate">
+                        → {restaurantDetails.features.reservations_sms_redirect.redirect_url}
+                      </div>
+                    )}
+
+                  {/* FAQs */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                      <span>FAQs</span>
+                    </div>
+                    <Badge className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      Always On
+                    </Badge>
                   </div>
                 </div>
               </div>

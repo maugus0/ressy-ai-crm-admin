@@ -28,10 +28,27 @@ export interface PaginationParams {
 // Restaurant
 // ============================================================================
 
+/**
+ * SMS Redirect Configuration
+ * Configuration for redirecting order/reservation requests to external platforms via SMS
+ */
+export interface SMSRedirectConfig {
+  /** Whether SMS redirect is enabled for this capability */
+  enabled: boolean;
+  /** URL to redirect customers to (required when enabled) */
+  redirect_url: string | null;
+  /** Custom SMS message template (null = use default) */
+  redirect_message: string | null;
+}
+
 export interface RestaurantFeatures {
   orders_enabled?: boolean;
   reservations_enabled?: boolean;
   faqs_enabled?: boolean;
+  /** SMS redirect configuration for orders (when orders_enabled is false) */
+  orders_sms_redirect?: SMSRedirectConfig | null;
+  /** SMS redirect configuration for reservations (when reservations_enabled is false) */
+  reservations_sms_redirect?: SMSRedirectConfig | null;
 }
 
 export interface DayHours {
