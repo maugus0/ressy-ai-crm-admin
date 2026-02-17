@@ -24,6 +24,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useSSE } from "@/contexts/SSEContext";
 import { getRestaurants } from "@/services/restaurants";
 import { getNotificationNavigationTarget } from "@/lib/utils/notificationNavigation";
+import {
+  getNotificationDisplayTitle,
+  getNotificationDisplayMessage,
+} from "@/lib/utils/notificationDisplay";
 import { formatRelativeTime } from "@/lib/utils/formatRelativeTime";
 import { getSSEEventIcon, getNotificationTypeIcon } from "@/lib/utils/notificationIcons";
 import type { SSEEvent, Restaurant } from "@/types/api.types";
@@ -519,7 +523,7 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-1 min-w-0">
                                 <p className="text-xs sm:text-sm font-medium break-words">
-                                  {notification.title}
+                                  {getNotificationDisplayTitle(notification)}
                                 </p>
                                 {notification.is_read ? (
                                   <CheckCircle2 className="h-3.5 w-3.5 text-green-600 dark:text-green-400 flex-shrink-0" />
@@ -527,9 +531,9 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
                                   <Circle className="h-3.5 w-3.5 text-primary flex-shrink-0 fill-primary" />
                                 )}
                               </div>
-                              {notification.message && (
+                              {getNotificationDisplayMessage(notification) && (
                                 <p className="text-xs text-muted-foreground break-words mt-0.5 line-clamp-2">
-                                  {notification.message}
+                                  {getNotificationDisplayMessage(notification)}
                                 </p>
                               )}
                               <p className="text-xs text-muted-foreground mt-1">
