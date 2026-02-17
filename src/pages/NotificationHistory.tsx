@@ -36,6 +36,8 @@ import {
 } from "@/lib/utils/notificationIcons";
 import type { Notification, NotificationType } from "@/types/notification.types";
 
+const PAGE_SIZE = 20;
+
 // ============================================================================
 // Component
 // ============================================================================
@@ -51,7 +53,6 @@ const NotificationHistory = () => {
   const [filterType, setFilterType] = useState<NotificationType | "all">("all");
   const [filterReadStatus, setFilterReadStatus] = useState<"all" | "unread" | "read">("all");
   const [restaurantNames, setRestaurantNames] = useState<Record<number, string>>({});
-  const pageSize = 20;
 
   // Fetch restaurant names for display (API allows max limit 100)
   useEffect(() => {
@@ -72,8 +73,8 @@ const NotificationHistory = () => {
       const params = {
         type: filterType === "all" ? undefined : filterType,
         is_read: filterReadStatus === "all" ? undefined : filterReadStatus === "read",
-        limit: pageSize,
-        offset: (page - 1) * pageSize,
+        limit: PAGE_SIZE,
+        offset: (page - 1) * PAGE_SIZE,
       };
       const response = await getAdminNotifications(params);
       setNotifications(response.notifications);
@@ -84,7 +85,7 @@ const NotificationHistory = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [filterType, filterReadStatus, page, pageSize]);
+  }, [filterType, filterReadStatus, page]);
 
   useEffect(() => {
     fetchNotifications();
@@ -105,7 +106,7 @@ const NotificationHistory = () => {
     navigate(search ? `${pathname}${search}` : pathname);
   };
 
-  const totalPages = Math.ceil(total / pageSize);
+  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <div className="flex min-h-screen bg-background">

@@ -31,6 +31,7 @@ import {
   XCircle,
   AlertCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { getAdminEscalation, updateAdminEscalationStatus } from "@/lib/api/escalations";
 import { formatLocalDateTimeParts } from "@/lib/utils/timezone";
 import {
@@ -97,6 +98,7 @@ const EscalationDetail = () => {
       const updated = await updateAdminEscalationStatus(escalation.id, status);
       setEscalation(updated);
     } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update status");
       console.error("Failed to update status:", err);
     } finally {
       setIsUpdating(false);

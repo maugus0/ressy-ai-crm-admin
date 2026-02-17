@@ -438,6 +438,8 @@ const Orders = () => {
   }, [selectedRestaurantId, statusFilter, startDate, endDate, includeDeleted]);
 
   // Handle order_id URL parameter (from notification panel / notification history)
+  // Intentionally omit isLoadingDetails from deps: guard prevents re-entry while loading;
+  // including it would re-run the effect when loading finishes and could cause duplicate opens.
   useEffect(() => {
     const orderIdFromUrl = searchParams.get("order_id");
     if (!orderIdFromUrl || isLoadingDetails) return;
@@ -457,7 +459,8 @@ const Orders = () => {
         setIsLoadingDetails(false);
       }
     })();
-  }, [searchParams, setSearchParams, isLoadingDetails]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- guard above; omit isLoadingDetails to avoid re-run on loading state change
+  }, [searchParams, setSearchParams]);
 
   // ============================================================================
   // Handlers
