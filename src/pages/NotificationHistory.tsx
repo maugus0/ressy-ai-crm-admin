@@ -34,7 +34,12 @@ import {
   getNotificationTypeIcon,
   notificationTypeBadgeColors,
 } from "@/lib/utils/notificationIcons";
-import type { Notification, NotificationType } from "@/types/notification.types";
+import {
+  getNotificationDisplayTitle,
+  getNotificationDisplayMessage,
+  getEscalationSubtypeLabel,
+} from "@/lib/utils/notificationDisplay";
+import type { Notification, NotificationType, EscalationSubtype } from "@/types/notification.types";
 
 const PAGE_SIZE = 20;
 
@@ -208,15 +213,19 @@ const NotificationHistory = () => {
                               <Badge
                                 className={`capitalize ${notificationTypeBadgeColors[notification.type] ?? ""}`}
                               >
-                                {notification.type}
+                                {notification.type === "escalation" && notification.subtype
+                                  ? getEscalationSubtypeLabel(
+                                      notification.subtype as EscalationSubtype
+                                    )
+                                  : notification.type}
                               </Badge>
                             </div>
                           </TableCell>
                           <TableCell className="font-medium max-w-[200px] truncate">
-                            {notification.title}
+                            {getNotificationDisplayTitle(notification)}
                           </TableCell>
                           <TableCell className="hidden md:table-cell max-w-[300px] truncate text-muted-foreground">
-                            {notification.message || "-"}
+                            {getNotificationDisplayMessage(notification) || "-"}
                           </TableCell>
                           <TableCell className="text-muted-foreground">
                             {restaurantNames[notification.restaurant_id] ??
