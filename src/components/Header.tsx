@@ -46,6 +46,7 @@ const getEventTitle = (event: SSEEvent) => {
     internal_server_error: "System Error",
     suspected_spam: "Spam Detected",
     sms_redirect_failed: "SMS Redirect Failed",
+    kill_switch_redirected: "Kill Switch Redirected",
     new_order: "New Order",
     order_updated: "Order Updated",
     order_cancelled: "Order Cancelled",

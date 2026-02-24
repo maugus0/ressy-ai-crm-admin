@@ -11,6 +11,7 @@ import Callers from "./pages/Callers";
 import Calls from "./pages/Calls";
 import Escalations from "./pages/Escalations";
 import EscalationDetail from "./pages/EscalationDetail";
+import KillSwitch from "./pages/KillSwitch";
 import FAQ from "./pages/FAQ";
 import Menu from "./pages/Menu";
 import NotificationHistory from "./pages/NotificationHistory";
@@ -78,6 +79,14 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <EscalationDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/kill-switch"
+                  element={
+                    <ProtectedRoute>
+                      <KillSwitch />
                     </ProtectedRoute>
                   }
                 />

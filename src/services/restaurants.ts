@@ -3,12 +3,16 @@
  * Handles restaurant-related API calls
  */
 
-import { api } from "@/lib/api/client";
+import { api, getAccessToken } from "@/lib/api/client";
 import { ENDPOINTS } from "@/lib/api/endpoints";
+import { env } from "@/config/env";
+import { refreshTokenDirect } from "@/lib/utils/tokenRefresh";
 import type {
   Restaurant,
   RestaurantParams,
   RestaurantCreateRequest,
+  RestaurantKillSwitchBulkResponse,
+  RestaurantKillSwitchUpdateRequest,
   RestaurantUpdateRequest,
   RestaurantStats,
   PaginatedResponse,
@@ -30,6 +34,57 @@ const getErrorMessage = (error: string | null, fallback: string): string => {
   if (typeof error === "string") return error;
 
   return fallback;
+};
+
+interface KillSwitchErrorDetail {
+  message?: string;
+  kill_switch_blockers?: string[];
+}
+
+interface KillSwitchErrorResponse {
+  detail?: string | KillSwitchErrorDetail;
+  message?: string;
+}
+
+export class RestaurantKillSwitchError extends Error {
+  killSwitchBlockers: string[];
+
+  constructor(message: string, killSwitchBlockers: string[] = []) {
+    super(message);
+    this.name = "RestaurantKillSwitchError";
+    this.killSwitchBlockers = killSwitchBlockers;
+  }
+}
+
+const executeKillSwitchRequest = async (
+  id: number,
+  data: RestaurantKillSwitchUpdateRequest
+): Promise<Response> => {
+  const url = `${env.API_URL}${ENDPOINTS.RESTAURANTS.KILL_SWITCH(id)}`;
+
+  const makeRequest = (token: string | null) =>
+    fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(data),
+    });
+
+  let token = getAccessToken();
+  let response = await makeRequest(token);
+
+  if (response.status === 401 && token) {
+    const refreshResult = await refreshTokenDirect();
+    if (refreshResult.success) {
+      token = getAccessToken();
+      response = await makeRequest(token);
+    }
+  }
+
+  return response;
 };
 
 // ============================================================================
@@ -127,6 +182,52 @@ export const getRestaurantStats = async (id: number): Promise<RestaurantStats> =
 
   if (response.error || !response.data) {
     throw new Error(getErrorMessage(response.error, "Failed to fetch restaurant stats"));
+  }
+
+  return response.data;
+};
+
+// ============================================================================
+// Kill Switch Controls
+// ============================================================================
+
+export const updateRestaurantKillSwitch = async (
+  id: number,
+  data: RestaurantKillSwitchUpdateRequest
+): Promise<Restaurant> => {
+  const response = await executeKillSwitchRequest(id, data);
+
+  const responseJson = (await response.json().catch(() => null)) as
+    | KillSwitchErrorResponse
+    | Restaurant
+    | null;
+
+  if (!response.ok || !responseJson) {
+    const errorPayload = responseJson as KillSwitchErrorResponse | null;
+    const detail = errorPayload?.detail;
+    const message =
+      typeof detail === "string"
+        ? detail
+        : detail?.message || errorPayload?.message || "Failed to update restaurant kill switch";
+    const blockers = typeof detail === "object" ? detail?.kill_switch_blockers || [] : [];
+    throw new RestaurantKillSwitchError(message, blockers);
+  }
+
+  return responseJson as Restaurant;
+};
+
+export const updateAllRestaurantsKillSwitch = async (
+  data: RestaurantKillSwitchUpdateRequest
+): Promise<RestaurantKillSwitchBulkResponse> => {
+  const response = await api.patch<RestaurantKillSwitchBulkResponse>(
+    ENDPOINTS.RESTAURANTS.KILL_SWITCH_ALL,
+    data
+  );
+
+  if (response.error || !response.data) {
+    throw new Error(
+      getErrorMessage(response.error, "Failed to update kill switch for restaurants")
+    );
   }
 
   return response.data;

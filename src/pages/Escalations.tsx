@@ -97,6 +97,12 @@ const getEscalationInfo = (subtype: SSEEventSubtype) => {
       icon: <Send className="h-5 w-5" />,
       color: "bg-blue-500",
     },
+    kill_switch_redirected: {
+      title: "Kill Switch Redirected",
+      description: "Call was routed directly to staff because kill switch is enabled",
+      icon: <Phone className="h-5 w-5" />,
+      color: "bg-rose-500",
+    },
   };
   return (
     info[subtype] || {
@@ -167,6 +173,8 @@ const Escalations = () => {
     internal_server_error: escalations.filter((e) => e.subtype === "internal_server_error").length,
     suspected_spam: escalations.filter((e) => e.subtype === "suspected_spam").length,
     sms_redirect_failed: escalations.filter((e) => e.subtype === "sms_redirect_failed").length,
+    kill_switch_redirected: escalations.filter((e) => e.subtype === "kill_switch_redirected")
+      .length,
   };
 
   return (
@@ -233,6 +241,9 @@ const Escalations = () => {
                           <SelectItem value="sms_redirect_failed">
                             SMS Redirect Failed ({counts.sms_redirect_failed})
                           </SelectItem>
+                          <SelectItem value="kill_switch_redirected">
+                            Kill Switch Redirected ({counts.kill_switch_redirected})
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       {escalations.length > 0 && (
@@ -248,7 +259,7 @@ const Escalations = () => {
                     </div>
                   </div>
                   {escalations.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
                       <div className="p-2.5 sm:p-3 rounded-lg border bg-muted/30">
                         <p className="text-xs text-muted-foreground mb-1">Total Alerts</p>
                         <p className="text-xl sm:text-2xl font-bold text-destructive">
@@ -277,6 +288,12 @@ const Escalations = () => {
                         <p className="text-xs text-muted-foreground mb-1">SMS Redirect Failed</p>
                         <p className="text-xl sm:text-2xl font-bold text-blue-600">
                           {counts.sms_redirect_failed}
+                        </p>
+                      </div>
+                      <div className="p-2.5 sm:p-3 rounded-lg border bg-rose-50 dark:bg-rose-950/20">
+                        <p className="text-xs text-muted-foreground mb-1">Kill Switch Redirected</p>
+                        <p className="text-xl sm:text-2xl font-bold text-rose-600">
+                          {counts.kill_switch_redirected}
                         </p>
                       </div>
                     </div>
@@ -729,15 +746,18 @@ const EscalationCard = ({ escalation, onDismiss, onViewCall }: EscalationCardPro
                   ? "default"
                   : escalation.subtype === "internal_server_error"
                     ? "destructive"
-                    : escalation.subtype === "sms_redirect_failed"
-                      ? "outline"
-                      : "secondary"
+                    : escalation.subtype === "kill_switch_redirected"
+                      ? "destructive"
+                      : escalation.subtype === "sms_redirect_failed"
+                        ? "outline"
+                        : "secondary"
               }
               className="text-xs"
             >
               {escalation.data?.title &&
               typeof escalation.data.title === "string" &&
-              escalation.subtype === "sms_redirect_failed"
+              (escalation.subtype === "sms_redirect_failed" ||
+                escalation.subtype === "kill_switch_redirected")
                 ? escalation.data.title
                 : escalation.subtype.replace(/_/g, " ")}
             </Badge>

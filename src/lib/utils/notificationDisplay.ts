@@ -11,6 +11,7 @@ export const ESCALATION_SUBTYPE_LABELS: Record<EscalationSubtype, string> = {
   internal_server_error: "System Error",
   suspected_spam: "Spam Detected",
   sms_redirect_failed: "SMS Redirect Failed",
+  kill_switch_redirected: "Kill Switch Redirected",
 };
 
 /**
