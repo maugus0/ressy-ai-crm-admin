@@ -124,27 +124,40 @@ const NotificationHistory = () => {
         />
         <main className="flex-1 p-3 sm:p-4 lg:p-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-              <div className="flex items-center gap-3">
-                <Bell className="h-5 w-5" />
-                <CardTitle>All Notifications</CardTitle>
-                <Badge variant="secondary" className="ml-2">
-                  {total} total
-                </Badge>
-                {unreadCount > 0 && <Badge variant="destructive">{unreadCount} unread</Badge>}
+            <CardHeader className="space-y-4 p-4 sm:p-6">
+              {/* Header row: title + badges on left, Refresh on right; stacks on small screens */}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
+                  <CardTitle className="text-lg sm:text-xl">All Notifications</CardTitle>
+                  <Badge variant="secondary" className="text-xs sm:text-sm">
+                    {total} total
+                  </Badge>
+                  {unreadCount > 0 && (
+                    <Badge variant="destructive" className="text-xs sm:text-sm">
+                      {unreadCount} unread
+                    </Badge>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchNotifications}
+                  disabled={isLoading}
+                  className="w-full sm:w-auto sm:flex-shrink-0"
+                  aria-label="Refresh notifications"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </Button>
               </div>
-              <Button variant="outline" size="sm" onClick={fetchNotifications} disabled={isLoading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-            </CardHeader>
-            <CardContent>
+
               {/* Filters */}
-              <div className="mb-4 flex flex-wrap gap-3">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <Filter className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <Select value={filterType} onValueChange={handleTypeFilter}>
-                    <SelectTrigger className="w-[150px]">
+                    <SelectTrigger className="w-full min-w-0 sm:w-[150px]">
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -156,7 +169,7 @@ const NotificationHistory = () => {
                   </Select>
                 </div>
                 <Select value={filterReadStatus} onValueChange={handleReadFilter}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-full min-w-0 sm:w-[150px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -166,18 +179,25 @@ const NotificationHistory = () => {
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* Table */}
-              <div className="rounded-md border">
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6 pt-0">
+              {/* Table: horizontal scroll on small screens */}
+              <div className="overflow-x-auto rounded-lg border">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[50px]">Status</TableHead>
-                      <TableHead className="w-[120px]">Type</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead className="hidden md:table-cell">Message</TableHead>
-                      <TableHead className="w-[100px]">Restaurant</TableHead>
-                      <TableHead className="w-[120px]">Time</TableHead>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-12 text-center align-middle">Status</TableHead>
+                      <TableHead className="min-w-[220px] align-middle">Type</TableHead>
+                      <TableHead className="min-w-[160px] align-middle">Title</TableHead>
+                      <TableHead className="hidden md:table-cell min-w-[200px] align-middle">
+                        Message
+                      </TableHead>
+                      <TableHead className="min-w-[120px] hidden sm:table-cell align-middle">
+                        Restaurant
+                      </TableHead>
+                      <TableHead className="w-[100px] min-w-[80px] whitespace-nowrap text-right align-middle">
+                        Time
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -202,16 +222,21 @@ const NotificationHistory = () => {
                           className="cursor-pointer hover:bg-muted/50"
                           onClick={() => handleRowClick(notification)}
                         >
-                          <TableCell>
+                          <TableCell className="text-center align-middle w-12">
                             {!notification.is_read && (
-                              <Circle className="h-2.5 w-2.5 fill-blue-500 text-blue-500" />
+                              <Circle
+                                className="h-2.5 w-2.5 fill-blue-500 text-blue-500 inline-block"
+                                aria-hidden
+                              />
                             )}
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="align-middle min-w-[220px]">
                             <div className="flex items-center gap-2">
-                              {getNotificationTypeIcon(notification.type)}
+                              <span className="flex-shrink-0">
+                                {getNotificationTypeIcon(notification.type)}
+                              </span>
                               <Badge
-                                className={`capitalize ${notificationTypeBadgeColors[notification.type] ?? ""}`}
+                                className={`capitalize whitespace-nowrap font-normal ${notificationTypeBadgeColors[notification.type] ?? ""}`}
                               >
                                 {notification.type === "escalation" && notification.subtype
                                   ? getEscalationSubtypeLabel(
@@ -221,17 +246,31 @@ const NotificationHistory = () => {
                               </Badge>
                             </div>
                           </TableCell>
-                          <TableCell className="font-medium max-w-[200px] truncate">
-                            {getNotificationDisplayTitle(notification)}
+                          <TableCell className="font-medium align-middle min-w-[160px]">
+                            <div
+                              className="truncate max-w-[280px]"
+                              title={getNotificationDisplayTitle(notification)}
+                            >
+                              {getNotificationDisplayTitle(notification)}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate max-w-[280px] mt-0.5 sm:hidden">
+                              {restaurantNames[notification.restaurant_id] ??
+                                `#${notification.restaurant_id}`}
+                            </p>
                           </TableCell>
-                          <TableCell className="hidden md:table-cell max-w-[300px] truncate text-muted-foreground">
-                            {getNotificationDisplayMessage(notification) || "-"}
+                          <TableCell className="hidden md:table-cell align-middle text-muted-foreground text-sm min-w-[200px] max-w-[360px]">
+                            <span
+                              className="line-clamp-2 block"
+                              title={getNotificationDisplayMessage(notification) || undefined}
+                            >
+                              {getNotificationDisplayMessage(notification) || "—"}
+                            </span>
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="text-muted-foreground text-sm align-middle hidden sm:table-cell min-w-[120px]">
                             {restaurantNames[notification.restaurant_id] ??
                               `#${notification.restaurant_id}`}
                           </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
+                          <TableCell className="text-muted-foreground text-sm whitespace-nowrap text-right align-middle w-[100px]">
                             {formatRelativeTime(notification.created_at)}
                           </TableCell>
                         </TableRow>
@@ -243,16 +282,19 @@ const NotificationHistory = () => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="mt-4 flex justify-center gap-2">
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3 pt-4 border-t">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1 || isLoading}
+                    className="flex-1 min-w-0 sm:flex-initial"
+                    aria-label="Previous page"
                   >
-                    Previous
+                    <span className="hidden sm:inline">Previous</span>
+                    <span className="sm:hidden">Prev</span>
                   </Button>
-                  <span className="flex items-center px-4 text-sm">
+                  <span className="text-sm text-muted-foreground px-2 shrink-0">
                     Page {page} of {totalPages}
                   </span>
                   <Button
@@ -260,6 +302,8 @@ const NotificationHistory = () => {
                     size="sm"
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages || isLoading}
+                    className="flex-1 min-w-0 sm:flex-initial"
+                    aria-label="Next page"
                   >
                     Next
                   </Button>
