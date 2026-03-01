@@ -4,7 +4,7 @@
  */
 
 // Notification event types (matches SSE event types)
-export type NotificationType = "order" | "reservation" | "escalation";
+export type NotificationType = "order" | "reservation" | "escalation" | "system";
 
 // Order subtypes
 export type OrderSubtype = "new_order" | "order_updated" | "order_cancelled";
@@ -22,13 +22,18 @@ export type EscalationSubtype =
   | "suspected_spam"
   | "sms_redirect_failed"
   | "kill_switch_redirected";
+export type SystemSubtype = "kill_switch_toggled" | "kill_switch_bulk_updated";
 
-export type NotificationSubtype = OrderSubtype | ReservationSubtype | EscalationSubtype;
+export type NotificationSubtype =
+  | OrderSubtype
+  | ReservationSubtype
+  | EscalationSubtype
+  | SystemSubtype;
 
 // Single notification from API
 export interface Notification {
   id: number;
-  restaurant_id: number;
+  restaurant_id: number | null;
   type: NotificationType;
   subtype: NotificationSubtype;
   title: string;

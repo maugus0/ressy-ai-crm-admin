@@ -83,9 +83,9 @@ export const connectToSSE = (options: SSEConnectOptions): EventSource | null => 
       }
     };
 
-    // Listen for named event types (backend sends event: escalation, event: order, etc.)
-    // The backend uses these event types: escalation, order, reservation, heartbeat
-    const eventTypes = ["escalation", "order", "reservation", "heartbeat"];
+    // Listen for named event types (backend sends event: escalation, system, order, etc.)
+    // The backend uses these event types: escalation, system, order, reservation, heartbeat
+    const eventTypes = ["escalation", "system", "order", "reservation", "heartbeat"];
 
     eventTypes.forEach((eventType) => {
       eventSource.addEventListener(eventType, (event) => {

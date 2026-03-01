@@ -836,8 +836,9 @@ export type SSEEscalationType =
   | "suspected_spam"
   | "sms_redirect_failed"
   | "kill_switch_redirected";
+export type SSESystemType = "kill_switch_toggled" | "kill_switch_bulk_updated";
 
-export type SSEEventType = "escalation" | "order" | "reservation" | "heartbeat";
+export type SSEEventType = "escalation" | "order" | "reservation" | "system" | "heartbeat";
 
 export type SSEEventSubtype =
   | "user_requested"
@@ -845,6 +846,8 @@ export type SSEEventSubtype =
   | "suspected_spam"
   | "sms_redirect_failed"
   | "kill_switch_redirected"
+  | "kill_switch_toggled"
+  | "kill_switch_bulk_updated"
   | "new_order"
   | "order_updated"
   | "order_cancelled"

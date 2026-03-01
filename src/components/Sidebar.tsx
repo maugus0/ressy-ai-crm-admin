@@ -23,7 +23,7 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-// Navigation items: Notifications first, then Callers, Calls, Escalations (highlighted), then rest A-Z
+// Navigation items: Notifications first, then Callers, Calls, Escalations (highlighted), then core pages, with Kill-Switch intentionally last
 type NavItem = {
   name: string;
   icon: LucideIcon;

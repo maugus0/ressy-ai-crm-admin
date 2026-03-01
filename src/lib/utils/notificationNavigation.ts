@@ -48,5 +48,15 @@ export function getNotificationNavigationTarget(notification: Notification): {
     return { pathname: "/escalations" };
   }
 
+  if (type === "system") {
+    if (
+      notification.subtype === "kill_switch_toggled" ||
+      notification.subtype === "kill_switch_bulk_updated"
+    ) {
+      return { pathname: "/kill-switch" };
+    }
+    return { pathname: "/notifications" };
+  }
+
   return { pathname: "/notifications" };
 }

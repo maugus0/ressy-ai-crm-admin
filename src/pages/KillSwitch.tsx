@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -32,6 +32,7 @@ import {
   updateAllRestaurantsKillSwitch,
   updateRestaurantKillSwitch,
 } from "@/services/restaurants";
+import { useSSE } from "@/contexts/SSEContext";
 import type { Restaurant } from "@/types/api.types";
 
 const KILL_SWITCH_BLOCKER_MESSAGES: Record<string, string> = {
@@ -44,6 +45,7 @@ const getBlockerLabel = (blocker: string) => {
 };
 
 const KillSwitch = () => {
+  const { events } = useSSE();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,6 +59,8 @@ const KillSwitch = () => {
   const [pendingRestaurant, setPendingRestaurant] = useState<Restaurant | null>(null);
   const [restaurantTarget, setRestaurantTarget] = useState<boolean | null>(null);
   const [updatingRestaurantId, setUpdatingRestaurantId] = useState<number | null>(null);
+  const lastToggleEventIdRef = useRef<string | null>(null);
+  const lastBulkEventIdRef = useRef<string | null>(null);
 
   const fetchRestaurants = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) setIsRefreshing(true);
@@ -87,6 +91,37 @@ const KillSwitch = () => {
   useEffect(() => {
     fetchRestaurants();
   }, [fetchRestaurants]);
+
+  useEffect(() => {
+    const latestToggleEvent = events.find(
+      (event) => event.event_type === "system" && event.subtype === "kill_switch_toggled"
+    );
+
+    if (!latestToggleEvent || latestToggleEvent.id === lastToggleEventIdRef.current) return;
+    lastToggleEventIdRef.current = latestToggleEvent.id;
+
+    const restaurantId = Number(latestToggleEvent.data?.restaurant_id);
+    const enabled = Boolean(latestToggleEvent.data?.enabled);
+
+    if (Number.isNaN(restaurantId)) return;
+
+    setRestaurants((prev) =>
+      prev.map((restaurant) =>
+        restaurant.id === restaurantId
+          ? { ...restaurant, kill_switch_enabled: enabled }
+          : restaurant
+      )
+    );
+  }, [events]);
+
+  useEffect(() => {
+    const latestBulkEvent = events.find(
+      (event) => event.event_type === "system" && event.subtype === "kill_switch_bulk_updated"
+    );
+    if (!latestBulkEvent || latestBulkEvent.id === lastBulkEventIdRef.current) return;
+    lastBulkEventIdRef.current = latestBulkEvent.id;
+    void fetchRestaurants(true);
+  }, [events, fetchRestaurants]);
 
   const filteredRestaurants = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -237,7 +272,13 @@ const KillSwitch = () => {
                 <Button
                   variant="destructive"
                   onClick={() => setBulkTarget(true)}
-                  disabled={isLoading || isBulkUpdating || stats.total === 0}
+                  disabled={
+                    isLoading ||
+                    isRefreshing ||
+                    isBulkUpdating ||
+                    updatingRestaurantId !== null ||
+                    stats.total === 0
+                  }
                 >
                   {isBulkUpdating && bulkTarget === true ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -249,7 +290,13 @@ const KillSwitch = () => {
                 <Button
                   variant="outline"
                   onClick={() => setBulkTarget(false)}
-                  disabled={isLoading || isBulkUpdating || stats.total === 0}
+                  disabled={
+                    isLoading ||
+                    isRefreshing ||
+                    isBulkUpdating ||
+                    updatingRestaurantId !== null ||
+                    stats.total === 0
+                  }
                 >
                   {isBulkUpdating && bulkTarget === false ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -387,6 +434,8 @@ const KillSwitch = () => {
                                   }
                                   disabled={
                                     isUpdating ||
+                                    isRefreshing ||
+                                    isLoading ||
                                     isBulkUpdating ||
                                     (!restaurant.kill_switch_enabled && !canEnable)
                                   }
@@ -469,6 +518,8 @@ const KillSwitch = () => {
                               }
                               disabled={
                                 isUpdating ||
+                                isRefreshing ||
+                                isLoading ||
                                 isBulkUpdating ||
                                 (!restaurant.kill_switch_enabled && !canEnable)
                               }
