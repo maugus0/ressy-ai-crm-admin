@@ -4,6 +4,7 @@
 
 export const formatPriceDelta = (delta: number): string => {
   if (delta === 0) return "Free";
+  if (delta < 0) return `-$${Math.abs(delta).toFixed(2)}`;
   return `+$${delta.toFixed(2)}`;
 };
 

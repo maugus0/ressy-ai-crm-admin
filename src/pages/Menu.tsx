@@ -1287,6 +1287,26 @@ const Menu = () => {
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8"
+                                            onClick={() => handleToggleSpecial(item)}
+                                          >
+                                            {item.is_special ? (
+                                              <StarOff className="h-4 w-4 text-orange-500" />
+                                            ) : (
+                                              <Star className="h-4 w-4 text-orange-500" />
+                                            )}
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          {item.is_special ? "Remove Special" : "Make Special"}
+                                        </TooltipContent>
+                                      </Tooltip>
+
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
                                             onClick={() => openCustomizationsDialog(item)}
                                           >
                                             <Settings2 className="h-4 w-4 text-violet-600" />
