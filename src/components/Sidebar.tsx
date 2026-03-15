@@ -23,12 +23,12 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-// Navigation items: Notifications first, then Callers, Calls, Escalations (highlighted), then core pages, with Kill-Switch intentionally last
 type NavItem = {
   name: string;
   icon: LucideIcon;
   path: string;
   highlight?: boolean;
+  critical?: boolean;
 };
 const navigationItems: NavItem[] = [
   { name: "Notifications", icon: Bell, path: "/notifications", highlight: true },
@@ -42,10 +42,10 @@ const navigationItems: NavItem[] = [
   { name: "Restaurants", icon: Store, path: "/restaurants" },
   { name: "Users", icon: Users, path: "/users" },
   {
-    name: "Kill-Switch",
+    name: "Kill Switch",
     icon: ShieldAlert,
     path: "/kill-switch",
-    highlight: true,
+    critical: true,
   },
 ];
 
@@ -89,6 +89,27 @@ export function Sidebar({ className, isOpen, onClose }: SidebarProps) {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               const isHighlight = item.highlight === true;
+              const isCritical = item.critical === true;
+
+              if (isCritical) {
+                return (
+                  <li key={item.name} className="pt-3 mt-3 border-t border-sidebar-border">
+                    <Link
+                      to={item.path}
+                      onClick={onClose}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-200 text-sm font-medium",
+                        "bg-sidebar-primary/15 text-sidebar-primary-foreground ring-1 ring-sidebar-primary/30 ring-inset hover:bg-sidebar-primary/25",
+                        isActive && "bg-sidebar-primary/30 ring-sidebar-primary/50"
+                      )}
+                    >
+                      <Icon className="w-4 h-4 text-[hsl(var(--sidebar-primary))]" />
+                      {item.name}
+                    </Link>
+                  </li>
+                );
+              }
+
               return (
                 <li key={item.name}>
                   <Link
