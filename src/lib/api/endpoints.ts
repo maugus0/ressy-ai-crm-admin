@@ -44,6 +44,24 @@ export const ENDPOINTS = {
   },
 
   // ============================================================================
+  // Menu Option Groups & Values
+  // ============================================================================
+  MENU_OPTIONS: {
+    GROUPS_LIST: (restaurantId: number) => `/admin/restaurants/${restaurantId}/menu/option-groups`,
+    GROUPS_CREATE: (restaurantId: number) =>
+      `/admin/restaurants/${restaurantId}/menu/option-groups`,
+    GROUP_GET: (groupId: number) => `/admin/menu/option-groups/${groupId}`,
+    GROUP_UPDATE: (groupId: number) => `/admin/menu/option-groups/${groupId}`,
+    GROUP_DELETE: (groupId: number) => `/admin/menu/option-groups/${groupId}`,
+    VALUE_CREATE: (groupId: number) => `/admin/menu/option-groups/${groupId}/values`,
+    VALUE_UPDATE: (valueId: number) => `/admin/menu/option-values/${valueId}`,
+    VALUE_DELETE: (valueId: number) => `/admin/menu/option-values/${valueId}`,
+    ITEM_ATTACH_GROUP: (menuId: number) => `/admin/menu/${menuId}/option-groups`,
+    ITEM_DETACH_GROUP: (menuId: number, groupId: number) =>
+      `/admin/menu/${menuId}/option-groups/${groupId}`,
+  },
+
+  // ============================================================================
   // FAQ (per restaurant)
   // ============================================================================
   FAQ: {

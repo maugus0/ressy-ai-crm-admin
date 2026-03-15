@@ -64,6 +64,7 @@ import {
   FileText,
   Upload,
   Loader2,
+  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { getRestaurants } from "@/services/restaurants";
@@ -91,7 +92,11 @@ import type {
   MenuItemCreateRequest,
   MenuCategoriesResponse,
   PaginationInfo,
+  OptionGroup,
 } from "@/types/api.types";
+import { formatPriceDelta } from "@/lib/utils/menu";
+import OptionGroupsTab from "@/pages/menu/OptionGroupsTab";
+import ManageCustomizationsDialog from "@/pages/menu/ManageCustomizationsDialog";
 
 // ============================================================================
 // Types
@@ -169,6 +174,10 @@ const Menu = () => {
   const [isCsvDialogOpen, setIsCsvDialogOpen] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvParsing, setCsvParsing] = useState(false);
+
+  // Customizations dialog state
+  const [isCustomizationsDialogOpen, setIsCustomizationsDialogOpen] = useState(false);
+  const [customizationsMenuItem, setCustomizationsMenuItem] = useState<MenuItem | null>(null);
 
   // Form validation state
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -630,6 +639,12 @@ const Menu = () => {
     }
   };
 
+  // Customizations dialog
+  const openCustomizationsDialog = (item: MenuItem) => {
+    setCustomizationsMenuItem(item);
+    setIsCustomizationsDialogOpen(true);
+  };
+
   // ============================================================================
   // Helper Functions
   // ============================================================================
@@ -869,613 +884,649 @@ const Menu = () => {
           description="Manage menu items, categories, and specials"
         />
         <main className="flex-1 p-3 sm:p-4 lg:p-6">
-          <Card>
-            <CardHeader className="space-y-4 p-4 sm:p-6">
-              {/* Header Row */}
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <UtensilsCrossed className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                  <CardTitle className="text-lg sm:text-xl">Menu Items</CardTitle>
-                  {pagination && (
-                    <Badge variant="secondary" className="text-xs sm:text-sm">
-                      {pagination.total} items
-                    </Badge>
-                  )}
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2">
-                  {/* Restaurant Selector */}
-                  <Select
-                    value={selectedRestaurantId?.toString() || ""}
-                    onValueChange={handleRestaurantChange}
-                    disabled={isLoadingRestaurants}
-                  >
-                    <SelectTrigger className="w-full sm:w-[200px]">
-                      <SelectValue placeholder="Select restaurant" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {restaurants.map((r) => (
-                        <SelectItem key={r.id} value={r.id.toString()}>
-                          {r.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Add Menu Item */}
-                  <Button
-                    onClick={openCreateDialog}
-                    disabled={!selectedRestaurantId}
-                    className="w-full sm:w-auto"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    <span>Add Item</span>
-                  </Button>
-                </div>
-              </div>
-
-              {/* Search and Filter Row */}
-              <div className="flex flex-col md:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search menu items..."
-                    className="pl-9 w-full"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {/* Category Filter */}
-                  <Select
-                    value={selectedCategory || "all"}
-                    onValueChange={(v) => setSelectedCategory(v === "all" ? "" : v)}
-                  >
-                    <SelectTrigger className="w-full sm:w-[140px] md:w-[160px]">
-                      <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {getCategoryList().map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Sub-Category Filter */}
-                  {availableSubCategories.length > 0 && (
-                    <Select
-                      value={selectedSubCategory || "all"}
-                      onValueChange={(v) => setSelectedSubCategory(v === "all" ? "" : v)}
-                    >
-                      <SelectTrigger className="w-full sm:w-[140px] md:w-[160px]">
-                        <SelectValue placeholder="Sub-category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        {availableSubCategories.map((sub) => (
-                          <SelectItem key={sub} value={sub}>
-                            {sub}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-
-                  {/* More Filters Toggle */}
-                  <Button
-                    variant={showFilters ? "secondary" : "outline"}
-                    size="sm"
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="flex-1 sm:flex-initial"
-                  >
-                    <Filter className="h-4 w-4 mr-1 sm:mr-0" />
-                    <span className="sm:hidden">Filters</span>
-                  </Button>
-
-                  {/* Clear Filters */}
-                  {(selectedCategory || searchQuery || filterAvailable !== undefined) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleClearFilters}
-                      className="flex-1 sm:flex-initial"
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      <span className="sm:hidden">Clear</span>
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Additional Filters */}
-              {showFilters && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <Label className="text-sm whitespace-nowrap">Availability:</Label>
-                    <Select
-                      value={filterAvailable === undefined ? "all" : String(filterAvailable)}
-                      onValueChange={(v) =>
-                        setFilterAvailable(v === "all" ? undefined : v === "true")
-                      }
-                    >
-                      <SelectTrigger className="w-full sm:w-[140px]">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="true">Available</SelectItem>
-                        <SelectItem value="false">Unavailable</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                    <Label className="text-sm whitespace-nowrap">Special:</Label>
-                    <Select
-                      value={filterSpecial === undefined ? "all" : String(filterSpecial)}
-                      onValueChange={(v) =>
-                        setFilterSpecial(v === "all" ? undefined : v === "true")
-                      }
-                    >
-                      <SelectTrigger className="w-full sm:w-[140px]">
-                        <SelectValue placeholder="All" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="true">Specials Only</SelectItem>
-                        <SelectItem value="false">Non-Specials</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-
-              {/* Bulk Actions */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-muted/30 rounded-lg -mb-10">
-                {selectedItemIds.size > 0 ? (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <CheckSquare className="h-4 w-4" />
-                      <span className="text-sm font-medium">
-                        {selectedItemIds.size} item(s) selected
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setBulkAvailability(true);
-                          setIsBulkDialogOpen(true);
-                        }}
-                        className="flex-1 sm:flex-initial"
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Set Available
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setBulkAvailability(false);
-                          setIsBulkDialogOpen(true);
-                        }}
-                        className="flex-1 sm:flex-initial"
-                      >
-                        <EyeOff className="h-4 w-4 mr-1" />
-                        Set Unavailable
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setSelectedItemIds(new Set())}
-                        className="flex-1 sm:flex-initial"
-                      >
-                        Clear
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Bulk update via CSV:</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setBulkAvailability(true);
-                        setIsCsvDialogOpen(true);
-                      }}
-                      disabled={!selectedRestaurantId}
-                      className="flex-1 sm:flex-initial"
-                    >
-                      <Upload className="h-4 w-4 mr-1" />
-                      Upload CSV
-                    </Button>
-                  </>
-                )}
-              </div>
-            </CardHeader>
-
-            <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
-              {error && (
-                <div className="text-center py-6 px-4 text-sm sm:text-base text-destructive bg-destructive/5 rounded-lg mb-4">
-                  {error}
-                </div>
-              )}
-
-              {isLoadingMenu ? (
-                <div className="space-y-3">
-                  {[...Array(10)].map((_, i) => (
-                    <Skeleton key={i} className="h-14 w-full" />
+          <Tabs defaultValue="menu-items" className="w-full">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <TabsList>
+                <TabsTrigger value="menu-items">Menu Items</TabsTrigger>
+                <TabsTrigger value="option-groups">Option Groups</TabsTrigger>
+              </TabsList>
+              <Select
+                value={selectedRestaurantId?.toString() || ""}
+                onValueChange={handleRestaurantChange}
+                disabled={isLoadingRestaurants}
+              >
+                <SelectTrigger className="w-full min-w-0 sm:w-auto sm:min-w-[200px] sm:max-w-[320px] h-9">
+                  <SelectValue placeholder="Select restaurant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {restaurants.map((r) => (
+                    <SelectItem key={r.id} value={r.id.toString()}>
+                      {r.name}
+                    </SelectItem>
                   ))}
-                </div>
-              ) : (
-                <>
-                  {/* Desktop Table View */}
-                  <div className="hidden md:block overflow-x-auto border rounded-lg">
-                    <TooltipProvider>
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/50">
-                            <TableHead className="w-[40px]">
-                              <Checkbox
-                                checked={
-                                  menuItems.length > 0 &&
-                                  menuItems.every((item) => selectedItemIds.has(item.id))
-                                }
-                                onCheckedChange={handleSelectAll}
-                              />
-                            </TableHead>
-                            <TableHead className="font-semibold">Item</TableHead>
-                            <TableHead className="font-semibold">Category</TableHead>
-                            <TableHead className="font-semibold text-right">Price</TableHead>
-                            <TableHead className="font-semibold text-center hidden lg:table-cell">
-                              Prep
-                            </TableHead>
-                            <TableHead className="font-semibold text-center">Available</TableHead>
-                            <TableHead className="font-semibold text-center">Special</TableHead>
-                            <TableHead className="font-semibold text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {menuItems.map((item) => (
-                            <TableRow
-                              key={item.id}
-                              className="group hover:bg-muted/30 transition-colors"
-                            >
-                              <TableCell>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <TabsContent value="option-groups">
+              <Card>
+                <CardContent className="p-4 sm:p-6">
+                  <OptionGroupsTab selectedRestaurantId={selectedRestaurantId} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="menu-items">
+              <Card>
+                <CardHeader className="space-y-4 p-4 sm:p-6">
+                  {/* Header Row */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <UtensilsCrossed className="h-5 w-5 text-primary" />
+                      <CardTitle className="text-lg sm:text-xl">Menu Items</CardTitle>
+                      {pagination && (
+                        <Badge variant="secondary" className="text-xs sm:text-sm">
+                          {pagination.total} items
+                        </Badge>
+                      )}
+                    </div>
+                    <Button
+                      onClick={openCreateDialog}
+                      disabled={!selectedRestaurantId}
+                      size="sm"
+                      className="flex-shrink-0"
+                    >
+                      <Plus className="h-4 w-4 sm:mr-2" />
+                      <span className="hidden sm:inline">Add Item</span>
+                    </Button>
+                  </div>
+
+                  {/* Search and Filter Row */}
+                  <div className="flex flex-col md:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search menu items..."
+                        className="pl-9 w-full"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {/* Category Filter */}
+                      <Select
+                        value={selectedCategory || "all"}
+                        onValueChange={(v) => setSelectedCategory(v === "all" ? "" : v)}
+                      >
+                        <SelectTrigger className="w-full sm:w-[140px] md:w-[160px]">
+                          <SelectValue placeholder="Category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Categories</SelectItem>
+                          {getCategoryList().map((cat) => (
+                            <SelectItem key={cat} value={cat}>
+                              {cat}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Sub-Category Filter */}
+                      {availableSubCategories.length > 0 && (
+                        <Select
+                          value={selectedSubCategory || "all"}
+                          onValueChange={(v) => setSelectedSubCategory(v === "all" ? "" : v)}
+                        >
+                          <SelectTrigger className="w-full sm:w-[140px] md:w-[160px]">
+                            <SelectValue placeholder="Sub-category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            {availableSubCategories.map((sub) => (
+                              <SelectItem key={sub} value={sub}>
+                                {sub}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+
+                      {/* More Filters Toggle */}
+                      <Button
+                        variant={showFilters ? "secondary" : "outline"}
+                        size="sm"
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="flex-1 sm:flex-initial"
+                      >
+                        <Filter className="h-4 w-4 mr-1 sm:mr-0" />
+                        <span className="sm:hidden">Filters</span>
+                      </Button>
+
+                      {/* Clear Filters */}
+                      {(selectedCategory || searchQuery || filterAvailable !== undefined) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleClearFilters}
+                          className="flex-1 sm:flex-initial"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          <span className="sm:hidden">Clear</span>
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Additional Filters */}
+                  {showFilters && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <Label className="text-sm whitespace-nowrap">Availability:</Label>
+                        <Select
+                          value={filterAvailable === undefined ? "all" : String(filterAvailable)}
+                          onValueChange={(v) =>
+                            setFilterAvailable(v === "all" ? undefined : v === "true")
+                          }
+                        >
+                          <SelectTrigger className="w-full sm:w-[140px]">
+                            <SelectValue placeholder="All" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            <SelectItem value="true">Available</SelectItem>
+                            <SelectItem value="false">Unavailable</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <Label className="text-sm whitespace-nowrap">Special:</Label>
+                        <Select
+                          value={filterSpecial === undefined ? "all" : String(filterSpecial)}
+                          onValueChange={(v) =>
+                            setFilterSpecial(v === "all" ? undefined : v === "true")
+                          }
+                        >
+                          <SelectTrigger className="w-full sm:w-[140px]">
+                            <SelectValue placeholder="All" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All</SelectItem>
+                            <SelectItem value="true">Specials Only</SelectItem>
+                            <SelectItem value="false">Non-Specials</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bulk Actions */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                    {selectedItemIds.size > 0 ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <CheckSquare className="h-4 w-4" />
+                          <span className="text-sm font-medium">
+                            {selectedItemIds.size} item(s) selected
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setBulkAvailability(true);
+                              setIsBulkDialogOpen(true);
+                            }}
+                            className="flex-1 sm:flex-initial"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Set Available
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setBulkAvailability(false);
+                              setIsBulkDialogOpen(true);
+                            }}
+                            className="flex-1 sm:flex-initial"
+                          >
+                            <EyeOff className="h-4 w-4 mr-1" />
+                            Set Unavailable
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedItemIds(new Set())}
+                            className="flex-1 sm:flex-initial"
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Bulk update via CSV:</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setBulkAvailability(true);
+                            setIsCsvDialogOpen(true);
+                          }}
+                          disabled={!selectedRestaurantId}
+                          className="flex-1 sm:flex-initial"
+                        >
+                          <Upload className="h-4 w-4 mr-1" />
+                          Upload CSV
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </CardHeader>
+
+                <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6 pt-0">
+                  {error && (
+                    <div className="text-center py-6 px-4 text-sm sm:text-base text-destructive bg-destructive/5 rounded-lg mb-4">
+                      {error}
+                    </div>
+                  )}
+
+                  {isLoadingMenu ? (
+                    <div className="space-y-3">
+                      {[...Array(10)].map((_, i) => (
+                        <Skeleton key={i} className="h-14 w-full" />
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      {/* Desktop Table View */}
+                      <div className="hidden md:block overflow-x-auto border rounded-lg">
+                        <TooltipProvider>
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="bg-muted/50">
+                                <TableHead className="w-[40px]">
+                                  <Checkbox
+                                    checked={
+                                      menuItems.length > 0 &&
+                                      menuItems.every((item) => selectedItemIds.has(item.id))
+                                    }
+                                    onCheckedChange={handleSelectAll}
+                                  />
+                                </TableHead>
+                                <TableHead className="font-semibold">Item</TableHead>
+                                <TableHead className="font-semibold">Category</TableHead>
+                                <TableHead className="font-semibold text-right">Price</TableHead>
+                                <TableHead className="font-semibold text-center hidden lg:table-cell">
+                                  Prep
+                                </TableHead>
+                                <TableHead className="font-semibold text-center">
+                                  Available
+                                </TableHead>
+                                <TableHead className="font-semibold text-center">Special</TableHead>
+                                <TableHead className="font-semibold text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {menuItems.map((item) => (
+                                <TableRow
+                                  key={item.id}
+                                  className="group hover:bg-muted/30 transition-colors"
+                                >
+                                  <TableCell>
+                                    <Checkbox
+                                      checked={selectedItemIds.has(item.id)}
+                                      onCheckedChange={(checked) =>
+                                        handleSelectItem(item.id, checked as boolean)
+                                      }
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="min-w-[200px]">
+                                      <p className="font-medium text-base">
+                                        {item.item_name || "Unnamed Item"}
+                                      </p>
+                                      {item.item_desc && (
+                                        <p className="text-sm text-muted-foreground truncate max-w-[280px]">
+                                          {item.item_desc}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex flex-col gap-1">
+                                      <Badge variant="outline" className="w-fit">
+                                        {item.category}
+                                      </Badge>
+                                      {item.sub_category && (
+                                        <span className="text-xs text-muted-foreground">
+                                          {item.sub_category}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <span className="font-semibold text-primary">
+                                      ${item.price}
+                                    </span>
+                                  </TableCell>
+                                  <TableCell className="text-center hidden lg:table-cell">
+                                    <div className="flex items-center justify-center gap-1 text-muted-foreground">
+                                      <Clock className="h-3 w-3" />
+                                      <span className="text-sm">{item.avg_prep_time}m</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <button
+                                      onClick={() => handleToggleAvailability(item)}
+                                      className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                                        item.is_available
+                                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                          : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                                      }`}
+                                    >
+                                      {item.is_available ? (
+                                        <>
+                                          <Eye className="h-3 w-3 mr-1" />
+                                          <span>Yes</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <EyeOff className="h-3 w-3 mr-1" />
+                                          <span>No</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <button
+                                      onClick={() => handleToggleSpecial(item)}
+                                      className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                                        item.is_special
+                                          ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400"
+                                          : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                                      }`}
+                                    >
+                                      {item.is_special ? (
+                                        <>
+                                          <Star className="h-3 w-3 mr-1 fill-current" />
+                                          Special
+                                        </>
+                                      ) : (
+                                        <>
+                                          <StarOff className="h-3 w-3 mr-1" />
+                                          Regular
+                                        </>
+                                      )}
+                                    </button>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center justify-end gap-0.5">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => openDetailsDialog(item)}
+                                          >
+                                            <Eye className="h-4 w-4 text-blue-600" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>View Details</TooltipContent>
+                                      </Tooltip>
+
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => handleToggleSpecial(item)}
+                                          >
+                                            {item.is_special ? (
+                                              <StarOff className="h-4 w-4 text-orange-500" />
+                                            ) : (
+                                              <Star className="h-4 w-4 text-orange-500" />
+                                            )}
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          {item.is_special ? "Remove Special" : "Make Special"}
+                                        </TooltipContent>
+                                      </Tooltip>
+
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => openCustomizationsDialog(item)}
+                                          >
+                                            <Settings2 className="h-4 w-4 text-violet-600" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Customizations</TooltipContent>
+                                      </Tooltip>
+
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => openEditDialog(item)}
+                                          >
+                                            <Pencil className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Edit</TooltipContent>
+                                      </Tooltip>
+
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => openDeleteDialog(item)}
+                                          >
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Delete</TooltipContent>
+                                      </Tooltip>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TooltipProvider>
+                      </div>
+
+                      {/* Mobile Card View */}
+                      <div className="md:hidden space-y-2">
+                        {menuItems.map((item) => (
+                          <Card key={item.id} className="overflow-hidden">
+                            <div className="p-3">
+                              {/* Top row: checkbox + name + price */}
+                              <div className="flex items-start gap-2">
                                 <Checkbox
                                   checked={selectedItemIds.has(item.id)}
                                   onCheckedChange={(checked) =>
                                     handleSelectItem(item.id, checked as boolean)
                                   }
+                                  className="flex-shrink-0 mt-0.5"
                                 />
-                              </TableCell>
-                              <TableCell>
-                                <div className="min-w-[200px]">
-                                  <p className="font-medium text-base">
-                                    {item.item_name || "Unnamed Item"}
-                                  </p>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-baseline justify-between gap-2">
+                                    <h3 className="font-semibold text-sm leading-tight truncate">
+                                      {item.item_name || "Unnamed Item"}
+                                    </h3>
+                                    <span className="text-sm font-bold text-primary flex-shrink-0">
+                                      ${item.price}
+                                    </span>
+                                  </div>
                                   {item.item_desc && (
-                                    <p className="text-sm text-muted-foreground truncate max-w-[280px]">
+                                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                                       {item.item_desc}
                                     </p>
                                   )}
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                      {item.category}
+                                    </Badge>
+                                    {item.sub_category && (
+                                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                        {item.sub_category}
+                                      </Badge>
+                                    )}
+                                    {item.avg_prep_time > 0 && (
+                                      <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                        <Clock className="h-2.5 w-2.5" />
+                                        {item.avg_prep_time}m
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex flex-col gap-1">
-                                  <Badge variant="outline" className="w-fit">
-                                    {item.category}
-                                  </Badge>
-                                  {item.sub_category && (
-                                    <span className="text-xs text-muted-foreground">
-                                      {item.sub_category}
-                                    </span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <span className="font-semibold text-primary">${item.price}</span>
-                              </TableCell>
-                              <TableCell className="text-center hidden lg:table-cell">
-                                <div className="flex items-center justify-center gap-1 text-muted-foreground">
-                                  <Clock className="h-3 w-3" />
-                                  <span className="text-sm">{item.avg_prep_time}m</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
+                              </div>
+                            </div>
+                            {/* Bottom bar: status badges + actions */}
+                            <div className="flex items-center justify-between px-3 py-2 bg-muted/30 border-t">
+                              <div className="flex items-center gap-1.5">
                                 <button
                                   onClick={() => handleToggleAvailability(item)}
-                                  className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
                                     item.is_available
-                                      ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                      : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
                                   }`}
                                 >
                                   {item.is_available ? (
-                                    <>
-                                      <Eye className="h-3 w-3 mr-1" />
-                                      <span>Yes</span>
-                                    </>
+                                    <Eye className="h-2.5 w-2.5" />
                                   ) : (
-                                    <>
-                                      <EyeOff className="h-3 w-3 mr-1" />
-                                      <span>No</span>
-                                    </>
+                                    <EyeOff className="h-2.5 w-2.5" />
                                   )}
+                                  {item.is_available ? "On" : "Off"}
                                 </button>
-                              </TableCell>
-                              <TableCell className="text-center">
                                 <button
                                   onClick={() => handleToggleSpecial(item)}
-                                  className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
                                     item.is_special
-                                      ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400"
-                                      : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                                      ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                      : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                                   }`}
                                 >
                                   {item.is_special ? (
-                                    <>
-                                      <Star className="h-3 w-3 mr-1 fill-current" />
-                                      Special
-                                    </>
+                                    <Star className="h-2.5 w-2.5 fill-current" />
                                   ) : (
-                                    <>
-                                      <StarOff className="h-3 w-3 mr-1" />
-                                      Regular
-                                    </>
+                                    <StarOff className="h-2.5 w-2.5" />
                                   )}
+                                  {item.is_special ? "Special" : "Regular"}
                                 </button>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center justify-end gap-0.5">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={() => openDetailsDialog(item)}
-                                      >
-                                        <Eye className="h-4 w-4 text-blue-600" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>View Details</TooltipContent>
-                                  </Tooltip>
-
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={() => handleToggleSpecial(item)}
-                                      >
-                                        {item.is_special ? (
-                                          <StarOff className="h-4 w-4 text-orange-500" />
-                                        ) : (
-                                          <Star className="h-4 w-4 text-orange-500" />
-                                        )}
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      {item.is_special ? "Remove Special" : "Make Special"}
-                                    </TooltipContent>
-                                  </Tooltip>
-
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={() => openEditDialog(item)}
-                                      >
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Edit</TooltipContent>
-                                  </Tooltip>
-
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8"
-                                        onClick={() => openDeleteDialog(item)}
-                                      >
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Delete</TooltipContent>
-                                  </Tooltip>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TooltipProvider>
-                  </div>
-
-                  {/* Mobile Card View */}
-                  <div className="md:hidden space-y-3">
-                    {menuItems.map((item) => (
-                      <Card key={item.id} className="p-4">
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Checkbox
-                                checked={selectedItemIds.has(item.id)}
-                                onCheckedChange={(checked) =>
-                                  handleSelectItem(item.id, checked as boolean)
-                                }
-                                className="flex-shrink-0"
-                              />
-                              <h3 className="font-semibold text-base truncate">
-                                {item.item_name || "Unnamed Item"}
-                              </h3>
+                              </div>
+                              <div className="flex items-center -mr-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => openDetailsDialog(item)}
+                                >
+                                  <Eye className="h-3.5 w-3.5 text-blue-600" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => openCustomizationsDialog(item)}
+                                >
+                                  <Settings2 className="h-3.5 w-3.5 text-violet-600" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => openEditDialog(item)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => openDeleteDialog(item)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              </div>
                             </div>
-                            {item.item_desc && (
-                              <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                                {item.item_desc}
-                              </p>
-                            )}
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline" className="text-xs">
-                                {item.category}
-                              </Badge>
-                              {item.sub_category && (
-                                <Badge variant="outline" className="text-xs">
-                                  {item.sub_category}
-                                </Badge>
-                              )}
-                              <span className="text-sm font-semibold text-primary">
-                                ${item.price}
-                              </span>
-                              {item.avg_prep_time && (
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Clock className="h-3 w-3" />
-                                  <span>{item.avg_prep_time}m</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between pt-3 border-t">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleToggleAvailability(item)}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                                item.is_available
-                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                                  : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                              }`}
-                            >
-                              {item.is_available ? (
-                                <>
-                                  <Eye className="h-3 w-3" />
-                                  <span>Available</span>
-                                </>
-                              ) : (
-                                <>
-                                  <EyeOff className="h-3 w-3" />
-                                  <span>Unavailable</span>
-                                </>
-                              )}
-                            </button>
-                            <button
-                              onClick={() => handleToggleSpecial(item)}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-                                item.is_special
-                                  ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                                  : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                              }`}
-                            >
-                              {item.is_special ? (
-                                <>
-                                  <Star className="h-3 w-3 fill-current" />
-                                  <span>Special</span>
-                                </>
-                              ) : (
-                                <>
-                                  <StarOff className="h-3 w-3" />
-                                  <span>Regular</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => openDetailsDialog(item)}
-                            >
-                              <Eye className="h-4 w-4 text-blue-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => openEditDialog(item)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => openDeleteDialog(item)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-
-                  {/* Pagination */}
-                  {pagination && pagination.pages > 1 && (
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t">
-                      <p className="text-sm text-muted-foreground text-center sm:text-left">
-                        Page {pagination.page} of {pagination.pages} ({pagination.total} items)
-                      </p>
-                      <div className="flex gap-2 w-full sm:w-auto">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                          disabled={currentPage === 1}
-                          className="flex-1 sm:flex-initial"
-                        >
-                          <ChevronLeft className="h-4 w-4" />
-                          <span className="hidden sm:inline ml-1">Previous</span>
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setCurrentPage((p) => Math.min(pagination.pages, p + 1))}
-                          disabled={currentPage === pagination.pages}
-                          className="flex-1 sm:flex-initial"
-                        >
-                          <span className="hidden sm:inline mr-1">Next</span>
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
+                          </Card>
+                        ))}
                       </div>
+
+                      {/* Pagination */}
+                      {pagination && pagination.pages > 1 && (
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t">
+                          <p className="text-sm text-muted-foreground text-center sm:text-left">
+                            Page {pagination.page} of {pagination.pages} ({pagination.total} items)
+                          </p>
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                              disabled={currentPage === 1}
+                              className="flex-1 sm:flex-initial"
+                            >
+                              <ChevronLeft className="h-4 w-4" />
+                              <span className="hidden sm:inline ml-1">Previous</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setCurrentPage((p) => Math.min(pagination.pages, p + 1))
+                              }
+                              disabled={currentPage === pagination.pages}
+                              className="flex-1 sm:flex-initial"
+                            >
+                              <span className="hidden sm:inline mr-1">Next</span>
+                              <ChevronRight className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {!isLoadingMenu && !error && menuItems.length === 0 && selectedRestaurantId && (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <UtensilsCrossed className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                      <p className="text-lg font-medium">No menu items found</p>
+                      <p className="text-sm">
+                        {searchQuery || selectedCategory
+                          ? "Try adjusting your filters"
+                          : "Add your first menu item to get started"}
+                      </p>
+                      {!searchQuery && !selectedCategory && (
+                        <Button className="mt-4" onClick={openCreateDialog}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Menu Item
+                        </Button>
+                      )}
                     </div>
                   )}
-                </>
-              )}
-
-              {!isLoadingMenu && !error && menuItems.length === 0 && selectedRestaurantId && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <UtensilsCrossed className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg font-medium">No menu items found</p>
-                  <p className="text-sm">
-                    {searchQuery || selectedCategory
-                      ? "Try adjusting your filters"
-                      : "Add your first menu item to get started"}
-                  </p>
-                  {!searchQuery && !selectedCategory && (
-                    <Button className="mt-4" onClick={openCreateDialog}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Menu Item
-                    </Button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </main>
       </div>
 
@@ -1629,6 +1680,55 @@ const Menu = () => {
                   <p className="text-sm">{formatDate(selectedMenuItem.updated_at)}</p>
                 </div>
               </div>
+
+              {/* Customization Groups */}
+              <div className="pt-2 border-t">
+                <Label className="text-muted-foreground text-sm">Customization Groups</Label>
+                {!selectedMenuItem.option_groups || selectedMenuItem.option_groups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground mt-1">No customizations configured</p>
+                ) : (
+                  <div className="space-y-2 mt-2">
+                    {selectedMenuItem.option_groups
+                      .sort((a: OptionGroup, b: OptionGroup) => a.sort_order - b.sort_order)
+                      .map((group: OptionGroup) => (
+                        <div key={group.id} className="border rounded-lg p-3 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm">{group.name}</span>
+                            <Badge
+                              variant={group.selection_type === "single" ? "outline" : "secondary"}
+                              className="text-xs"
+                            >
+                              {group.selection_type === "single" ? "Single" : "Multiple"}
+                            </Badge>
+                            {group.is_required && <Badge className="text-xs">Required</Badge>}
+                          </div>
+                          {group.values.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {group.values
+                                .sort((a, b) => a.sort_order - b.sort_order)
+                                .map((v) => (
+                                  <span
+                                    key={v.id}
+                                    className="text-xs bg-muted px-1.5 py-0.5 rounded"
+                                  >
+                                    {v.name}
+                                    {v.price_delta > 0 && (
+                                      <span className="text-orange-600 ml-1">
+                                        {formatPriceDelta(v.price_delta)}
+                                      </span>
+                                    )}
+                                    {v.is_default && (
+                                      <span className="text-blue-600 ml-1">(default)</span>
+                                    )}
+                                  </span>
+                                ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
           <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -1640,15 +1740,28 @@ const Menu = () => {
               Close
             </Button>
             {selectedMenuItem && (
-              <Button
-                onClick={() => {
-                  setIsDetailsDialogOpen(false);
-                  openEditDialog(selectedMenuItem);
-                }}
-                className="w-full sm:w-auto"
-              >
-                Edit Item
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsDetailsDialogOpen(false);
+                    openCustomizationsDialog(selectedMenuItem);
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  <Settings2 className="h-4 w-4 mr-2" />
+                  Customizations
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsDetailsDialogOpen(false);
+                    openEditDialog(selectedMenuItem);
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  Edit Item
+                </Button>
+              </div>
             )}
           </DialogFooter>
         </DialogContent>
@@ -1675,6 +1788,15 @@ const Menu = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Manage Customizations Dialog */}
+      <ManageCustomizationsDialog
+        open={isCustomizationsDialogOpen}
+        onOpenChange={setIsCustomizationsDialogOpen}
+        menuItem={customizationsMenuItem}
+        selectedRestaurantId={selectedRestaurantId}
+        onChanged={fetchMenuItems}
+      />
 
       {/* CSV Upload Dialog */}
       <Dialog open={isCsvDialogOpen} onOpenChange={setIsCsvDialogOpen}>

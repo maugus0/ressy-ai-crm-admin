@@ -165,6 +165,7 @@ export interface MenuItem {
   is_special: boolean;
   created_at: string;
   updated_at: string;
+  option_groups?: OptionGroup[] | null;
 }
 
 export interface MenuParams extends PaginationParams {
@@ -221,6 +222,105 @@ export interface MenuCategoriesResponse {
 export interface MenuDeleteResponse {
   message: string;
   menu_id: number;
+}
+
+// ============================================================================
+// Menu Option Groups & Values
+// ============================================================================
+
+export interface OptionValue {
+  id: number;
+  group_id: number;
+  name: string;
+  price_delta: number;
+  is_default: boolean;
+  is_available: boolean;
+  sort_order: number;
+}
+
+export interface OptionGroup {
+  id: number;
+  restaurant_id: number;
+  name: string;
+  description: string | null;
+  selection_type: "single" | "multiple";
+  min_select: number;
+  max_select: number | null;
+  free_allowance: number;
+  free_allowance_strategy: string;
+  allows_quantity: boolean;
+  max_quantity_per_option: number | null;
+  prompt_style: "ASK_ALWAYS" | "ASK_IF_MENTIONED" | "SUGGEST_POPULAR";
+  is_required: boolean;
+  is_available: boolean;
+  sort_order: number;
+  values: OptionValue[];
+}
+
+export interface OptionGroupCreateRequest {
+  name: string;
+  description?: string | null;
+  selection_type?: "single" | "multiple";
+  min_select?: number;
+  max_select?: number | null;
+  free_allowance?: number;
+  free_allowance_strategy?: string;
+  allows_quantity?: boolean;
+  max_quantity_per_option?: number | null;
+  prompt_style?: "ASK_ALWAYS" | "ASK_IF_MENTIONED" | "SUGGEST_POPULAR";
+  is_required?: boolean;
+  is_available?: boolean;
+  sort_order?: number;
+  values?: Omit<OptionValue, "id" | "group_id">[];
+}
+
+export interface OptionGroupUpdateRequest {
+  name?: string;
+  description?: string | null;
+  selection_type?: "single" | "multiple";
+  min_select?: number;
+  max_select?: number | null;
+  free_allowance?: number;
+  free_allowance_strategy?: string;
+  allows_quantity?: boolean;
+  max_quantity_per_option?: number | null;
+  prompt_style?: "ASK_ALWAYS" | "ASK_IF_MENTIONED" | "SUGGEST_POPULAR";
+  is_required?: boolean;
+  is_available?: boolean;
+  sort_order?: number;
+}
+
+export interface OptionValueCreateRequest {
+  name: string;
+  price_delta?: number;
+  is_default?: boolean;
+  is_available?: boolean;
+  sort_order?: number;
+}
+
+export interface OptionValueUpdateRequest {
+  name?: string;
+  price_delta?: number;
+  is_default?: boolean;
+  is_available?: boolean;
+  sort_order?: number;
+}
+
+export interface MenuItemOptionGroupAttachRequest {
+  group_id: number;
+  min_select_override?: number | null;
+  max_select_override?: number | null;
+  free_allowance_override?: number | null;
+  allows_quantity_override?: boolean | null;
+  max_quantity_per_option_override?: number | null;
+  is_required_override?: boolean | null;
+  sort_order?: number;
+}
+
+export interface MenuItemOptionGroupAttachResponse {
+  message: string;
+  menu_item_id: number;
+  group_id: number;
 }
 
 // ============================================================================
