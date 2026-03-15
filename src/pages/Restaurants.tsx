@@ -183,7 +183,7 @@ interface RestaurantFormData {
   reservations_sms_redirect_enabled: boolean;
   reservations_sms_redirect_url: string;
   reservations_sms_redirect_message: string;
-  escalation_mode: string;
+  escalation_mode: NonNullable<Restaurant["escalation_mode"]>;
 }
 
 // Form validation errors
@@ -455,7 +455,7 @@ const Restaurants = () => {
       : formData.reservations_sms_redirect_url.trim() || "https://your-link-here.com";
     const name = restaurantName || "Your Restaurant";
 
-    return `Hello from ${name}.\n${instructionText}\n\n${url}\n\nStill on the call? Ressy (our AI assistant) knows everything about ${name} \u2014 menu items, ingredients, prices, hours, and more. Feel free to ask!\n\nIf you\u2019d prefer to speak with staff directly, just say \u201Cescalate\u201D or \u201Ctransfer\u201D and Ressy will connect you right away.\n\nBut Ressy might be a little sad to see you go \u2014 if you have any general questions, feel free to ask her!\n\nYours sincerely,\n${name} via RessyAI`;
+    return `Hello from ${name}.\n${instructionText}\n\n${url}\n\nStill on the call? Ressy (our AI assistant) knows everything about ${name} - menu items, ingredients, prices, hours, and more. Feel free to ask!\n\nIf you'd prefer to speak with staff directly, just say "escalate" or "transfer" and Ressy will connect you right away.\n\nBut Ressy might be a little sad to see you go - if you have any general questions, feel free to ask her!\n\nYours sincerely,\n${name} via RessyAI`;
   };
 
   /**
