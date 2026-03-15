@@ -490,7 +490,7 @@ const OptionGroupsTab = ({ selectedRestaurantId }: OptionGroupsTabProps) => {
   // ============================================================================
 
   const renderGroupForm = (isCreate: boolean) => (
-    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+    <div className="space-y-4 max-h-[60vh] overflow-y-auto px-2 pr-1">
       <div className="space-y-2">
         <Label htmlFor="og-name">Name *</Label>
         <Input
@@ -628,7 +628,7 @@ const OptionGroupsTab = ({ selectedRestaurantId }: OptionGroupsTabProps) => {
             value={groupForm.free_allowance_strategy}
             onValueChange={(v) => setGroupForm({ ...groupForm, free_allowance_strategy: v })}
           >
-            <SelectTrigger>
+            <SelectTrigger className="min-w-[11rem]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
