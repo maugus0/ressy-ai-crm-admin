@@ -89,6 +89,7 @@ export interface Restaurant {
   operating_hours: OperatingHours | null;
   reservation_seating_capacity: number | null;
   reservation_advance_days: number | null;
+  escalation_mode?: string;
   features: RestaurantFeatures | null;
   created_at: string;
   updated_at: string;
@@ -101,6 +102,7 @@ export interface RestaurantCreateRequest {
   twilio_phone_number?: string;
   forward_escalations?: boolean;
   escalation_phone_number?: string;
+  escalation_mode?: string;
   timezone?: string;
   forward_minutes?: number;
   backward_minutes?: number;
@@ -121,6 +123,7 @@ export interface RestaurantUpdateRequest {
   twilio_phone_number?: string;
   forward_escalations?: boolean;
   escalation_phone_number?: string;
+  escalation_mode?: string;
   timezone?: string;
   forward_minutes?: number;
   backward_minutes?: number;

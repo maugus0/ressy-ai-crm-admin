@@ -183,6 +183,7 @@ interface RestaurantFormData {
   reservations_sms_redirect_enabled: boolean;
   reservations_sms_redirect_url: string;
   reservations_sms_redirect_message: string;
+  escalation_mode: string;
 }
 
 // Form validation errors
@@ -352,6 +353,7 @@ const defaultFormData: RestaurantFormData = {
   reservations_sms_redirect_enabled: false,
   reservations_sms_redirect_url: "",
   reservations_sms_redirect_message: "",
+  escalation_mode: "always",
 };
 
 // Phone number validation regex (E.164 format)
@@ -438,7 +440,7 @@ const Restaurants = () => {
 
   /**
    * Generate SMS message preview in the same format as the backend:
-   * Hello. + instruction text + URL + signature
+   * Hello from {name}. + instruction text + URL + Ressy personality lines + signature
    */
   const getSmsMessagePreview = (
     type: "orders" | "reservations",
@@ -451,8 +453,9 @@ const Restaurants = () => {
     const url = isOrders
       ? formData.orders_sms_redirect_url.trim() || "https://your-link-here.com"
       : formData.reservations_sms_redirect_url.trim() || "https://your-link-here.com";
+    const name = restaurantName || "Your Restaurant";
 
-    return `Hello.\n${instructionText}\n\n${url}\n\nYours sincerely,\n${restaurantName} via RessyAI`;
+    return `Hello from ${name}.\n${instructionText}\n\n${url}\n\nStill on the call? Ressy (our AI assistant) knows everything about ${name} \u2014 menu items, ingredients, prices, hours, and more. Feel free to ask!\n\nIf you\u2019d prefer to speak with staff directly, just say \u201Cescalate\u201D or \u201Ctransfer\u201D and Ressy will connect you right away.\n\nBut Ressy might be a little sad to see you go \u2014 if you have any general questions, feel free to ask her!\n\nYours sincerely,\n${name} via RessyAI`;
   };
 
   /**
@@ -739,6 +742,7 @@ const Restaurants = () => {
       escalation_phone_number: formData.forward_escalations
         ? formData.escalation_phone_number.trim() || undefined
         : undefined,
+      escalation_mode: formData.escalation_mode,
       forward_minutes: formData.forward_minutes,
       backward_minutes: formData.backward_minutes,
       is_credit_card_required_for_reservation: formData.is_credit_card_required_for_reservation,
@@ -860,6 +864,7 @@ const Restaurants = () => {
       twilio_phone_number: restaurant.twilio_phone_number || "",
       forward_escalations: restaurant.forward_escalations ?? false,
       escalation_phone_number: restaurant.escalation_phone_number || "",
+      escalation_mode: restaurant.escalation_mode || "always",
       forward_minutes: restaurant.forward_minutes,
       backward_minutes: restaurant.backward_minutes,
       is_credit_card_required_for_reservation: restaurant.is_credit_card_required_for_reservation,
@@ -1558,6 +1563,77 @@ const Restaurants = () => {
                         <p className="text-xs text-destructive">
                           {formErrors.escalation_phone_number}
                         </p>
+                      )}
+                    </div>
+                  )}
+
+                  {formData.forward_escalations && (
+                    <div className="p-4 rounded-lg border bg-muted/30 space-y-3">
+                      <div className="space-y-0.5">
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          Escalation Hours Mode
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Control when call transfers to staff are allowed
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(
+                          [
+                            {
+                              value: "always",
+                              label: "Always",
+                              desc: "Transfer calls any time",
+                              icon: PhoneCall,
+                            },
+                            {
+                              value: "open_hours_only",
+                              label: "Open Hours Only",
+                              desc: "Only during operating hours",
+                              icon: Clock,
+                            },
+                          ] as const
+                        ).map((opt) => {
+                          const isActive = formData.escalation_mode === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() =>
+                                setFormData({ ...formData, escalation_mode: opt.value })
+                              }
+                              className={`relative flex flex-col items-start gap-1 rounded-lg border-2 p-3 text-left transition-colors ${
+                                isActive
+                                  ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                                  : "border-border bg-background hover:border-muted-foreground/30 hover:bg-muted/40"
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <opt.icon
+                                  className={`h-3.5 w-3.5 ${isActive ? "text-primary" : "text-muted-foreground"}`}
+                                />
+                                <span
+                                  className={`text-sm font-medium ${isActive ? "text-primary" : "text-foreground"}`}
+                                >
+                                  {opt.label}
+                                </span>
+                              </div>
+                              <span className="text-[11px] text-muted-foreground leading-tight">
+                                {opt.desc}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {formData.escalation_mode === "open_hours_only" && (
+                        <div className="flex items-start gap-2 p-2.5 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-300">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                          <span>
+                            When the restaurant is closed, callers requesting a transfer will be
+                            informed the team is unavailable and given operating hours instead.
+                          </span>
+                        </div>
                       )}
                     </div>
                   )}
@@ -2533,6 +2609,21 @@ const Restaurants = () => {
                     <span className="ml-2">
                       {restaurantDetails.escalation_phone_number || "Not set"}
                     </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Escalation Mode:</span>
+                    <Badge
+                      className="ml-2"
+                      variant={
+                        restaurantDetails.escalation_mode === "open_hours_only"
+                          ? "outline"
+                          : "default"
+                      }
+                    >
+                      {restaurantDetails.escalation_mode === "open_hours_only"
+                        ? "Open Hours Only"
+                        : "Always"}
+                    </Badge>
                   </div>
                 </div>
               </div>
