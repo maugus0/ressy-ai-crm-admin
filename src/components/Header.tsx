@@ -46,6 +46,9 @@ const getEventTitle = (event: SSEEvent) => {
     internal_server_error: "System Error",
     suspected_spam: "Spam Detected",
     sms_redirect_failed: "SMS Redirect Failed",
+    kill_switch_redirected: "Kill Switch Redirected",
+    kill_switch_toggled: "Kill Switch Toggled",
+    kill_switch_bulk_updated: "Kill Switch Bulk Updated",
     new_order: "New Order",
     order_updated: "Order Updated",
     order_cancelled: "Order Cancelled",
@@ -57,7 +60,7 @@ const getEventTitle = (event: SSEEvent) => {
   if (
     event.data?.title &&
     typeof event.data.title === "string" &&
-    event.event_type === "escalation"
+    (event.event_type === "escalation" || event.event_type === "system")
   ) {
     return event.data.title;
   }
@@ -66,6 +69,17 @@ const getEventTitle = (event: SSEEvent) => {
 
 // Get event description
 const getEventDescription = (event: SSEEvent) => {
+  if (event.event_type === "system" && event.subtype === "kill_switch_toggled") {
+    const actor = (event.data?.actor_email as string) || (event.data?.actor_type as string);
+    if (actor) {
+      return `Changed by ${actor}`;
+    }
+  }
+  if (event.event_type === "system" && event.subtype === "kill_switch_bulk_updated") {
+    const updatedCount = Number(event.data?.updated_count ?? 0);
+    const skippedCount = Number(event.data?.skipped_count ?? 0);
+    return `Updated ${updatedCount} restaurants, skipped ${skippedCount}`;
+  }
   const restaurantName =
     (event.data?.restaurant_name as string) || `Restaurant #${event.restaurant_id}`;
   return restaurantName;
@@ -182,6 +196,9 @@ export function Header({ onMenuClick, title = "Dashboard", description }: Header
         break;
       case "reservation":
         navigate("/reservations");
+        break;
+      case "system":
+        navigate("/kill-switch");
         break;
       default:
         // No navigation for unknown event types

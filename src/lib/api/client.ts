@@ -21,6 +21,10 @@ interface ApiResponse<T> {
   status: number;
 }
 
+interface ApiResponseWithErrorData<T, E = unknown> extends ApiResponse<T> {
+  errorData: E | null;
+}
+
 // ============================================================================
 // Storage Keys
 // ============================================================================
@@ -170,6 +174,130 @@ export async function apiRequest<T>(
       data: null,
       error: message,
       status: 0,
+    };
+  }
+}
+
+/**
+ * Makes an API request and preserves structured error payload (if JSON).
+ */
+export async function apiRequestWithErrorData<T, E = unknown>(
+  endpoint: string,
+  config: RequestConfig = {}
+): Promise<ApiResponseWithErrorData<T, E>> {
+  const { skipAuth = false, headers = {}, params, ...restConfig } = config;
+
+  const requestHeaders: HeadersInit = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...headers,
+  };
+
+  if (!skipAuth) {
+    const token = getAccessToken();
+    if (token) {
+      (requestHeaders as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
+  try {
+    let url = endpoint.startsWith("http") ? endpoint : `${env.API_URL}${endpoint}`;
+    if (params) {
+      const queryParams = new URLSearchParams();
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      }
+      const queryString = queryParams.toString();
+      if (queryString) {
+        url += (url.includes("?") ? "&" : "?") + queryString;
+      }
+    }
+
+    let response = await fetch(url, {
+      ...restConfig,
+      headers: requestHeaders,
+    });
+
+    if (response.status === 401 && !skipAuth && getAccessToken()) {
+      const refreshResult = await refreshTokenDirect();
+
+      if (refreshResult.success) {
+        const newToken = getAccessToken();
+        if (newToken) {
+          (requestHeaders as Record<string, string>)["Authorization"] = `Bearer ${newToken}`;
+
+          response = await fetch(url, {
+            ...restConfig,
+            headers: requestHeaders,
+          });
+        }
+      } else {
+        return {
+          data: null,
+          error: "Session expired. Please login again.",
+          status: 401,
+          errorData: null,
+        };
+      }
+    }
+
+    if (response.status === 403) {
+      return {
+        data: null,
+        error: "Access denied. You don't have permission to perform this action.",
+        status: 403,
+        errorData: null,
+      };
+    }
+
+    let data: T | null = null;
+    let errorData: E | null = null;
+    const contentType = response.headers.get("content-type");
+
+    if (contentType?.includes("application/json")) {
+      const json = await response.json();
+
+      if (!response.ok) {
+        errorData = json as E;
+        const errorMessage =
+          typeof (json as { detail?: unknown }).detail === "string"
+            ? ((json as { detail: string }).detail ?? "")
+            : (json as { message?: string }).message ||
+              `Request failed with status ${response.status}`;
+
+        return {
+          data: null,
+          error: errorMessage,
+          status: response.status,
+          errorData,
+        };
+      }
+
+      data = json as T;
+    } else if (!response.ok) {
+      return {
+        data: null,
+        error: `Request failed with status ${response.status}`,
+        status: response.status,
+        errorData: null,
+      };
+    }
+
+    return {
+      data,
+      error: null,
+      status: response.status,
+      errorData: null,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Network error";
+    return {
+      data: null,
+      error: message,
+      status: 0,
+      errorData: null,
     };
   }
 }

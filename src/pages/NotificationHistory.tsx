@@ -174,6 +174,7 @@ const NotificationHistory = () => {
                       <SelectItem value="order">Orders</SelectItem>
                       <SelectItem value="reservation">Reservations</SelectItem>
                       <SelectItem value="escalation">Escalations</SelectItem>
+                      <SelectItem value="system">System</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -274,8 +275,10 @@ const NotificationHistory = () => {
                                 {displayTitle}
                               </div>
                               <p className="text-xs text-muted-foreground truncate max-w-[280px] mt-0.5 sm:hidden">
-                                {restaurantNames[notification.restaurant_id] ??
-                                  `#${notification.restaurant_id}`}
+                                {notification.restaurant_id == null
+                                  ? "All Restaurants"
+                                  : (restaurantNames[notification.restaurant_id] ??
+                                    `#${notification.restaurant_id}`)}
                               </p>
                             </TableCell>
                             <TableCell className="hidden md:table-cell align-middle text-muted-foreground text-sm min-w-[200px] max-w-[360px]">
@@ -287,8 +290,10 @@ const NotificationHistory = () => {
                               </span>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm align-middle hidden sm:table-cell min-w-[120px]">
-                              {restaurantNames[notification.restaurant_id] ??
-                                `#${notification.restaurant_id}`}
+                              {notification.restaurant_id == null
+                                ? "All Restaurants"
+                                : (restaurantNames[notification.restaurant_id] ??
+                                  `#${notification.restaurant_id}`)}
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm whitespace-nowrap text-right align-middle w-[100px] tabular-nums">
                               {formatRelativeTime(notification.created_at)}

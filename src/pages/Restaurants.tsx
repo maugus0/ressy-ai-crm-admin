@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,6 +100,7 @@ import type {
 } from "@/types/api.types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TimezoneCombobox } from "@/components/ui/timezone-combobox";
+import { useSSE } from "@/contexts/SSEContext";
 import { toast } from "sonner";
 import { validateJsonObject, safeParseJsonObject } from "@/lib/utils/json";
 import {
@@ -370,6 +371,7 @@ const DEFAULT_SMS_REDIRECT_CONFIG: SMSRedirectConfig = {
 };
 
 const Restaurants = () => {
+  const { events } = useSSE();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo | null>(null);
@@ -402,6 +404,7 @@ const Restaurants = () => {
   // SMS Redirect message preview expansion states
   const [showOrdersMessagePreview, setShowOrdersMessagePreview] = useState(false);
   const [showReservationsMessagePreview, setShowReservationsMessagePreview] = useState(false);
+  const lastToggleEventIdRef = useRef<string | null>(null);
 
   /**
    * Update form data with mutual exclusivity logic for SMS redirect toggles.
@@ -528,6 +531,31 @@ const Restaurants = () => {
   useEffect(() => {
     fetchRestaurants();
   }, [fetchRestaurants]);
+
+  useEffect(() => {
+    const latestToggleEvent = events.find(
+      (event) => event.event_type === "system" && event.subtype === "kill_switch_toggled"
+    );
+
+    if (!latestToggleEvent || latestToggleEvent.id === lastToggleEventIdRef.current) return;
+    lastToggleEventIdRef.current = latestToggleEvent.id;
+
+    const restaurantId = Number(latestToggleEvent.data?.restaurant_id);
+    const enabled = Boolean(latestToggleEvent.data?.enabled);
+
+    if (Number.isNaN(restaurantId)) return;
+
+    setRestaurants((prev) =>
+      prev.map((restaurant) =>
+        restaurant.id === restaurantId
+          ? { ...restaurant, kill_switch_enabled: enabled }
+          : restaurant
+      )
+    );
+    setRestaurantDetails((prev) =>
+      prev && prev.id === restaurantId ? { ...prev, kill_switch_enabled: enabled } : prev
+    );
+  }, [events]);
 
   // Sort restaurants based on sortColumn and sortDirection
   const sortedRestaurants = [...restaurants].sort((a, b) => {

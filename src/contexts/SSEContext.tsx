@@ -29,6 +29,7 @@ import {
   type NotificationEventType,
 } from "@/lib/utils/notification-sounds";
 import { TOKEN_REFRESHED_EVENT } from "@/lib/utils/tokenRefresh";
+import { toast } from "sonner";
 
 // ============================================================================
 // Stable Sound ID Generator (module level for consistency)
@@ -234,6 +235,13 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
         shouldPlaySound = true;
         break;
 
+      case "system":
+        soundType = "escalation";
+        if (["kill_switch_toggled", "kill_switch_bulk_updated"].includes(subtype)) {
+          shouldPlaySound = true;
+        }
+        break;
+
       case "order":
         soundType = "order";
         // Only play for recognized order subtypes
@@ -273,6 +281,33 @@ export const SSEProvider = ({ children }: { children: ReactNode }) => {
 
       // Play looping sound for the event (no toast - all notifications go through panel)
       playEventSound(event);
+
+      if (event.event_type === "system" && event.subtype === "kill_switch_toggled") {
+        const enabled = Boolean(event.data?.enabled);
+        const restaurantName = (event.data?.restaurant_name as string) || "restaurant";
+        const actor = (event.data?.actor_email as string) || (event.data?.actor_type as string);
+        toast.warning(
+          enabled
+            ? `Kill switch enabled for ${restaurantName}`
+            : `Kill switch disabled for ${restaurantName}`,
+          { description: actor ? `Changed by ${actor}` : undefined }
+        );
+      }
+
+      if (event.event_type === "system" && event.subtype === "kill_switch_bulk_updated") {
+        const enabled = Boolean(event.data?.enabled);
+        const updatedCount = Number(event.data?.updated_count ?? 0);
+        const skippedCount = Number(event.data?.skipped_count ?? 0);
+        const actor = (event.data?.actor_email as string) || (event.data?.actor_type as string);
+        toast.warning(
+          enabled
+            ? `Kill switch enabled in bulk for ${updatedCount} restaurants`
+            : `Kill switch disabled in bulk for ${updatedCount} restaurants`,
+          {
+            description: `${skippedCount} skipped${actor ? ` • Changed by ${actor}` : ""}`,
+          }
+        );
+      }
     },
     [playEventSound]
   );

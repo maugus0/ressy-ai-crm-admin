@@ -11,6 +11,7 @@ import {
   CalendarDays,
   AlertTriangle,
   Bell,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -22,7 +23,7 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-// Navigation items: Notifications first, then Callers, Calls, Escalations (highlighted), then rest A-Z
+// Navigation items: Notifications first, then Callers, Calls, Escalations (highlighted), then core pages, with Kill-Switch intentionally last
 type NavItem = {
   name: string;
   icon: LucideIcon;
@@ -40,6 +41,12 @@ const navigationItems: NavItem[] = [
   { name: "Reservations", icon: CalendarDays, path: "/reservations" },
   { name: "Restaurants", icon: Store, path: "/restaurants" },
   { name: "Users", icon: Users, path: "/users" },
+  {
+    name: "Kill-Switch",
+    icon: ShieldAlert,
+    path: "/kill-switch",
+    highlight: true,
+  },
 ];
 
 export function Sidebar({ className, isOpen, onClose }: SidebarProps) {

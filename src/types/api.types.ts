@@ -76,6 +76,9 @@ export interface Restaurant {
   twilio_phone_number: string;
   forward_escalations: boolean | null;
   escalation_phone_number: string | null;
+  kill_switch_enabled: boolean;
+  kill_switch_can_redirect: boolean;
+  kill_switch_blockers: string[];
   timezone: string | null;
   twilio_details: Record<string, unknown>;
   deepgram_details: Record<string, unknown>;
@@ -129,6 +132,25 @@ export interface RestaurantUpdateRequest {
   deepgram_details?: Record<string, unknown>;
   open_table_details?: Record<string, unknown>;
   features?: Partial<RestaurantFeatures>;
+}
+
+export interface RestaurantKillSwitchUpdateRequest {
+  enabled: boolean;
+}
+
+export interface RestaurantKillSwitchBulkSkipped {
+  restaurant_id: number;
+  restaurant_name: string | null;
+  kill_switch_blockers: string[];
+}
+
+export interface RestaurantKillSwitchBulkResponse {
+  enabled: boolean;
+  targeted_count: number;
+  eligible_count: number;
+  updated_count: number;
+  skipped_count: number;
+  skipped: RestaurantKillSwitchBulkSkipped[];
 }
 
 export interface RestaurantParams extends PaginationParams {
@@ -912,15 +934,20 @@ export type SSEEscalationType =
   | "user_requested"
   | "internal_server_error"
   | "suspected_spam"
-  | "sms_redirect_failed";
+  | "sms_redirect_failed"
+  | "kill_switch_redirected";
+export type SSESystemType = "kill_switch_toggled" | "kill_switch_bulk_updated";
 
-export type SSEEventType = "escalation" | "order" | "reservation" | "heartbeat";
+export type SSEEventType = "escalation" | "order" | "reservation" | "system" | "heartbeat";
 
 export type SSEEventSubtype =
   | "user_requested"
   | "internal_server_error"
   | "suspected_spam"
   | "sms_redirect_failed"
+  | "kill_switch_redirected"
+  | "kill_switch_toggled"
+  | "kill_switch_bulk_updated"
   | "new_order"
   | "order_updated"
   | "order_cancelled"

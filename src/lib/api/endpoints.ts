@@ -23,6 +23,8 @@ export const ENDPOINTS = {
     UPDATE: (id: number) => `/restaurants/${id}`,
     DELETE: (id: number) => `/restaurants/${id}`,
     STATS: (id: number) => `/restaurants/${id}/stats`,
+    KILL_SWITCH: (id: number) => `/restaurants/${id}/kill-switch`,
+    KILL_SWITCH_ALL: "/restaurants/kill-switch/all",
   },
 
   // ============================================================================

@@ -106,6 +106,8 @@ const getStatusColor = (status: string) => {
       return "default" as const;
     case "missed":
       return "destructive" as const;
+    case "agent_bypassed":
+      return "secondary" as const;
     case "in-progress":
     case "in_progress":
       return "secondary" as const;
@@ -114,6 +116,10 @@ const getStatusColor = (status: string) => {
     default:
       return "outline" as const;
   }
+};
+
+const formatStatusLabel = (status: string): string => {
+  return status.replace(/[-_]/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
 const getDayName = (dayOfWeek: number): string => {
@@ -876,6 +882,7 @@ const Calls = () => {
                       <SelectItem value="missed">Missed</SelectItem>
                       <SelectItem value="failed">Failed</SelectItem>
                       <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="agent_bypassed">Agent Bypassed</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -1057,7 +1064,7 @@ const Calls = () => {
                                     variant={getStatusColor(call.status)}
                                     className="capitalize"
                                   >
-                                    {call.status}
+                                    {formatStatusLabel(call.status)}
                                   </Badge>
                                 </TableCell>
                                 <TableCell className="hidden lg:table-cell">
@@ -1243,7 +1250,7 @@ const Calls = () => {
                   <Label className="text-muted-foreground text-xs">Status</Label>
                   <div className="mt-0.5">
                     <Badge variant={getStatusColor(selectedCall.status)} className="capitalize">
-                      {selectedCall.status}
+                      {formatStatusLabel(selectedCall.status)}
                     </Badge>
                   </div>
                 </div>
