@@ -440,7 +440,7 @@ const Restaurants = () => {
 
   /**
    * Generate SMS message preview in the same format as the backend:
-   * Hello from {name}. + instruction text + URL + Ressy personality lines + signature
+   * Hello from {name}. + instruction text + URL + escalation reminder + signature
    */
   const getSmsMessagePreview = (
     type: "orders" | "reservations",
@@ -455,7 +455,7 @@ const Restaurants = () => {
       : formData.reservations_sms_redirect_url.trim() || "https://your-link-here.com";
     const name = restaurantName || "Your Restaurant";
 
-    return `Hello from ${name}.\n${instructionText}\n\n${url}\n\nStill on the call? Ressy (our AI assistant) knows everything about ${name} - menu items, ingredients, prices, hours, and more. Feel free to ask!\n\nIf you'd prefer to speak with staff directly, just say "escalate" or "transfer" and Ressy will connect you right away.\n\nBut Ressy might be a little sad to see you go - if you have any general questions, feel free to ask her!\n\nYours sincerely,\n${name} via RessyAI`;
+    return `Hello from ${name}.\n${instructionText}\n\n${url}\n\nStill on the call? Say "escalate" or "transfer" anytime to speak with staff although Ressy will be sad to see you go!\n\nYours sincerely,\n${name} via RessyAI`;
   };
 
   /**
